@@ -1,0 +1,13 @@
+package com._gods.canvas2;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class Canvas2ApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
