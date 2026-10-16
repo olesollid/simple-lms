@@ -2,6 +2,8 @@ image: eclipse-temurin:25-jdk
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  # Docker variables
+  DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
@@ -12,6 +14,12 @@ stages:
   - build
   - test
   - package
+  - docker-build
+  - test-security
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
 
 build:
   stage: build
@@ -39,7 +47,26 @@ package:
   artifacts:
     paths:
       - target/*.jar
-    expire_in: 1 week
-  only:
-    - main
-    - master
+    expire_in: 1 day
+
+docker-build:
+  stage: docker-build
+  image: docker:cli
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    # Uses the target/*.jar passed down as an artifact from the 'package' stage
+    - docker build -t $DOCKER_IMAGE_NAME .
+    - docker push $DOCKER_IMAGE_NAME
+  rules:
+    # Only push Docker images on the main branch
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# Optional: Map GitLab's default SAST stage to our custom stages
+sast:
+  stage: test-security
+secret_detection:
+  stage: test-security
