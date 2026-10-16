@@ -24,7 +24,7 @@ include:
 build:
   stage: build
   script:
-    - ./mvnw compile || mvn compile
+    - ./mvnw compile
   artifacts:
     paths:
       - target/
@@ -32,7 +32,7 @@ build:
 test:
   stage: test
   script:
-    - ./mvnw test || mvn test
+    - ./mvnw test
   artifacts:
     when: always
     reports:
@@ -43,7 +43,7 @@ test:
 package:
   stage: package
   script:
-    - ./mvnw package -DskipTests || mvn package -DskipTests
+    - ./mvnw package -DskipTests
   artifacts:
     paths:
       - target/*.jar
