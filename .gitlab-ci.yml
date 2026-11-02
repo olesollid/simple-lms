@@ -7,10 +7,10 @@ stages:
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
-  # CI_REGISTRY_IMAGE still resolves to this project's old path (canvas_v2) because
-  # the container registry namespace didn't follow the project rename to canvas2.0.
-  # Pin the image path explicitly until that's cleaned up on GitLab's side.
-  DOCKER_IMAGE_NAME: "$CI_REGISTRY/hvl-dat-250/26h/semester-project/group-9/canvas2.0"
+  # CI_REGISTRY_IMAGE still resolves to an old project path because the container
+  # registry namespace didn't follow a prior project rename. Pin the image path
+  # explicitly to the current project (canvas-v2) until that's cleaned up on GitLab's side.
+  DOCKER_IMAGE_NAME: "$CI_REGISTRY/hvl-dat-250/26h/semester-project/group-9/canvas-v2"
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
