@@ -25,8 +25,8 @@ build:
       - target/
     expire_in: 1 day
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH[cite: 10]
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"[cite: 10]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 test:
   stage: test
@@ -34,18 +34,18 @@ test:
   script:
     - ./mvnw test
   artifacts:
-    when: always[cite: 10]
+    when: always
     paths:
       - target/surefire-reports/
       - target/failsafe-reports/
     reports:
       junit:
-        - target/surefire-reports/TEST-*.xml[cite: 10]
-        - target/failsafe-reports/TEST-*.xml[cite: 10]
-    expire_in: 1 week[cite: 10]
+        - target/surefire-reports/TEST-*.xml
+        - target/failsafe-reports/TEST-*.xml
+    expire_in: 1 week
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH[cite: 10]
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"[cite: 10]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 package:
   stage: package
@@ -54,34 +54,35 @@ package:
     - ./mvnw package -DskipTests
   artifacts:
     paths:
-      - target/*.jar[cite: 10, 13]
-    expire_in: 1 day[cite: 10]
+      - target/*.jar
+    expire_in: 1 day
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH[cite: 10]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # --- Buildkit Docker Build Stage (Section 5.3) ---
 
 .buildkit:
   image:
-    name: moby/buildkit:latest[cite: 11, 12]
-    entrypoint: [""][cite: 11, 12]
+    name: moby/buildkit:latest
+    entrypoint: [""]
   tags:
-    - buildkit[cite: 11, 12]
+    - buildkit
   before_script:
-    - mkdir -p ~/.docker[cite: 11, 12]
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json[cite: 11, 12]
+    - mkdir -p ~/.docker
+    - 'echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json'
 
 docker-build:
-  extends: .buildkit[cite: 12]
+  extends: .buildkit
   stage: docker-build
   script:
-    - buildctl build \
+    - |
+      buildctl build \
         --frontend dockerfile.v0 \
         --local context=. \
         --local dockerfile=. \
-        --output type=image,"name=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA,$CI_REGISTRY_IMAGE:latest",push=true[cite: 12]
+        --output type=image,"name=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA,$CI_REGISTRY_IMAGE:latest",push=true
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH[cite: 10]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # --- Security Scanning ---
 
