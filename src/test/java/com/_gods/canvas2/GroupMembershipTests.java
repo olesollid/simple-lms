@@ -11,14 +11,16 @@ class GroupMembershipTests {
     return new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
   }
 
-  private User user() {
-    return new User("student@example.com", "Student Name");
+  private User user(String email) {
+    return new User(email, "Test User");
   }
 
   @Test
-  void createsMembershipWithValidFields() {
-    User user = user();
-    Group group = new Group(course(), "Group 1");
+  void createsGroupMembershipWithValidFields() {
+    Course course = course();
+    User user = user("student@example.com");
+    Group group = new Group(course, "Group 1");
+
     GroupMembership membership = new GroupMembership(user, group);
 
     assertEquals(user, membership.getUser());
@@ -28,11 +30,42 @@ class GroupMembershipTests {
   @Test
   void rejectsNullUser() {
     Group group = new Group(course(), "Group 1");
+
     assertThrows(IllegalArgumentException.class, () -> new GroupMembership(null, group));
   }
 
   @Test
   void rejectsNullGroup() {
-    assertThrows(IllegalArgumentException.class, () -> new GroupMembership(user(), null));
+    User user = user("student@example.com");
+
+    assertThrows(IllegalArgumentException.class, () -> new GroupMembership(user, null));
+  }
+
+  @Test
+  void groupSupportsMultipleMembers() {
+    Course course = course();
+    Group group = new Group(course, "Group 1");
+    User userOne = user("student1@example.com");
+    User userTwo = user("student2@example.com");
+
+    GroupMembership membershipOne = new GroupMembership(userOne, group);
+    GroupMembership membershipTwo = new GroupMembership(userTwo, group);
+
+    assertEquals(group, membershipOne.getGroup());
+    assertEquals(group, membershipTwo.getGroup());
+  }
+
+  @Test
+  void userCanBelongToMultipleGroups() {
+    Course course = course();
+    User user = user("student@example.com");
+    Group groupOne = new Group(course, "Group 1");
+    Group groupTwo = new Group(course, "Group 2");
+
+    GroupMembership membershipOne = new GroupMembership(user, groupOne);
+    GroupMembership membershipTwo = new GroupMembership(user, groupTwo);
+
+    assertEquals(groupOne, membershipOne.getGroup());
+    assertEquals(groupTwo, membershipTwo.getGroup());
   }
 }

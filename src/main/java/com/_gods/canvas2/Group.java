@@ -28,7 +28,7 @@ public class Group {
 
     public Group(Course course, String name) {
         if (course == null) {
-            throw new IllegalArgumentException("COurse must not be null");
+            throw new IllegalArgumentException("Course must not be null");
         }
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Name must not be blank");
