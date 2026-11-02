@@ -1,4 +1,4 @@
-package com._gods.canvas2;
+package com._gods.canvas2.model;
 
 import java.time.LocalDateTime;
 
@@ -7,11 +7,11 @@ import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 
 @Entity
-@DiscriminatorValue("ASSIGNMENT")
-public class Assignment extends Content {
+@DiscriminatorValue("CODING_EXERCISE")
+public class CodingExercise extends Content {
 
   @Column(nullable = false)
-  private String instructions;
+  private String repositoryUrl;
 
   private LocalDateTime deadline;
 
@@ -21,30 +21,30 @@ public class Assignment extends Content {
   @Column(nullable = false)
   private boolean groupSubmission;
 
-  protected Assignment() {
+  protected CodingExercise() {
     super();
   }
 
-  public Assignment(Module module, String title, int position, String instructions) {
-    this(module, title, position, instructions, null, false, false);
+  public CodingExercise(Module module, String title, int position, String repositoryUrl) {
+    this(module, title, position, repositoryUrl, null, false, false);
   }
 
-  public Assignment(Module module, String title, int position, String instructions,
+  public CodingExercise(Module module, String title, int position, String repositoryUrl,
       LocalDateTime deadline, boolean lateSubmissionsAccepted, boolean groupSubmission) {
     super(module, title, position);
 
-    if (instructions == null || instructions.isBlank()) {
-      throw new IllegalArgumentException("instructions must not be blank");
+    if (repositoryUrl == null || repositoryUrl.isBlank()) {
+      throw new IllegalArgumentException("repositoryUrl must not be blank");
     }
 
-    this.instructions = instructions;
+    this.repositoryUrl = repositoryUrl.trim();
     this.deadline = deadline;
     this.lateSubmissionsAccepted = lateSubmissionsAccepted;
     this.groupSubmission = groupSubmission;
   }
 
-  public String getInstructions() {
-    return instructions;
+  public String getRepositoryUrl() {
+    return repositoryUrl;
   }
 
   public LocalDateTime getDeadline() {
