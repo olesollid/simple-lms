@@ -8,22 +8,22 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Lob;
 
 @Entity
-@DiscriminatorValue("PAGE")
-public class Page extends Content {
+@DiscriminatorValue("STATIC_PAGE")
+public class StaticPage extends Content {
 
   @Lob
   @Column(nullable = false)
   private String body;
 
-  protected Page() {
+  protected StaticPage() {
     super();
   }
 
-  public Page(Module module, String title, int position, String body) {
+  public StaticPage(Module module, String title, int position, String body) {
     this(module, title, position, body, null, null);
   }
 
-  public Page(Module module, String title, int position, String body, LocalDateTime visibleFrom,
+  public StaticPage(Module module, String title, int position, String body, LocalDateTime visibleFrom,
       LocalDateTime visibleUntil) {
     super(module, title, position, visibleFrom, visibleUntil);
 

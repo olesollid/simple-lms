@@ -23,7 +23,7 @@ class ContentTests {
   @Test
   void createsContentWithValidFields() {
     Module module = module();
-    Content content = new Page(module, "Syllabus", 0, "Welcome!");
+    Content content = new StaticPage(module, "Syllabus", 0, "Welcome!");
 
     assertEquals(module, content.getModule());
     assertEquals("Syllabus", content.getTitle());
@@ -34,17 +34,17 @@ class ContentTests {
 
   @Test
   void rejectsNullModule() {
-    assertThrows(IllegalArgumentException.class, () -> new Page(null, "Syllabus", 0, "Welcome!"));
+    assertThrows(IllegalArgumentException.class, () -> new StaticPage(null, "Syllabus", 0, "Welcome!"));
   }
 
   @Test
   void rejectsBlankTitle() {
-    assertThrows(IllegalArgumentException.class, () -> new Page(module(), "  ", 0, "Welcome!"));
+    assertThrows(IllegalArgumentException.class, () -> new StaticPage(module(), "  ", 0, "Welcome!"));
   }
 
   @Test
   void rejectsNegativePosition() {
-    assertThrows(IllegalArgumentException.class, () -> new Page(module(), "Syllabus", -1, "Welcome!"));
+    assertThrows(IllegalArgumentException.class, () -> new StaticPage(module(), "Syllabus", -1, "Welcome!"));
   }
 
   @Test
@@ -53,14 +53,14 @@ class ContentTests {
     LocalDateTime until = from.minusMinutes(1);
 
     assertThrows(IllegalArgumentException.class,
-        () -> new Page(module(), "Syllabus", 0, "Welcome!", from, until));
+        () -> new StaticPage(module(), "Syllabus", 0, "Welcome!", from, until));
   }
 
   @Test
   void isVisibleAtRespectsVisibilityWindow() {
     LocalDateTime from = LocalDateTime.of(2026, 1, 1, 8, 0);
     LocalDateTime until = LocalDateTime.of(2026, 1, 8, 8, 0);
-    Content content = new Page(module(), "Syllabus", 0, "Welcome!", from, until);
+    Content content = new StaticPage(module(), "Syllabus", 0, "Welcome!", from, until);
 
     assertFalse(content.isVisibleAt(from.minusMinutes(1)));
     assertTrue(content.isVisibleAt(from));
@@ -70,7 +70,7 @@ class ContentTests {
 
   @Test
   void isVisibleAtWithNoWindowIsAlwaysVisible() {
-    Content content = new Page(module(), "Syllabus", 0, "Welcome!");
+    Content content = new StaticPage(module(), "Syllabus", 0, "Welcome!");
 
     assertTrue(content.isVisibleAt(LocalDateTime.now()));
   }
