@@ -1,12 +1,18 @@
 services:
   rabbitmq:
-    image: 'rabbitmq:latest'
+    image: rabbitmq:latest
     environment:
-      - 'RABBITMQ_DEFAULT_PASS=secret'
-      - 'RABBITMQ_DEFAULT_USER=myuser'
+      - RABBITMQ_DEFAULT_PASS=secret
+      - RABBITMQ_DEFAULT_USER=myuser
     ports:
-      - '5672'
+      - "5672:5672" # Explicit host:container port mapping
+
   redis:
-    image: 'redis:latest'
+    image: redis:latest
     ports:
-      - '6379'
+      - "6379:6379"
+      
+  app:
+    image: "${D250_REG:?error}/app:latest"
+    ports:
+      - "8080:8080"

@@ -1,15 +1,3 @@
-image: eclipse-temurin:25-jdk
-
-variables:
-  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
-  # Docker variables
-  DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
-
-cache:
-  key: "${CI_COMMIT_REF_SLUG}"
-  paths:
-    - .m2/repository/
-
 stages:
   - build
   - test
@@ -17,55 +5,91 @@ stages:
   - docker-build
   - test-security
 
-include:
-  - template: Security/SAST.gitlab-ci.yml
-  - template: Security/Secret-Detection.gitlab-ci.yml
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+
+cache:
+  key: "${CI_COMMIT_REF_SLUG}"
+  paths:
+    - .m2/repository/
+
+# --- Standard Stages ---
 
 build:
   stage: build
+  image: eclipse-temurin:25-jdk
   script:
     - ./mvnw compile
   artifacts:
     paths:
       - target/
+    expire_in: 1 day
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 test:
   stage: test
+  image: eclipse-temurin:25-jdk
   script:
     - ./mvnw test
   artifacts:
     when: always
+    paths:
+      - target/surefire-reports/
+      - target/failsafe-reports/
     reports:
       junit:
         - target/surefire-reports/TEST-*.xml
         - target/failsafe-reports/TEST-*.xml
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 package:
   stage: package
+  image: eclipse-temurin:25-jdk
   script:
     - ./mvnw package -DskipTests
   artifacts:
     paths:
       - target/*.jar
     expire_in: 1 day
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# --- Buildkit Docker Build Stage (Section 5.3) ---
+
+.buildkit:
+  image:
+    name: moby/buildkit:latest
+    entrypoint: [""]
+  tags:
+    - buildkit
+  before_script:
+    - mkdir -p ~/.docker
+    - 'echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json'
 
 docker-build:
+  extends: .buildkit
   stage: docker-build
-  image: docker:cli
-  services:
-    - docker:dind
-  before_script:
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
   script:
-    # Uses the target/*.jar passed down as an artifact from the 'package' stage
-    - docker build -t $DOCKER_IMAGE_NAME .
-    - docker push $DOCKER_IMAGE_NAME
+    - |
+      buildctl build \
+        --frontend dockerfile.v0 \
+        --local context=. \
+        --local dockerfile=. \
+        --output type=image,"name=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA,$CI_REGISTRY_IMAGE:latest",push=true
   rules:
-    # Only push Docker images on the main branch
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# Optional: Map GitLab's default SAST stage to our custom stages
+# --- Security Scanning ---
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
 sast:
   stage: test-security
 secret_detection:
