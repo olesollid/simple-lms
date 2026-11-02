@@ -1,4 +1,4 @@
-package com._gods.canvas2;
+package com._gods.canvas2.model;
 
 import java.time.LocalDateTime;
 
@@ -7,11 +7,11 @@ import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 
 @Entity
-@DiscriminatorValue("CODING_EXERCISE")
-public class CodingExercise extends Content {
+@DiscriminatorValue("ASSIGNMENT")
+public class Assignment extends Content {
 
   @Column(nullable = false)
-  private String repositoryUrl;
+  private String instructions;
 
   private LocalDateTime deadline;
 
@@ -21,30 +21,30 @@ public class CodingExercise extends Content {
   @Column(nullable = false)
   private boolean groupSubmission;
 
-  protected CodingExercise() {
+  protected Assignment() {
     super();
   }
 
-  public CodingExercise(Module module, String title, int position, String repositoryUrl) {
-    this(module, title, position, repositoryUrl, null, false, false);
+  public Assignment(Module module, String title, int position, String instructions) {
+    this(module, title, position, instructions, null, false, false);
   }
 
-  public CodingExercise(Module module, String title, int position, String repositoryUrl,
+  public Assignment(Module module, String title, int position, String instructions,
       LocalDateTime deadline, boolean lateSubmissionsAccepted, boolean groupSubmission) {
     super(module, title, position);
 
-    if (repositoryUrl == null || repositoryUrl.isBlank()) {
-      throw new IllegalArgumentException("repositoryUrl must not be blank");
+    if (instructions == null || instructions.isBlank()) {
+      throw new IllegalArgumentException("instructions must not be blank");
     }
 
-    this.repositoryUrl = repositoryUrl.trim();
+    this.instructions = instructions;
     this.deadline = deadline;
     this.lateSubmissionsAccepted = lateSubmissionsAccepted;
     this.groupSubmission = groupSubmission;
   }
 
-  public String getRepositoryUrl() {
-    return repositoryUrl;
+  public String getInstructions() {
+    return instructions;
   }
 
   public LocalDateTime getDeadline() {

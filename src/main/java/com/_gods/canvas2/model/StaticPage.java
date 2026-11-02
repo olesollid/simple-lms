@@ -1,4 +1,4 @@
-package com._gods.canvas2;
+package com._gods.canvas2.model;
 
 import java.time.LocalDateTime;
 
