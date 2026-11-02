@@ -1,6 +1,7 @@
 package com._gods.canvas2.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -46,6 +47,28 @@ class RepositoryTests {
 
   @Autowired
   private GroupMembershipRepository groupMembershipRepository;
+
+  @Test
+  void findsUserByEmail() {
+    userRepository.save(new User("student@example.com", "Student Name"));
+
+    Optional<User> found = userRepository.findById("student@example.com");
+
+    assertTrue(found.isPresent());
+    assertEquals("Student Name", found.get().getName());
+  }
+
+  @Test
+  void courseCrudOperationsWork() {
+    Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
+
+    Optional<Course> found = courseRepository.findById(course.getId());
+    assertTrue(found.isPresent());
+    assertEquals("Intro to Testing", found.get().getTitle());
+
+    courseRepository.deleteById(course.getId());
+    assertFalse(courseRepository.findById(course.getId()).isPresent());
+  }
 
   @Test
   void savesAndFindsEnrollmentByUserAndCourse() {
