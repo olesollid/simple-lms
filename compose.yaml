@@ -11,8 +11,9 @@ services:
     image: redis:latest
     ports:
       - "6379:6379"
-      
+
   app:
-    image: "${D250_REG:?error}/app:latest"
+    image: "${D250_REG:-}/app:latest"
     ports:
       - "8080:8080"
+    profiles: ["prod"]
