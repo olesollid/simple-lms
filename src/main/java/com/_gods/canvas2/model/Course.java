@@ -33,6 +33,15 @@ public class Course {
   }
 
   public Course(String title, String description, Term term, int year) {
+    validate(title, description, term, year);
+
+    this.title = title.trim();
+    this.description = description;
+    this.term = term;
+    this.year = year;
+  }
+
+  private static void validate(String title, String description, Term term, int year) {
     if (title == null || title.isBlank()) {
       throw new IllegalArgumentException("Title must not be blank");
     }
@@ -45,11 +54,6 @@ public class Course {
     if (year < 1) {
       throw new IllegalArgumentException("Year must be positive");
     }
-
-    this.title = title.trim();
-    this.description = description;
-    this.term = term;
-    this.year = year;
   }
 
   public Long getId() {
@@ -70,5 +74,25 @@ public class Course {
 
   public int getYear() {
     return year;
+  }
+
+  public void setTitle(String title) {
+    validate(title, this.description, this.term, this.year);
+    this.title = title.trim();
+  }
+
+  public void setDescription(String description) {
+    validate(this.title, description, this.term, this.year);
+    this.description = description;
+  }
+
+  public void setTerm(Term term) {
+    validate(this.title, this.description, term, this.year);
+    this.term = term;
+  }
+
+  public void setYear(int year) {
+    validate(this.title, this.description, this.term, year);
+    this.year = year;
   }
 }
