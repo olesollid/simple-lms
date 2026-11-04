@@ -35,7 +35,7 @@ class H2DatabaseTests {
   void savesAndReloadsEveryContentSubtypeAndOptionalCompletion() {
     Course course = new Course("DAT250", "Database test", Term.AUTUMN, 2026);
     entityManager.persist(course);
-    Module module = new Module(course, "Week 1", 0);
+    Module module = new Module(course, "Week 1");
     entityManager.persist(module);
     User user = new User("h2-test@example.com", "Student");
     entityManager.persist(user);
