@@ -21,11 +21,8 @@ import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
 
 /**
- * ContentRepository and StudentInteractionRepository are intentionally not exercised here:
- * saving any Content subtype currently fails a Hibernate-generated cross-subtype check
- * constraint on the shared `contents` table (SINGLE_TABLE inheritance + primitive
- * boolean/int fields on Quiz/Assignment/CodingExercise). That's a pre-existing entity
- * design issue, out of scope for this task — tracked separately.
+ * Basic repository operations. Content inheritance and interactions are covered
+ * by H2DatabaseTests against the application's configured datasource.
  */
 @DataJpaTest
 class RepositoryTests {
