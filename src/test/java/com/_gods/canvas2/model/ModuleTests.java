@@ -1,8 +1,9 @@
 package com._gods.canvas2.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -15,45 +16,71 @@ class ModuleTests {
   @Test
   void createsModuleWithValidFields() {
     Course course = course();
-    Module module = new Module(course, "Week 1: Introduction", 0);
+    Module module = new Module(course, "Week 1: Introduction");
 
     assertEquals(course, module.getCourse());
     assertEquals("Week 1: Introduction", module.getTitle());
-    assertEquals(0, module.getPosition());
-    assertNull(module.getRequiredModule());
+    assertTrue(module.getDependencies().isEmpty());
   }
 
   @Test
   void rejectsNullCourse() {
-    assertThrows(IllegalArgumentException.class, () -> new Module(null, "Week 1", 0));
+    assertThrows(IllegalArgumentException.class, () -> new Module(null, "Week 1"));
   }
 
   @Test
   void rejectsBlankTitle() {
-    assertThrows(IllegalArgumentException.class, () -> new Module(course(), "  ", 0));
+    assertThrows(IllegalArgumentException.class, () -> new Module(course(), "  "));
   }
 
   @Test
-  void rejectsNegativePosition() {
-    assertThrows(IllegalArgumentException.class, () -> new Module(course(), "Week 1", -1));
-  }
-
-  @Test
-  void rejectsRequiredModuleFromDifferentCourse() {
+  void addsDependencyWithinSameCourse() {
     Course course = course();
-    Course otherCourse = course();
-    Module requiredModule = new Module(otherCourse, "Week 1", 0);
+    Module week1 = new Module(course, "Week 1");
+    Module week2 = new Module(course, "Week 2");
 
-    assertThrows(IllegalArgumentException.class,
-        () -> new Module(course, "Week 2", 1, requiredModule));
+    week2.addDependency(week1);
+
+    assertTrue(week2.getDependencies().contains(week1));
   }
 
   @Test
-  void acceptsRequiredModuleFromSameCourse() {
-    Course course = course();
-    Module requiredModule = new Module(course, "Week 1", 0);
-    Module module = new Module(course, "Week 2", 1, requiredModule);
+  void rejectsDependencyFromDifferentCourse() {
+    Module week1 = new Module(course(), "Week 1");
+    Module week2 = new Module(course(), "Week 2");
 
-    assertEquals(requiredModule, module.getRequiredModule());
+    assertThrows(IllegalArgumentException.class, () -> week2.addDependency(week1));
+  }
+
+  @Test
+  void rejectsSelfDependency() {
+    Course course = course();
+    Module module = new Module(course, "Week 1");
+
+    assertThrows(IllegalArgumentException.class, () -> module.addDependency(module));
+  }
+
+  @Test
+  void rejectsDependencyThatWouldCreateCycle() {
+    Course course = course();
+    Module a = new Module(course, "A");
+    Module b = new Module(course, "B");
+    Module c = new Module(course, "C");
+    b.addDependency(a);
+    c.addDependency(b);
+
+    assertThrows(IllegalArgumentException.class, () -> a.addDependency(c));
+  }
+
+  @Test
+  void removesDependency() {
+    Course course = course();
+    Module week1 = new Module(course, "Week 1");
+    Module week2 = new Module(course, "Week 2");
+    week2.addDependency(week1);
+
+    week2.removeDependency(week1);
+
+    assertFalse(week2.getDependencies().contains(week1));
   }
 }

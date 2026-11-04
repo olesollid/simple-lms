@@ -48,7 +48,7 @@ public class CourseService {
 
   public void deleteCourse(Long id) {
     Course course = getCourseById(id);
-    boolean hasModules = !moduleRepository.findByCourseOrderByPosition(course).isEmpty();
+    boolean hasModules = !moduleRepository.findByCourse(course).isEmpty();
     boolean hasEnrollments = !enrollmentRepository.findByCourse(course).isEmpty();
     if (hasModules || hasEnrollments) {
       throw new CourseHasDependentsException(id);

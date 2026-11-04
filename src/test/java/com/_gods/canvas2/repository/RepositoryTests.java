@@ -97,15 +97,13 @@ class RepositoryTests {
   }
 
   @Test
-  void savesAndFindsModulesByCourseOrderedByPosition() {
+  void savesAndFindsModulesByCourse() {
     Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
-    Module moduleOne = moduleRepository.save(new Module(course, "Week 1", 0));
-    Module moduleTwo = moduleRepository.save(new Module(course, "Week 2", 1));
+    moduleRepository.save(new Module(course, "Week 1"));
+    moduleRepository.save(new Module(course, "Week 2"));
 
-    List<Module> modules = moduleRepository.findByCourseOrderByPosition(course);
+    List<Module> modules = moduleRepository.findByCourse(course);
 
     assertEquals(2, modules.size());
-    assertEquals(moduleOne.getId(), modules.get(0).getId());
-    assertEquals(moduleTwo.getId(), modules.get(1).getId());
   }
 }

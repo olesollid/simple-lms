@@ -8,5 +8,5 @@ import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
 
 public interface ModuleRepository extends JpaRepository<Module, Long> {
-  List<Module> findByCourseOrderByPosition(Course course);
+  List<Module> findByCourse(Course course);
 }

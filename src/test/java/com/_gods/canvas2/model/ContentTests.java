@@ -17,7 +17,7 @@ class ContentTests {
   }
 
   private Module module() {
-    return new Module(course(), "Week 1: Introduction", 0);
+    return new Module(course(), "Week 1: Introduction");
   }
 
   @Test

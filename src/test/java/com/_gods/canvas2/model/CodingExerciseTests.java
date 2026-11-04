@@ -13,7 +13,7 @@ class CodingExerciseTests {
 
   private Module module() {
     Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
-    return new Module(course, "Week 1: Introduction", 0);
+    return new Module(course, "Week 1: Introduction");
   }
 
   @Test
