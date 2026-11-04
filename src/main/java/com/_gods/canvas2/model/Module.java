@@ -1,11 +1,17 @@
 package com._gods.canvas2.model;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
@@ -23,38 +29,26 @@ public class Module {
   @Column(nullable = false)
   private String title;
 
-  @Column(nullable = false)
-  private int position;
-
-  @ManyToOne(optional = true)
-  @JoinColumn(name = "required_module_id", nullable = true)
-  private Module requiredModule;
+  @ManyToMany
+  @JoinTable(
+      name = "module_dependencies",
+      joinColumns = @JoinColumn(name = "module_id"),
+      inverseJoinColumns = @JoinColumn(name = "depends_on_module_id"))
+  private Set<Module> dependencies = new HashSet<>();
 
   protected Module() {
   }
 
-  public Module(Course course, String title, int position) {
-    this(course, title, position, null);
-  }
-
-  public Module(Course course, String title, int position, Module requiredModule) {
+  public Module(Course course, String title) {
     if (course == null) {
       throw new IllegalArgumentException("Course must not be null");
     }
     if (title == null || title.isBlank()) {
       throw new IllegalArgumentException("Title must not be blank");
     }
-    if (position < 0) {
-      throw new IllegalArgumentException("Position must not be negative");
-    }
-    if (requiredModule != null && requiredModule.getCourse() != course) {
-      throw new IllegalArgumentException("Required module must belong to the same course");
-    }
 
     this.course = course;
     this.title = title.trim();
-    this.position = position;
-    this.requiredModule = requiredModule;
   }
 
   public Long getId() {
@@ -69,11 +63,71 @@ public class Module {
     return title;
   }
 
-  public int getPosition() {
-    return position;
+  public void setTitle(String title) {
+    if (title == null || title.isBlank()) {
+      throw new IllegalArgumentException("Title must not be blank");
+    }
+    this.title = title.trim();
   }
 
-  public Module getRequiredModule() {
-    return requiredModule;
+  public Set<Module> getDependencies() {
+    return Collections.unmodifiableSet(dependencies);
+  }
+
+  public void addDependency(Module other) {
+    if (other == null) {
+      throw new IllegalArgumentException("Dependency must not be null");
+    }
+    if (other.equals(this)) {
+      throw new IllegalArgumentException("A module cannot depend on itself");
+    }
+    if (other.getCourse() != this.course) {
+      throw new IllegalArgumentException("Dependency must belong to the same course");
+    }
+    if (createsCycle(other)) {
+      throw new IllegalArgumentException("Adding this dependency would create a cycle");
+    }
+    dependencies.add(other);
+  }
+
+  public void removeDependency(Module other) {
+    dependencies.remove(other);
+  }
+
+  private boolean createsCycle(Module candidate) {
+    // Adding `this -> candidate` creates a cycle if `this` is already reachable from `candidate`.
+    Set<Module> visited = new HashSet<>();
+    return isReachable(candidate, this, visited);
+  }
+
+  private boolean isReachable(Module from, Module target, Set<Module> visited) {
+    if (!visited.add(from)) {
+      return false;
+    }
+    if (from.getDependencies().contains(target)) {
+      return true;
+    }
+    for (Module dependency : from.getDependencies()) {
+      if (isReachable(dependency, target, visited)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof Module module)) {
+      return false;
+    }
+    return id != null && id.equals(module.id);
+  }
+
+  @Override
+  public int hashCode() {
+    return getClass().hashCode();
   }
 }
