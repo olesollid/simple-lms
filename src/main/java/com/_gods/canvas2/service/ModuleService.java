@@ -49,14 +49,20 @@ public class ModuleService {
     return moduleRepository.save(module);
   }
 
-  public void deleteModule(Long id) {
+  /**
+   * Deletes a module, removing it from any other module's dependency list first.
+   * Returns the modules that had the dependency removed, so callers can surface
+   * what changed.
+   */
+  public List<Module> deleteModule(Long id) {
     Module module = getModuleById(id);
-    boolean hasDependents = moduleRepository.findByCourse(module.getCourse()).stream()
-        .anyMatch(other -> other.getDependencies().contains(module));
-    if (hasDependents) {
-      throw new ModuleHasDependentsException(id);
-    }
+    List<Module> affected = moduleRepository.findByCourse(module.getCourse()).stream()
+        .filter(other -> other.getDependencies().contains(module))
+        .toList();
+    affected.forEach(other -> other.removeDependency(module));
+    moduleRepository.saveAll(affected);
     moduleRepository.delete(module);
+    return affected;
   }
 
   public Module addDependency(Long moduleId, Long dependsOnModuleId) {

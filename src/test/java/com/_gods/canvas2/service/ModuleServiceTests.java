@@ -98,19 +98,41 @@ class ModuleServiceTests {
     Course course = course();
     Module module = moduleService.createModule(course.getId(), "Week 1");
 
-    moduleService.deleteModule(module.getId());
+    List<Module> affected = moduleService.deleteModule(module.getId());
 
+    assertTrue(affected.isEmpty());
     assertThrows(ModuleNotFoundException.class, () -> moduleService.getModuleById(module.getId()));
   }
 
   @Test
-  void rejectsDeletingModuleWithDependents() {
+  void deletingModuleWithDependentsCascadesAndReturnsAffectedModules() {
     Course course = course();
     Module a = moduleService.createModule(course.getId(), "A");
     Module b = moduleService.createModule(course.getId(), "B");
+    Module c = moduleService.createModule(course.getId(), "C");
     moduleService.addDependency(b.getId(), a.getId());
+    moduleService.addDependency(c.getId(), a.getId());
 
-    assertThrows(ModuleHasDependentsException.class, () -> moduleService.deleteModule(a.getId()));
+    List<Module> affected = moduleService.deleteModule(a.getId());
+
+    assertEquals(List.of(b.getId(), c.getId()),
+        affected.stream().map(Module::getId).sorted().toList());
+    assertThrows(ModuleNotFoundException.class, () -> moduleService.getModuleById(a.getId()));
+    assertTrue(moduleService.getModuleById(b.getId()).getDependencies().isEmpty());
+    assertTrue(moduleService.getModuleById(c.getId()).getDependencies().isEmpty());
+  }
+
+  @Test
+  void deletingModuleDoesNotAffectModulesInOtherCourses() {
+    Course course = course();
+    Course otherCourse = course();
+    Module a = moduleService.createModule(course.getId(), "A");
+    Module unrelated = moduleService.createModule(otherCourse.getId(), "Unrelated");
+
+    List<Module> affected = moduleService.deleteModule(a.getId());
+
+    assertTrue(affected.isEmpty());
+    assertTrue(moduleService.getModuleById(unrelated.getId()).getDependencies().isEmpty());
   }
 
   @Test

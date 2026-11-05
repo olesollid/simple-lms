@@ -23,7 +23,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Term;
-import com._gods.canvas2.service.ModuleHasDependentsException;
 import com._gods.canvas2.service.ModuleNotFoundException;
 import com._gods.canvas2.service.ModuleService;
 
@@ -103,18 +102,25 @@ class ModuleControllerTests {
   }
 
   @Test
-  void deleteModuleReturns204() throws Exception {
+  void deleteModuleWithNoDependentsReturns200WithEmptyAffectedList() throws Exception {
+    when(moduleService.deleteModule(1L)).thenReturn(List.of());
+
     mockMvc.perform(delete("/api/modules/1"))
-        .andExpect(status().isNoContent());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.deletedModuleId").value(1))
+        .andExpect(jsonPath("$.affectedModuleIds").isEmpty());
   }
 
   @Test
-  void deleteModuleWithDependentsReturns409() throws Exception {
-    org.mockito.Mockito.doThrow(new ModuleHasDependentsException(1L))
-        .when(moduleService).deleteModule(1L);
+  void deleteModuleWithDependentsReturns200WithAffectedModules() throws Exception {
+    Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
+    Module dependent = module(2L, course, "B");
+    when(moduleService.deleteModule(1L)).thenReturn(List.of(dependent));
 
     mockMvc.perform(delete("/api/modules/1"))
-        .andExpect(status().isConflict());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.deletedModuleId").value(1))
+        .andExpect(jsonPath("$.affectedModuleIds[0]").value(2));
   }
 
   @Test

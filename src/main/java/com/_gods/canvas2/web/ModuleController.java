@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.service.ModuleService;
+import com._gods.canvas2.web.dto.ModuleDeleteResponse;
 import com._gods.canvas2.web.dto.ModuleRequest;
 import com._gods.canvas2.web.dto.ModuleResponse;
 
@@ -52,9 +53,9 @@ public class ModuleController {
   }
 
   @DeleteMapping("/modules/{moduleId}")
-  public ResponseEntity<Void> deleteModule(@PathVariable Long moduleId) {
-    moduleService.deleteModule(moduleId);
-    return ResponseEntity.noContent().build();
+  public ModuleDeleteResponse deleteModule(@PathVariable Long moduleId) {
+    List<Module> affected = moduleService.deleteModule(moduleId);
+    return ModuleDeleteResponse.of(moduleId, affected);
   }
 
   @PostMapping("/modules/{moduleId}/dependencies/{dependsOnModuleId}")
