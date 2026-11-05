@@ -1,0 +1,100 @@
+package com._gods.canvas2.service;
+
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com._gods.canvas2.model.Course;
+import com._gods.canvas2.model.Enrollment;
+import com._gods.canvas2.model.Role;
+import com._gods.canvas2.model.User;
+import com._gods.canvas2.repository.CourseRepository;
+import com._gods.canvas2.repository.EnrollmentRepository;
+import com._gods.canvas2.repository.GroupMembershipRepository;
+
+/**
+ * Roles are course-specific: a user has at most one enrollment per course, and
+ * that enrollment's role applies only within that course.
+ */
+@Service
+@Transactional
+public class EnrollmentService {
+
+  private final EnrollmentRepository enrollmentRepository;
+  private final CourseRepository courseRepository;
+  private final GroupMembershipRepository groupMembershipRepository;
+  private final UserService userService;
+
+  public EnrollmentService(EnrollmentRepository enrollmentRepository,
+      CourseRepository courseRepository, GroupMembershipRepository groupMembershipRepository,
+      UserService userService) {
+    this.enrollmentRepository = enrollmentRepository;
+    this.courseRepository = courseRepository;
+    this.groupMembershipRepository = groupMembershipRepository;
+    this.userService = userService;
+  }
+
+  public Enrollment enroll(Long courseId, String email, Role role) {
+    Course course = getCourse(courseId);
+    User user = userService.getUserByEmail(email);
+    if (enrollmentRepository.findByUserAndCourse(user, course).isPresent()) {
+      throw new ConflictException(
+          "User " + user.getEmail() + " is already enrolled in course " + courseId);
+    }
+    return enrollmentRepository.save(new Enrollment(user, course, role));
+  }
+
+  @Transactional(readOnly = true)
+  public List<Enrollment> getEnrollmentsByCourse(Long courseId) {
+    return enrollmentRepository.findByCourse(getCourse(courseId));
+  }
+
+  @Transactional(readOnly = true)
+  public List<Enrollment> getEnrollmentsByCourse(Long courseId, Role role) {
+    return enrollmentRepository.findByCourseAndRole(getCourse(courseId), role);
+  }
+
+  @Transactional(readOnly = true)
+  public List<Enrollment> getEnrollmentsByUser(String email) {
+    return enrollmentRepository.findByUser(userService.getUserByEmail(email));
+  }
+
+  @Transactional(readOnly = true)
+  public Enrollment getEnrollment(Long courseId, String email) {
+    Course course = getCourse(courseId);
+    User user = userService.getUserByEmail(email);
+    return enrollmentRepository.findByUserAndCourse(user, course)
+        .orElseThrow(() -> new NotFoundException(
+            "User " + user.getEmail() + " is not enrolled in course " + courseId));
+  }
+
+  @Transactional(readOnly = true)
+  public boolean hasRole(Long courseId, String email, Role role) {
+    Course course = getCourse(courseId);
+    User user = userService.getUserByEmail(email);
+    return enrollmentRepository.findByUserAndCourse(user, course)
+        .map(enrollment -> enrollment.getRole() == role)
+        .orElse(false);
+  }
+
+  public Enrollment changeRole(Long courseId, String email, Role role) {
+    Enrollment enrollment = getEnrollment(courseId, email);
+    enrollment.setRole(role);
+    return enrollmentRepository.save(enrollment);
+  }
+
+  /** Leaving a course also removes the user from that course's groups. */
+  public void unenroll(Long courseId, String email) {
+    Enrollment enrollment = getEnrollment(courseId, email);
+    groupMembershipRepository.deleteAll(
+        groupMembershipRepository.findByUserAndGroupCourse(enrollment.getUser(),
+            enrollment.getCourse()));
+    enrollmentRepository.delete(enrollment);
+  }
+
+  private Course getCourse(Long courseId) {
+    return courseRepository.findById(courseId)
+        .orElseThrow(() -> new CourseNotFoundException(courseId));
+  }
+}

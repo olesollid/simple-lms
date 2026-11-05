@@ -46,12 +46,26 @@ public class Enrollment {
 
 
   public Enrollment (User user, Course course, Role role) {
+    if (user == null) {
+      throw new IllegalArgumentException("User must not be null");
+    }
+    if (course == null) {
+      throw new IllegalArgumentException("Course must not be null");
+    }
+    validateRole(role);
+
     this.user = user;
     this.course = course;
     this.role = role;
   }
 
   protected Enrollment(){
+  }
+
+  private static void validateRole(Role role) {
+    if (role == null) {
+      throw new IllegalArgumentException("Role must not be null");
+    }
   }
 
   public Long getId() {
@@ -72,5 +86,10 @@ public class Enrollment {
 
   public LocalDateTime getEnrolledAt() {
       return enrolledAt;
+  }
+
+  public void setRole(Role role) {
+      validateRole(role);
+      this.role = role;
   }
 }

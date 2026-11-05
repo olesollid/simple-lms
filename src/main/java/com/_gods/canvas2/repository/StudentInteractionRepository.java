@@ -13,4 +13,6 @@ public interface StudentInteractionRepository extends JpaRepository<StudentInter
   List<StudentInteraction> findByUser(User user);
 
   Optional<StudentInteraction> findByUserAndContent(User user, Content content);
+
+  boolean existsByUser(User user);
 }
