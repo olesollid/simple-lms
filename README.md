@@ -1,3 +1,18 @@
+### Frontend development
+
+The React + TypeScript application lives in [frontend](frontend/README.md).
+Use Node.js 22.19.0 (also used in GitLab CI), then run from `frontend/`:
+
+```powershell
+npm.cmd ci
+npm.cmd run dev
+```
+
+On Linux/macOS use `npm` instead of `npm.cmd`. See the frontend README for lint,
+build, preview, folder structure, and backend startup instructions.
+The `frontend-build` CI job runs on merge requests and the default branch,
+checks lint and the production build, and keeps `frontend/dist/` as an artifact.
+
 ### Local development with H2
 
 Install JDK 25. No separate database server is required: Spring Boot starts H2
