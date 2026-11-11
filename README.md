@@ -8,10 +8,11 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-On Linux/macOS use `npm` instead of `npm.cmd`. See the frontend README for lint,
-build, preview, folder structure, and backend startup instructions.
-The `frontend-build` CI job runs on merge requests and the default branch,
-checks lint and the production build, and keeps `frontend/dist/` as an artifact.
+On Linux/macOS use `npm` instead of `npm.cmd`. Run `npm run lint`, `npm test` and
+`npm run build` before opening a merge request. See the frontend README for
+testing, preview, folder structure, and backend startup instructions.
+The `frontend-lint`, `frontend-test` and `frontend-build` CI jobs run on merge
+requests and the default branch; the build job keeps `frontend/dist/` as an artifact.
 
 ### Local development with H2
 
