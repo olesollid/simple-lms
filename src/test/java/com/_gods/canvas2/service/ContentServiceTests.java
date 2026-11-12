@@ -14,14 +14,19 @@ import org.springframework.context.annotation.Import;
 
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Course;
+import com._gods.canvas2.model.Enrollment;
 import com._gods.canvas2.model.Module;
+import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StaticPage;
 import com._gods.canvas2.model.Term;
+import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.CourseRepository;
+import com._gods.canvas2.repository.EnrollmentRepository;
 import com._gods.canvas2.repository.ModuleRepository;
+import com._gods.canvas2.repository.UserRepository;
 
 @DataJpaTest
-@Import(ContentService.class)
+@Import({ContentService.class, EnrollmentService.class, UserService.class})
 class ContentServiceTests {
 
   @Autowired
@@ -33,9 +38,29 @@ class ContentServiceTests {
   @Autowired
   private ModuleRepository moduleRepository;
 
+  @Autowired
+  private UserRepository userRepository;
+
+  @Autowired
+  private EnrollmentRepository enrollmentRepository;
+
+  private static int userCounter = 0;
+  private String teacherEmail;
+
   private Module module() {
     Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
+    String email = "teacher" + (userCounter++) + "@example.com";
+    User user = userRepository.save(new User(email, "Teacher"));
+    enrollmentRepository.save(new Enrollment(user, course, Role.TEACHER));
+    teacherEmail = email;
     return moduleRepository.save(new Module(course, "Week 1"));
+  }
+
+  private String studentOf(Module module) {
+    String email = "student" + (userCounter++) + "@example.com";
+    User user = userRepository.save(new User(email, "Student"));
+    enrollmentRepository.save(new Enrollment(user, module.getCourse(), Role.STUDENT));
+    return email;
   }
 
   @Test
@@ -43,7 +68,7 @@ class ContentServiceTests {
     Module module = module();
 
     StaticPage page = contentService.createStaticPage(module.getId(), "Syllabus", 0, "Welcome!",
-        null, null);
+        null, null, teacherEmail);
 
     assertEquals("Syllabus", page.getTitle());
     assertEquals("Welcome!", page.getBody());
@@ -51,16 +76,27 @@ class ContentServiceTests {
   }
 
   @Test
+  void rejectsCreatingStaticPageByStudent() {
+    Module module = module();
+    String student = studentOf(module);
+
+    assertThrows(ForbiddenException.class,
+        () -> contentService.createStaticPage(module.getId(), "Syllabus", 0, "Welcome!", null,
+            null, student));
+  }
+
+  @Test
   void throwsWhenCreatingStaticPageForMissingModule() {
     assertThrows(ModuleNotFoundException.class,
-        () -> contentService.createStaticPage(999L, "Syllabus", 0, "Welcome!", null, null));
+        () -> contentService.createStaticPage(999L, "Syllabus", 0, "Welcome!", null, null,
+            "nobody@example.com"));
   }
 
   @Test
   void retrievesContentsByModuleInPositionOrder() {
     Module module = module();
-    contentService.createStaticPage(module.getId(), "Second", 1, "B", null, null);
-    contentService.createStaticPage(module.getId(), "First", 0, "A", null, null);
+    contentService.createStaticPage(module.getId(), "Second", 1, "B", null, null, teacherEmail);
+    contentService.createStaticPage(module.getId(), "First", 0, "A", null, null, teacherEmail);
 
     List<Content> contents = contentService.getContentsByModule(module.getId());
 
@@ -76,21 +112,23 @@ class ContentServiceTests {
   void throwsWhenContentNotFound() {
     assertThrows(ContentNotFoundException.class, () -> contentService.getContentById(999L));
     assertThrows(ContentNotFoundException.class,
-        () -> contentService.updateContentMetadata(999L, "x", 0, null, null));
+        () -> contentService.updateContentMetadata(999L, "x", 0, null, null, "nobody@example.com"));
     assertThrows(ContentNotFoundException.class,
-        () -> contentService.updateStaticPageBody(999L, "x"));
-    assertThrows(ContentNotFoundException.class, () -> contentService.deleteContent(999L));
+        () -> contentService.updateStaticPageBody(999L, "x", "nobody@example.com"));
+    assertThrows(ContentNotFoundException.class,
+        () -> contentService.deleteContent(999L, "nobody@example.com"));
   }
 
   @Test
   void updatesContentMetadata() {
     Module module = module();
     StaticPage page = contentService.createStaticPage(module.getId(), "Syllabus", 0, "Welcome!",
-        null, null);
+        null, null, teacherEmail);
     LocalDateTime from = LocalDateTime.of(2026, 1, 1, 8, 0);
     LocalDateTime until = LocalDateTime.of(2026, 1, 8, 8, 0);
 
-    Content updated = contentService.updateContentMetadata(page.getId(), "Updated", 3, from, until);
+    Content updated = contentService.updateContentMetadata(page.getId(), "Updated", 3, from, until,
+        teacherEmail);
 
     assertEquals("Updated", updated.getTitle());
     assertEquals(3, updated.getPosition());
@@ -99,24 +137,37 @@ class ContentServiceTests {
   }
 
   @Test
+  void rejectsUpdatingContentMetadataByStudent() {
+    Module module = module();
+    String student = studentOf(module);
+    StaticPage page = contentService.createStaticPage(module.getId(), "Syllabus", 0, "Welcome!",
+        null, null, teacherEmail);
+
+    assertThrows(ForbiddenException.class,
+        () -> contentService.updateContentMetadata(page.getId(), "Hacked", 0, null, null, student));
+  }
+
+  @Test
   void rejectsInvalidVisibilityWindowOnUpdate() {
     Module module = module();
     StaticPage page = contentService.createStaticPage(module.getId(), "Syllabus", 0, "Welcome!",
-        null, null);
+        null, null, teacherEmail);
     LocalDateTime from = LocalDateTime.of(2026, 1, 1, 8, 0);
     LocalDateTime until = from.minusMinutes(1);
 
     assertThrows(IllegalArgumentException.class,
-        () -> contentService.updateContentMetadata(page.getId(), "Syllabus", 0, from, until));
+        () -> contentService.updateContentMetadata(page.getId(), "Syllabus", 0, from, until,
+            teacherEmail));
   }
 
   @Test
   void updatesStaticPageBody() {
     Module module = module();
     StaticPage page = contentService.createStaticPage(module.getId(), "Syllabus", 0, "Welcome!",
-        null, null);
+        null, null, teacherEmail);
 
-    StaticPage updated = contentService.updateStaticPageBody(page.getId(), "Updated body");
+    StaticPage updated = contentService.updateStaticPageBody(page.getId(), "Updated body",
+        teacherEmail);
 
     assertEquals("Updated body", updated.getBody());
   }
@@ -125,11 +176,22 @@ class ContentServiceTests {
   void deletesContent() {
     Module module = module();
     StaticPage page = contentService.createStaticPage(module.getId(), "Syllabus", 0, "Welcome!",
-        null, null);
+        null, null, teacherEmail);
 
-    contentService.deleteContent(page.getId());
+    contentService.deleteContent(page.getId(), teacherEmail);
 
     assertTrue(contentService.getContentsByModule(module.getId()).isEmpty());
     assertThrows(ContentNotFoundException.class, () -> contentService.getContentById(page.getId()));
+  }
+
+  @Test
+  void rejectsDeletingContentByStudent() {
+    Module module = module();
+    String student = studentOf(module);
+    StaticPage page = contentService.createStaticPage(module.getId(), "Syllabus", 0, "Welcome!",
+        null, null, teacherEmail);
+
+    assertThrows(ForbiddenException.class,
+        () -> contentService.deleteContent(page.getId(), student));
   }
 }

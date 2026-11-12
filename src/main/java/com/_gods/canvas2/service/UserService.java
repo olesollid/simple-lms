@@ -49,13 +49,15 @@ public class UserService {
         .orElseThrow(() -> new NotFoundException("User not found: " + normalized));
   }
 
-  public User updateUserName(String email, String name) {
+  public User updateUserName(String email, String name, String requesterEmail) {
+    requireSelf(email, requesterEmail);
     User user = getUserByEmail(email);
     user.setName(name);
     return userRepository.save(user);
   }
 
-  public void deleteUser(String email) {
+  public void deleteUser(String email, String requesterEmail) {
+    requireSelf(email, requesterEmail);
     User user = getUserByEmail(email);
     boolean hasDependents = enrollmentRepository.existsByUser(user)
         || groupMembershipRepository.existsByUser(user)
@@ -65,5 +67,11 @@ public class UserService {
           + " has enrollments, group memberships or interactions and cannot be deleted until they are removed");
     }
     userRepository.delete(user);
+  }
+
+  private void requireSelf(String email, String requesterEmail) {
+    if (!User.normalizeEmail(email).equals(User.normalizeEmail(requesterEmail))) {
+      throw new ForbiddenException("Users may only modify their own account");
+    }
   }
 }

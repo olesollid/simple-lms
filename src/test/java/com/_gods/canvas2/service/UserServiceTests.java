@@ -72,18 +72,36 @@ class UserServiceTests {
   void updatesUserName() {
     userService.createUser("student@example.com", "Student Name");
 
-    userService.updateUserName("student@example.com", "New Name");
+    userService.updateUserName("student@example.com", "New Name", "student@example.com");
 
     assertEquals("New Name", userService.getUserByEmail("student@example.com").getName());
+  }
+
+  @Test
+  void rejectsUpdatingAnotherUsersName() {
+    userService.createUser("student@example.com", "Student Name");
+    userService.createUser("other@example.com", "Other Name");
+
+    assertThrows(ForbiddenException.class,
+        () -> userService.updateUserName("student@example.com", "New Name", "other@example.com"));
   }
 
   @Test
   void deletesUserWithNoDependents() {
     userService.createUser("student@example.com", "Student Name");
 
-    userService.deleteUser("student@example.com");
+    userService.deleteUser("student@example.com", "student@example.com");
 
     assertThrows(NotFoundException.class, () -> userService.getUserByEmail("student@example.com"));
+  }
+
+  @Test
+  void rejectsDeletingAnotherUser() {
+    userService.createUser("student@example.com", "Student Name");
+    userService.createUser("other@example.com", "Other Name");
+
+    assertThrows(ForbiddenException.class,
+        () -> userService.deleteUser("student@example.com", "other@example.com"));
   }
 
   @Test
@@ -92,6 +110,7 @@ class UserServiceTests {
     Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
     enrollmentRepository.save(new Enrollment(user, course, Role.STUDENT));
 
-    assertThrows(ConflictException.class, () -> userService.deleteUser("student@example.com"));
+    assertThrows(ConflictException.class,
+        () -> userService.deleteUser("student@example.com", "student@example.com"));
   }
 }

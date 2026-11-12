@@ -5,7 +5,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com._gods.canvas2.model.Course;
+import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.Term;
+import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.EnrollmentRepository;
 import com._gods.canvas2.repository.ModuleRepository;
@@ -16,16 +18,22 @@ public class CourseService {
   private final CourseRepository courseRepository;
   private final ModuleRepository moduleRepository;
   private final EnrollmentRepository enrollmentRepository;
+  private final EnrollmentService enrollmentService;
 
   public CourseService(CourseRepository courseRepository, ModuleRepository moduleRepository,
-      EnrollmentRepository enrollmentRepository) {
+      EnrollmentRepository enrollmentRepository, EnrollmentService enrollmentService) {
     this.courseRepository = courseRepository;
     this.moduleRepository = moduleRepository;
     this.enrollmentRepository = enrollmentRepository;
+    this.enrollmentService = enrollmentService;
   }
 
-  public Course createCourse(String title, String description, Term term, int year) {
-    return courseRepository.save(new Course(title, description, term, year));
+  /** The creator is automatically enrolled as TEACHER, since that's the only way to legitimately become one. */
+  public Course createCourse(String title, String description, Term term, int year,
+      String requesterEmail) {
+    Course course = courseRepository.save(new Course(title, description, term, year));
+    enrollmentService.enrollWithoutAuthorization(course.getId(), requesterEmail, Role.TEACHER);
+    return course;
   }
 
   public List<Course> getAllCourses() {
@@ -37,7 +45,9 @@ public class CourseService {
         .orElseThrow(() -> new CourseNotFoundException(id));
   }
 
-  public Course updateCourse(Long id, String title, String description, Term term, int year) {
+  public Course updateCourse(Long id, String title, String description, Term term, int year,
+      String requesterEmail) {
+    requireTeacher(id, requesterEmail);
     Course course = getCourseById(id);
     course.setTitle(title);
     course.setDescription(description);
@@ -46,13 +56,25 @@ public class CourseService {
     return courseRepository.save(course);
   }
 
-  public void deleteCourse(Long id) {
+  public void deleteCourse(Long id, String requesterEmail) {
+    requireTeacher(id, requesterEmail);
     Course course = getCourseById(id);
     boolean hasModules = !moduleRepository.findByCourse(course).isEmpty();
-    boolean hasEnrollments = !enrollmentRepository.findByCourse(course).isEmpty();
-    if (hasModules || hasEnrollments) {
+    // Creating a course auto-enrolls the creator as TEACHER, so their own enrollment doesn't
+    // count as a dependent -- otherwise a course could never be deleted by anyone.
+    boolean hasOtherEnrollments = enrollmentRepository.findByCourse(course).stream()
+        .anyMatch(enrollment -> !enrollment.getUser().getEmail()
+            .equals(User.normalizeEmail(requesterEmail)));
+    if (hasModules || hasOtherEnrollments) {
       throw new CourseHasDependentsException(id);
     }
     courseRepository.delete(course);
+  }
+
+  private void requireTeacher(Long courseId, String requesterEmail) {
+    if (!enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER)) {
+      throw new ForbiddenException(
+          "Only a teacher enrolled in course " + courseId + " may perform this action");
+    }
   }
 }

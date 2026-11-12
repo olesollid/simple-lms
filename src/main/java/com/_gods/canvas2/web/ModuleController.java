@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,8 +32,8 @@ public class ModuleController {
 
   @PostMapping("/courses/{courseId}/modules")
   public ResponseEntity<ModuleResponse> createModule(@PathVariable Long courseId,
-      @RequestBody ModuleRequest request) {
-    Module module = moduleService.createModule(courseId, request.title());
+      @RequestBody ModuleRequest request, Authentication authentication) {
+    Module module = moduleService.createModule(courseId, request.title(), authentication.getName());
     return ResponseEntity.status(HttpStatus.CREATED).body(ModuleResponse.from(module));
   }
 
@@ -48,26 +49,29 @@ public class ModuleController {
 
   @PutMapping("/modules/{moduleId}")
   public ModuleResponse updateModule(@PathVariable Long moduleId,
-      @RequestBody ModuleRequest request) {
-    return ModuleResponse.from(moduleService.updateModuleTitle(moduleId, request.title()));
+      @RequestBody ModuleRequest request, Authentication authentication) {
+    return ModuleResponse.from(
+        moduleService.updateModuleTitle(moduleId, request.title(), authentication.getName()));
   }
 
   @DeleteMapping("/modules/{moduleId}")
-  public ModuleDeleteResponse deleteModule(@PathVariable Long moduleId) {
-    List<Module> affected = moduleService.deleteModule(moduleId);
+  public ModuleDeleteResponse deleteModule(@PathVariable Long moduleId,
+      Authentication authentication) {
+    List<Module> affected = moduleService.deleteModule(moduleId, authentication.getName());
     return ModuleDeleteResponse.of(moduleId, affected);
   }
 
   @PostMapping("/modules/{moduleId}/dependencies/{dependsOnModuleId}")
   public ModuleResponse addDependency(@PathVariable Long moduleId,
-      @PathVariable Long dependsOnModuleId) {
-    return ModuleResponse.from(moduleService.addDependency(moduleId, dependsOnModuleId));
+      @PathVariable Long dependsOnModuleId, Authentication authentication) {
+    return ModuleResponse.from(
+        moduleService.addDependency(moduleId, dependsOnModuleId, authentication.getName()));
   }
 
   @DeleteMapping("/modules/{moduleId}/dependencies/{dependsOnModuleId}")
   public ResponseEntity<Void> removeDependency(@PathVariable Long moduleId,
-      @PathVariable Long dependsOnModuleId) {
-    moduleService.removeDependency(moduleId, dependsOnModuleId);
+      @PathVariable Long dependsOnModuleId, Authentication authentication) {
+    moduleService.removeDependency(moduleId, dependsOnModuleId, authentication.getName());
     return ResponseEntity.noContent().build();
   }
 }

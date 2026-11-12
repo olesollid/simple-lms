@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
+import com._gods.canvas2.model.Role;
 import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.ModuleRepository;
 
@@ -20,13 +21,17 @@ public class ModuleService {
 
   private final ModuleRepository moduleRepository;
   private final CourseRepository courseRepository;
+  private final EnrollmentService enrollmentService;
 
-  public ModuleService(ModuleRepository moduleRepository, CourseRepository courseRepository) {
+  public ModuleService(ModuleRepository moduleRepository, CourseRepository courseRepository,
+      EnrollmentService enrollmentService) {
     this.moduleRepository = moduleRepository;
     this.courseRepository = courseRepository;
+    this.enrollmentService = enrollmentService;
   }
 
-  public Module createModule(Long courseId, String title) {
+  public Module createModule(Long courseId, String title, String requesterEmail) {
+    requireTeacher(courseId, requesterEmail);
     Course course = courseRepository.findById(courseId)
         .orElseThrow(() -> new CourseNotFoundException(courseId));
     return moduleRepository.save(new Module(course, title));
@@ -43,8 +48,9 @@ public class ModuleService {
         .orElseThrow(() -> new ModuleNotFoundException(id));
   }
 
-  public Module updateModuleTitle(Long id, String title) {
+  public Module updateModuleTitle(Long id, String title, String requesterEmail) {
     Module module = getModuleById(id);
+    requireTeacher(module.getCourse().getId(), requesterEmail);
     module.setTitle(title);
     return moduleRepository.save(module);
   }
@@ -54,8 +60,9 @@ public class ModuleService {
    * Returns the modules that had the dependency removed, so callers can surface
    * what changed.
    */
-  public List<Module> deleteModule(Long id) {
+  public List<Module> deleteModule(Long id, String requesterEmail) {
     Module module = getModuleById(id);
+    requireTeacher(module.getCourse().getId(), requesterEmail);
     List<Module> affected = moduleRepository.findByCourse(module.getCourse()).stream()
         .filter(other -> other.getDependencies().contains(module))
         .toList();
@@ -65,18 +72,27 @@ public class ModuleService {
     return affected;
   }
 
-  public Module addDependency(Long moduleId, Long dependsOnModuleId) {
+  public Module addDependency(Long moduleId, Long dependsOnModuleId, String requesterEmail) {
     Module module = getModuleById(moduleId);
+    requireTeacher(module.getCourse().getId(), requesterEmail);
     Module dependsOn = getModuleById(dependsOnModuleId);
     module.addDependency(dependsOn);
     return moduleRepository.save(module);
   }
 
-  public Module removeDependency(Long moduleId, Long dependsOnModuleId) {
+  public Module removeDependency(Long moduleId, Long dependsOnModuleId, String requesterEmail) {
     Module module = getModuleById(moduleId);
+    requireTeacher(module.getCourse().getId(), requesterEmail);
     Module dependsOn = getModuleById(dependsOnModuleId);
     module.removeDependency(dependsOn);
     return moduleRepository.save(module);
+  }
+
+  private void requireTeacher(Long courseId, String requesterEmail) {
+    if (!enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER)) {
+      throw new ForbiddenException(
+          "Only a teacher enrolled in course " + courseId + " may perform this action");
+    }
   }
 
   /**
