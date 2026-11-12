@@ -27,6 +27,16 @@ export class ApiResponseError extends Error {
   }
 }
 
+// Methods Spring Security's CSRF filter doesn't require a token for.
+const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE'])
+
+// Reads the XSRF-TOKEN cookie Spring Security's csrf().spa() writes after login.
+function readXsrfToken(): string | undefined {
+  if (typeof document === 'undefined') return undefined
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : undefined
+}
+
 // A separate factory lets tests and future mock services supply their own fetch.
 export function createApiClient(baseUrl: string, fetchImplementation: typeof fetch = fetch) {
   const base = baseUrl.trim().replace(/\/+$/, '')
@@ -37,6 +47,12 @@ export function createApiClient(baseUrl: string, fetchImplementation: typeof fet
     if (!headers.has('Accept')) headers.set('Accept', 'application/json')
     if (body !== undefined && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json')
+    }
+
+    const method = (requestOptions.method ?? 'GET').toUpperCase()
+    if (!CSRF_SAFE_METHODS.has(method) && !headers.has('X-XSRF-TOKEN')) {
+      const token = readXsrfToken()
+      if (token) headers.set('X-XSRF-TOKEN', token)
     }
 
     const response = await fetchImplementation(`${base}/${path.replace(/^\/+/, '')}`, {
