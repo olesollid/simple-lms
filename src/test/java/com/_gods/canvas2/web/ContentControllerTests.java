@@ -3,7 +3,10 @@ package com._gods.canvas2.web;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -12,14 +15,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
@@ -30,7 +38,7 @@ import com._gods.canvas2.service.ContentService;
 import com._gods.canvas2.service.ModuleNotFoundException;
 
 @WebMvcTest(ContentController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 class ContentControllerTests {
 
   @Autowired
@@ -74,14 +82,22 @@ class ContentControllerTests {
     }
   }
 
+  private RequestPostProcessor asTeacher() {
+    RequestPostProcessor login = oauth2Login().oauth2User(new DefaultOAuth2User(
+        Set.of(new SimpleGrantedAuthority("ROLE_USER")),
+        Map.of("email", "teacher@example.com"), "email"));
+    return request -> csrf().postProcessRequest(login.postProcessRequest(request));
+  }
+
   @Test
   void createStaticPageReturns201() throws Exception {
     Module module = module(1L);
     StaticPage page = page(1L, module, "Syllabus", "Welcome!");
-    when(contentService.createStaticPage(anyLong(), any(), anyInt(), any(), any(), any()))
-        .thenReturn(page);
+    when(contentService.createStaticPage(anyLong(), any(), anyInt(), any(), any(), any(),
+        anyString())).thenReturn(page);
 
     mockMvc.perform(post("/api/modules/1/pages")
+            .with(asTeacher())
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {"title":"Syllabus","position":0,"body":"Welcome!"}
@@ -93,10 +109,11 @@ class ContentControllerTests {
 
   @Test
   void createStaticPageReturns404WhenModuleMissing() throws Exception {
-    when(contentService.createStaticPage(anyLong(), any(), anyInt(), any(), any(), any()))
-        .thenThrow(new ModuleNotFoundException(999L));
+    when(contentService.createStaticPage(anyLong(), any(), anyInt(), any(), any(), any(),
+        anyString())).thenThrow(new ModuleNotFoundException(999L));
 
     mockMvc.perform(post("/api/modules/999/pages")
+            .with(asTeacher())
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {"title":"Syllabus","position":0,"body":"Welcome!"}
@@ -110,7 +127,7 @@ class ContentControllerTests {
     StaticPage page = page(1L, module, "Syllabus", "Welcome!");
     when(contentService.getContentsByModule(1L)).thenReturn(List.of(page));
 
-    mockMvc.perform(get("/api/modules/1/contents"))
+    mockMvc.perform(get("/api/modules/1/contents").with(asTeacher()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].title").value("Syllabus"));
   }
@@ -119,7 +136,7 @@ class ContentControllerTests {
   void getContentByIdReturns404WhenMissing() throws Exception {
     when(contentService.getContentById(999L)).thenThrow(new ContentNotFoundException(999L));
 
-    mockMvc.perform(get("/api/contents/999"))
+    mockMvc.perform(get("/api/contents/999").with(asTeacher()))
         .andExpect(status().isNotFound());
   }
 
@@ -127,10 +144,11 @@ class ContentControllerTests {
   void updateContentReturnsUpdatedContent() throws Exception {
     Module module = module(1L);
     StaticPage updated = page(1L, module, "Updated", "Welcome!");
-    when(contentService.updateContentMetadata(any(), any(), anyInt(), any(), any()))
+    when(contentService.updateContentMetadata(any(), any(), anyInt(), any(), any(), anyString()))
         .thenReturn(updated);
 
     mockMvc.perform(put("/api/contents/1")
+            .with(asTeacher())
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {"title":"Updated","position":0}
@@ -143,9 +161,10 @@ class ContentControllerTests {
   void updateStaticPageBodyReturnsUpdatedContent() throws Exception {
     Module module = module(1L);
     StaticPage updated = page(1L, module, "Syllabus", "Updated body");
-    when(contentService.updateStaticPageBody(any(), any())).thenReturn(updated);
+    when(contentService.updateStaticPageBody(any(), any(), anyString())).thenReturn(updated);
 
     mockMvc.perform(put("/api/contents/1/body")
+            .with(asTeacher())
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {"body":"Updated body"}
@@ -156,7 +175,7 @@ class ContentControllerTests {
 
   @Test
   void deleteContentReturns204() throws Exception {
-    mockMvc.perform(delete("/api/contents/1"))
+    mockMvc.perform(delete("/api/contents/1").with(asTeacher()))
         .andExpect(status().isNoContent());
   }
 }

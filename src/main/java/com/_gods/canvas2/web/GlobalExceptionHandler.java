@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com._gods.canvas2.service.ConflictException;
+import com._gods.canvas2.service.ForbiddenException;
 import com._gods.canvas2.service.NotFoundException;
 import com._gods.canvas2.web.dto.ErrorResponse;
 
@@ -23,6 +24,12 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ConflictException.class)
   public ResponseEntity<ErrorResponse> handleConflict(ConflictException exception) {
     return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(new ErrorResponse(exception.getMessage()));
+  }
+
+  @ExceptionHandler(ForbiddenException.class)
+  public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException exception) {
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
         .body(new ErrorResponse(exception.getMessage()));
   }
 

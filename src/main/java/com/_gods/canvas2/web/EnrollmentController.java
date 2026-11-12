@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,8 +33,9 @@ public class EnrollmentController {
 
   @PostMapping
   public ResponseEntity<EnrollmentResponse> enroll(@PathVariable Long courseId,
-      @RequestBody EnrollmentRequest request) {
-    Enrollment enrollment = enrollmentService.enroll(courseId, request.email(), request.role());
+      @RequestBody EnrollmentRequest request, Authentication authentication) {
+    Enrollment enrollment = enrollmentService.enroll(courseId, request.email(), request.role(),
+        authentication.getName());
     return ResponseEntity.status(HttpStatus.CREATED).body(EnrollmentResponse.from(enrollment));
   }
 
@@ -54,13 +56,15 @@ public class EnrollmentController {
 
   @PutMapping("/{email}")
   public EnrollmentResponse changeRole(@PathVariable Long courseId, @PathVariable String email,
-      @RequestBody EnrollmentRequest request) {
-    return EnrollmentResponse.from(enrollmentService.changeRole(courseId, email, request.role()));
+      @RequestBody EnrollmentRequest request, Authentication authentication) {
+    return EnrollmentResponse.from(enrollmentService.changeRole(courseId, email, request.role(),
+        authentication.getName()));
   }
 
   @DeleteMapping("/{email}")
-  public ResponseEntity<Void> unenroll(@PathVariable Long courseId, @PathVariable String email) {
-    enrollmentService.unenroll(courseId, email);
+  public ResponseEntity<Void> unenroll(@PathVariable Long courseId, @PathVariable String email,
+      Authentication authentication) {
+    enrollmentService.unenroll(courseId, email, authentication.getName());
     return ResponseEntity.noContent().build();
   }
 }

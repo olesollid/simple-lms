@@ -35,13 +35,21 @@ public class EnrollmentService {
     this.userService = userService;
   }
 
-  public Enrollment enroll(Long courseId, String email, Role role) {
+  public Enrollment enroll(Long courseId, String email, Role role, String requesterEmail) {
+    requireTeacher(courseId, requesterEmail);
     Course course = getCourse(courseId);
     User user = userService.getUserByEmail(email);
     if (enrollmentRepository.findByUserAndCourse(user, course).isPresent()) {
       throw new ConflictException(
           "User " + user.getEmail() + " is already enrolled in course " + courseId);
     }
+    return enrollmentRepository.save(new Enrollment(user, course, role));
+  }
+
+  /** Used for course-creator self-enrollment, which has no requester to check against. */
+  Enrollment enrollWithoutAuthorization(Long courseId, String email, Role role) {
+    Course course = getCourse(courseId);
+    User user = userService.getUserByEmail(email);
     return enrollmentRepository.save(new Enrollment(user, course, role));
   }
 
@@ -72,25 +80,61 @@ public class EnrollmentService {
   @Transactional(readOnly = true)
   public boolean hasRole(Long courseId, String email, Role role) {
     Course course = getCourse(courseId);
-    User user = userService.getUserByEmail(email);
+    User user;
+    try {
+      user = userService.getUserByEmail(email);
+    } catch (NotFoundException e) {
+      return false;
+    }
     return enrollmentRepository.findByUserAndCourse(user, course)
         .map(enrollment -> enrollment.getRole() == role)
         .orElse(false);
   }
 
-  public Enrollment changeRole(Long courseId, String email, Role role) {
+  public Enrollment changeRole(Long courseId, String email, Role role, String requesterEmail) {
+    boolean self = User.normalizeEmail(email).equals(User.normalizeEmail(requesterEmail));
+    if (!self) {
+      requireTeacher(courseId, requesterEmail);
+    }
     Enrollment enrollment = getEnrollment(courseId, email);
+    if (enrollment.getRole() == Role.TEACHER && role != Role.TEACHER) {
+      requireNotLastTeacher(courseId, enrollment);
+    }
     enrollment.setRole(role);
     return enrollmentRepository.save(enrollment);
   }
 
   /** Leaving a course also removes the user from that course's groups. */
-  public void unenroll(Long courseId, String email) {
+  public void unenroll(Long courseId, String email, String requesterEmail) {
+    boolean self = User.normalizeEmail(email).equals(User.normalizeEmail(requesterEmail));
+    if (!self) {
+      requireTeacher(courseId, requesterEmail);
+    }
     Enrollment enrollment = getEnrollment(courseId, email);
+    if (enrollment.getRole() == Role.TEACHER) {
+      requireNotLastTeacher(courseId, enrollment);
+    }
     groupMembershipRepository.deleteAll(
         groupMembershipRepository.findByUserAndGroupCourse(enrollment.getUser(),
             enrollment.getCourse()));
     enrollmentRepository.delete(enrollment);
+  }
+
+  private void requireTeacher(Long courseId, String requesterEmail) {
+    if (!hasRole(courseId, requesterEmail, Role.TEACHER)) {
+      throw new ForbiddenException(
+          "Only a teacher enrolled in course " + courseId + " may perform this action");
+    }
+  }
+
+  /** A course must always keep at least one teacher able to manage it. */
+  private void requireNotLastTeacher(Long courseId, Enrollment departing) {
+    long teacherCount = enrollmentRepository.findByCourseAndRole(departing.getCourse(), Role.TEACHER)
+        .size();
+    if (teacherCount <= 1) {
+      throw new ConflictException(
+          "Course " + courseId + " must keep at least one teacher");
+    }
   }
 
   private Course getCourse(Long courseId) {
