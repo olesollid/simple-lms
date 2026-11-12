@@ -37,4 +37,11 @@ public class StaticPage extends Content {
   public String getBody() {
     return body;
   }
+
+  public void setBody(String body) {
+    if (body == null) {
+      throw new IllegalArgumentException("Body must not be null");
+    }
+    this.body = body;
+  }
 }

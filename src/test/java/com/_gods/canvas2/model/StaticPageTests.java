@@ -23,4 +23,20 @@ class StaticPageTests {
   void rejectsNullBody() {
     assertThrows(IllegalArgumentException.class, () -> new StaticPage(module(), "Syllabus", 0, null));
   }
+
+  @Test
+  void setBodyUpdatesBody() {
+    StaticPage page = new StaticPage(module(), "Syllabus", 0, "Welcome to the course!");
+
+    page.setBody("Updated welcome message");
+
+    assertEquals("Updated welcome message", page.getBody());
+  }
+
+  @Test
+  void setBodyRejectsNull() {
+    StaticPage page = new StaticPage(module(), "Syllabus", 0, "Welcome to the course!");
+
+    assertThrows(IllegalArgumentException.class, () -> page.setBody(null));
+  }
 }
