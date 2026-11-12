@@ -99,4 +99,22 @@ public abstract class Content {
     }
     return true;
   }
+
+  public void updateMetadata(String title, int position, LocalDateTime visibleFrom,
+      LocalDateTime visibleUntil) {
+    if (title == null || title.isBlank()) {
+      throw new IllegalArgumentException("Title must not be blank");
+    }
+    if (position < 0) {
+      throw new IllegalArgumentException("Position must not be negative");
+    }
+    if (visibleFrom != null && visibleUntil != null && !visibleUntil.isAfter(visibleFrom)) {
+      throw new IllegalArgumentException("visibleUntil must be after visibleFrom");
+    }
+
+    this.title = title.trim();
+    this.position = position;
+    this.visibleFrom = visibleFrom;
+    this.visibleUntil = visibleUntil;
+  }
 }

@@ -74,4 +74,43 @@ class ContentTests {
 
     assertTrue(content.isVisibleAt(LocalDateTime.now()));
   }
+
+  @Test
+  void updateMetadataChangesFields() {
+    Content content = new StaticPage(module(), "Syllabus", 0, "Welcome!");
+    LocalDateTime from = LocalDateTime.of(2026, 1, 1, 8, 0);
+    LocalDateTime until = LocalDateTime.of(2026, 1, 8, 8, 0);
+
+    content.updateMetadata("Updated Syllabus", 2, from, until);
+
+    assertEquals("Updated Syllabus", content.getTitle());
+    assertEquals(2, content.getPosition());
+    assertEquals(from, content.getVisibleFrom());
+    assertEquals(until, content.getVisibleUntil());
+  }
+
+  @Test
+  void updateMetadataRejectsBlankTitle() {
+    Content content = new StaticPage(module(), "Syllabus", 0, "Welcome!");
+
+    assertThrows(IllegalArgumentException.class, () -> content.updateMetadata("  ", 0, null, null));
+  }
+
+  @Test
+  void updateMetadataRejectsNegativePosition() {
+    Content content = new StaticPage(module(), "Syllabus", 0, "Welcome!");
+
+    assertThrows(IllegalArgumentException.class,
+        () -> content.updateMetadata("Syllabus", -1, null, null));
+  }
+
+  @Test
+  void updateMetadataRejectsVisibleUntilNotAfterVisibleFrom() {
+    Content content = new StaticPage(module(), "Syllabus", 0, "Welcome!");
+    LocalDateTime from = LocalDateTime.of(2026, 1, 1, 8, 0);
+    LocalDateTime until = from.minusMinutes(1);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> content.updateMetadata("Syllabus", 0, from, until));
+  }
 }
