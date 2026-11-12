@@ -28,7 +28,8 @@ npm run dev
 
 `npm.cmd` avoids PowerShell execution-policy errors involving `npm.ps1`.
 Open the URL printed by Vite, normally http://localhost:5173/.
-The starter page and counter run without the backend.
+The home page now lists courses through the feature service. Enable mock mode
+as described below to view sample courses without the backend.
 
 `npm ci` installs the versions in `package-lock.json`. Keep this file in version
 control. Use `npm install <package>` when intentionally adding dependencies,
@@ -42,8 +43,7 @@ Use `npm.cmd` instead of `npm` in PowerShell if needed.
 | --- | --- |
 | `npm run dev` | Start Vite with live updates |
 | `npm run lint` | Run ESLint, including React Hooks rules |
-| `npm test` | Run all tests once with Vitest (what CI runs) |
-| `npm run test:watch` | Re-run affected tests on every file save |
+| `npm test` | Run API client, feature service, mock, and course rendering tests |
 | `npm run build` | Check TypeScript and build static assets into `dist/` |
 | `npm run preview` | Serve the latest build locally, normally on port 4173 |
 
@@ -72,18 +72,17 @@ interactions with `userEvent`, rather than inspecting component internals.
 
 ```text
 src/
-  components/    Reusable UI (currently the starter Counter)
-  pages/         Complete screens (currently the starter HomePage)
-  test/          Shared test setup (setup.ts)
-  services/      Future API communication, grouped by feature
-  types/         Future shared TypeScript types, including API DTOs
+  components/    Reusable UI, including CourseCard and CourseList
+  pages/         CoursesPage and its loading/error state types
+  services/      Shared API client, feature services, and mock transport
+  types/         Shared TypeScript request/response DTO interfaces
   assets/        Images and other imported assets
   App.tsx        Application entry component; routing can be added later
   main.tsx       Mounts React into the HTML document
 ```
 
-The services and types directories contain guidance until the first API feature
-needs them. Keep component-specific types with their component.
+See the services README for request examples and error handling. Keep
+component-specific types with their component.
 
 ## Running alongside Spring Boot
 
@@ -98,9 +97,27 @@ If the wrapper is unavailable, use an installed Maven with the same arguments.
 The backend normally listens on http://localhost:8080/.
 See the root README for JDK requirements and H2 console instructions.
 
-The starter does not call the API yet. Configure a Vite `/api` proxy and the
-Spring Security login/CSRF flow when implementing the first API-connected page.
-Frontend builds do not require a running backend or H2 database.
+The shared client defaults to `/api`; Vite proxies that path to port 8080.
+To configure the base URL, copy `.env.example` to `.env.local` and edit
+`VITE_API_BASE_URL`. Restart Vite after changing it. Vite substitutes these values
+at build time, so changing production configuration requires rebuilding.
+Values prefixed with VITE_ are public browser configuration, never secrets.
+
+Set `VITE_USE_MOCK_API=true` in `.env.local` and restart Vite to browse read-only
+sample data through the services without Spring Boot. It defaults to false.
+Pages import services from `src/services/index.ts`; switching the environment
+setting does not require page changes. Mock writes return an explicit 501 error.
+See the services README for usage, fixtures, and authentication limitations.
+
+CoursesPage calls `courses.getCourses()` when it mounts. It displays loading,
+empty, success, and error states; Refresh courses/Try again starts a new request.
+Requests are cancelled when the page unmounts. Course cards show title,
+description, and semester; course-detail navigation is a separate feature.
+An unauthenticated response shows a sign-in message. The login screen and
+automatic navigation to it belong to the authentication work.
+Frontend builds and automated tests do not require a running backend or H2.
+Rendering tests cover the course list states; browser interaction testing is
+not included in the current test setup.
 
 ## GitLab CI
 
