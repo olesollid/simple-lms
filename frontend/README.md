@@ -42,12 +42,31 @@ Use `npm.cmd` instead of `npm` in PowerShell if needed.
 | --- | --- |
 | `npm run dev` | Start Vite with live updates |
 | `npm run lint` | Run ESLint, including React Hooks rules |
+| `npm test` | Run all tests once with Vitest (what CI runs) |
+| `npm run test:watch` | Re-run affected tests on every file save |
 | `npm run build` | Check TypeScript and build static assets into `dist/` |
 | `npm run preview` | Serve the latest build locally, normally on port 4173 |
 
-Run lint and build before opening a merge request. TypeScript strict checking is
+Run lint, tests and build before opening a merge request. TypeScript strict checking is
 active for both application code and Vite configuration. Preview requires a
 successful build and is for local verification, not production hosting.
+
+## Testing
+
+Tests use [Vitest](https://vitest.dev/) with jsdom (a simulated browser) and
+[React Testing Library](https://testing-library.com/docs/react-testing-library/intro/).
+Test files sit next to the code they cover and are named `*.test.ts` or
+`*.test.tsx`. Shared setup is in `src/test/setup.ts`, and the test options are
+in the `test` block of `vite.config.ts`.
+
+```sh
+npm test                                   # run everything once
+npm run test:watch                         # watch mode while developing
+npx vitest run src/components/Counter.test.tsx   # a single file
+```
+
+Query the page the way a user sees it (`getByRole`, `getByText`) and trigger
+interactions with `userEvent`, rather than inspecting component internals.
 
 ## Source layout
 
@@ -55,6 +74,7 @@ successful build and is for local verification, not production hosting.
 src/
   components/    Reusable UI (currently the starter Counter)
   pages/         Complete screens (currently the starter HomePage)
+  test/          Shared test setup (setup.ts)
   services/      Future API communication, grouped by feature
   types/         Future shared TypeScript types, including API DTOs
   assets/        Images and other imported assets
@@ -84,9 +104,16 @@ Frontend builds do not require a running backend or H2 database.
 
 ## GitLab CI
 
-The root `.gitlab-ci.yml` defines `frontend-build` for merge requests and the
-default branch. It uses Node.js 22.19.0, installs with `npm ci`, runs lint and
-build, then retains `frontend/dist/` as a downloadable artifact for one week.
+The root `.gitlab-ci.yml` defines three frontend jobs for merge requests and the
+default branch. They share a hidden `.frontend` template that uses Node.js
+22.19.0 and installs with `npm ci`:
+
+| Job | Stage | What it does |
+| --- | --- | --- |
+| `frontend-lint` | test | `npm run lint` |
+| `frontend-test` | test | `npm test`; publishes a JUnit report so results show in the merge request |
+| `frontend-build` | build | `npm run build`; retains `frontend/dist/` as an artifact for one week |
+
 The npm download cache is keyed by the lockfile. Generated `node_modules/`,
 `.npm/`, and `dist/` directories are ignored by Git.
 
