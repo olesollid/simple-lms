@@ -3,6 +3,7 @@ package com._gods.canvas2.web;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
@@ -71,7 +72,7 @@ class CourseControllerTests {
   @Test
   void getAllCoursesReturnsExistingCourses() throws Exception {
     Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
-    when(courseService.getAllCourses()).thenReturn(List.of(course));
+    when(courseService.getMyCourses(anyString())).thenReturn(List.of(course));
 
     mockMvc.perform(get("/api/courses").with(asTeacher()))
         .andExpect(status().isOk())
@@ -80,7 +81,8 @@ class CourseControllerTests {
 
   @Test
   void getCourseByIdReturns404WhenMissing() throws Exception {
-    when(courseService.getCourseById(999L)).thenThrow(new CourseNotFoundException(999L));
+    when(courseService.getCourseById(eq(999L), anyString()))
+        .thenThrow(new CourseNotFoundException(999L));
 
     mockMvc.perform(get("/api/courses/999").with(asTeacher()))
         .andExpect(status().isNotFound());

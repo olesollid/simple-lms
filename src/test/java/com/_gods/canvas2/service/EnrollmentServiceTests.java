@@ -65,7 +65,8 @@ class EnrollmentServiceTests {
         TEACHER_EMAIL);
 
     assertEquals(Role.STUDENT, enrollment.getRole());
-    assertEquals(EMAIL, enrollmentService.getEnrollment(course.getId(), EMAIL).getUser().getEmail());
+    assertEquals(EMAIL,
+        enrollmentService.getEnrollment(course.getId(), EMAIL, TEACHER_EMAIL).getUser().getEmail());
   }
 
   @Test
@@ -106,15 +107,29 @@ class EnrollmentServiceTests {
   @Test
   void throwsWhenNotEnrolled() {
     assertThrows(NotFoundException.class,
-        () -> enrollmentService.getEnrollment(course.getId(), EMAIL));
+        () -> enrollmentService.getEnrollment(course.getId(), EMAIL, TEACHER_EMAIL));
   }
 
   @Test
   void filtersEnrollmentsByRole() {
     enrollmentService.enroll(course.getId(), EMAIL, Role.STUDENT, TEACHER_EMAIL);
 
-    assertEquals(2, enrollmentService.getEnrollmentsByCourse(course.getId()).size());
-    assertEquals(1, enrollmentService.getEnrollmentsByCourse(course.getId(), Role.TEACHER).size());
+    assertEquals(2, enrollmentService.getEnrollmentsByCourse(course.getId(), TEACHER_EMAIL).size());
+    assertEquals(1,
+        enrollmentService.getEnrollmentsByCourse(course.getId(), Role.TEACHER, TEACHER_EMAIL).size());
+  }
+
+  @Test
+  void rejectsGetEnrollmentsByCourseWhenNotEnrolled() {
+    assertThrows(ForbiddenException.class,
+        () -> enrollmentService.getEnrollmentsByCourse(course.getId(), "stranger@example.com"));
+  }
+
+  @Test
+  void studentCanListCourseRoster() {
+    enrollmentService.enroll(course.getId(), EMAIL, Role.STUDENT, TEACHER_EMAIL);
+
+    assertEquals(2, enrollmentService.getEnrollmentsByCourse(course.getId(), EMAIL).size());
   }
 
   @Test
@@ -125,7 +140,15 @@ class EnrollmentServiceTests {
     enrollmentService.enroll(course.getId(), EMAIL, Role.STUDENT, TEACHER_EMAIL);
     enrollmentService.enroll(other.getId(), EMAIL, Role.STUDENT, "other-teacher@example.com");
 
-    assertEquals(2, enrollmentService.getEnrollmentsByUser(EMAIL).size());
+    assertEquals(2, enrollmentService.getEnrollmentsByUser(EMAIL, EMAIL).size());
+  }
+
+  @Test
+  void rejectsGetEnrollmentsByUserForAnotherUser() {
+    enrollmentService.enroll(course.getId(), EMAIL, Role.STUDENT, TEACHER_EMAIL);
+
+    assertThrows(ForbiddenException.class,
+        () -> enrollmentService.getEnrollmentsByUser(EMAIL, TEACHER_EMAIL));
   }
 
   @Test
@@ -155,7 +178,8 @@ class EnrollmentServiceTests {
 
     enrollmentService.changeRole(course.getId(), EMAIL, Role.TEACHER, TEACHER_EMAIL);
 
-    assertEquals(Role.TEACHER, enrollmentService.getEnrollment(course.getId(), EMAIL).getRole());
+    assertEquals(Role.TEACHER,
+        enrollmentService.getEnrollment(course.getId(), EMAIL, TEACHER_EMAIL).getRole());
   }
 
   @Test
@@ -182,7 +206,9 @@ class EnrollmentServiceTests {
 
     enrollmentService.changeRole(course.getId(), TEACHER_EMAIL, Role.STUDENT, TEACHER_EMAIL);
 
-    assertEquals(Role.STUDENT, enrollmentService.getEnrollment(course.getId(), TEACHER_EMAIL).getRole());
+    assertEquals(Role.STUDENT,
+        enrollmentService.getEnrollment(course.getId(), TEACHER_EMAIL, secondTeacher.getEmail())
+            .getRole());
   }
 
   @Test
@@ -195,7 +221,7 @@ class EnrollmentServiceTests {
     enrollmentService.unenroll(course.getId(), EMAIL, EMAIL);
 
     assertThrows(NotFoundException.class,
-        () -> enrollmentService.getEnrollment(course.getId(), EMAIL));
+        () -> enrollmentService.getEnrollment(course.getId(), EMAIL, TEACHER_EMAIL));
     assertTrue(groupMembershipRepository.findByUser(user).isEmpty());
   }
 
@@ -223,6 +249,7 @@ class EnrollmentServiceTests {
     enrollmentService.unenroll(course.getId(), TEACHER_EMAIL, TEACHER_EMAIL);
 
     assertThrows(NotFoundException.class,
-        () -> enrollmentService.getEnrollment(course.getId(), TEACHER_EMAIL));
+        () -> enrollmentService.getEnrollment(course.getId(), TEACHER_EMAIL,
+            secondTeacher.getEmail()));
   }
 }

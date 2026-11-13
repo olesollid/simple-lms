@@ -38,13 +38,14 @@ public class CourseController {
   }
 
   @GetMapping
-  public List<CourseResponse> getAllCourses() {
-    return courseService.getAllCourses().stream().map(CourseResponse::from).toList();
+  public List<CourseResponse> getMyCourses(Authentication authentication) {
+    return courseService.getMyCourses(authentication.getName()).stream()
+        .map(CourseResponse::from).toList();
   }
 
   @GetMapping("/{id}")
-  public CourseResponse getCourseById(@PathVariable Long id) {
-    return CourseResponse.from(courseService.getCourseById(id));
+  public CourseResponse getCourseById(@PathVariable Long id, Authentication authentication) {
+    return CourseResponse.from(courseService.getCourseById(id, authentication.getName()));
   }
 
   @PutMapping("/{id}")

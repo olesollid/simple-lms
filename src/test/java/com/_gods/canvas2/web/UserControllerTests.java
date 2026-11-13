@@ -66,8 +66,24 @@ class UserControllerTests {
     when(userService.getUserByEmail("missing@example.com"))
         .thenThrow(new NotFoundException("User not found"));
 
-    mockMvc.perform(get("/api/users/missing@example.com").with(as("teacher@example.com")))
+    mockMvc.perform(get("/api/users/missing@example.com").with(as("missing@example.com")))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void getUserForAnotherEmailReturns403() throws Exception {
+    mockMvc.perform(get("/api/users/other@example.com").with(as("student@example.com")))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void getEnrollmentsByUserForAnotherEmailReturns403() throws Exception {
+    doThrow(new com._gods.canvas2.service.ForbiddenException("not self"))
+        .when(enrollmentService).getEnrollmentsByUser(eq("other@example.com"), anyString());
+
+    mockMvc.perform(get("/api/users/other@example.com/enrollments")
+            .with(as("student@example.com")))
+        .andExpect(status().isForbidden());
   }
 
   @Test
@@ -110,7 +126,7 @@ class UserControllerTests {
   @Test
   void getEnrollmentsByUserReturnsEnrollments() throws Exception {
     Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
-    when(enrollmentService.getEnrollmentsByUser("student@example.com"))
+    when(enrollmentService.getEnrollmentsByUser("student@example.com", "student@example.com"))
         .thenReturn(List.of(new Enrollment(user(), course, Role.STUDENT)));
 
     mockMvc.perform(get("/api/users/student@example.com/enrollments")

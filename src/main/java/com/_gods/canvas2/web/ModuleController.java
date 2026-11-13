@@ -38,13 +38,15 @@ public class ModuleController {
   }
 
   @GetMapping("/courses/{courseId}/modules")
-  public List<ModuleResponse> getModulesByCourse(@PathVariable Long courseId) {
-    return moduleService.getModulesByCourse(courseId).stream().map(ModuleResponse::from).toList();
+  public List<ModuleResponse> getModulesByCourse(@PathVariable Long courseId,
+      Authentication authentication) {
+    return moduleService.getModulesByCourse(courseId, authentication.getName()).stream()
+        .map(ModuleResponse::from).toList();
   }
 
   @GetMapping("/modules/{moduleId}")
-  public ModuleResponse getModuleById(@PathVariable Long moduleId) {
-    return ModuleResponse.from(moduleService.getModuleById(moduleId));
+  public ModuleResponse getModuleById(@PathVariable Long moduleId, Authentication authentication) {
+    return ModuleResponse.from(moduleService.getModuleById(moduleId, authentication.getName()));
   }
 
   @PutMapping("/modules/{moduleId}")

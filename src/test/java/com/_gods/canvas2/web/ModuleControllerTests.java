@@ -3,6 +3,7 @@ package com._gods.canvas2.web;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
@@ -89,7 +90,7 @@ class ModuleControllerTests {
   void getModulesByCourseReturnsExistingModules() throws Exception {
     Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
     Module module = module(1L, course, "Week 1");
-    when(moduleService.getModulesByCourse(1L)).thenReturn(List.of(module));
+    when(moduleService.getModulesByCourse(eq(1L), anyString())).thenReturn(List.of(module));
 
     mockMvc.perform(get("/api/courses/1/modules").with(asTeacher()))
         .andExpect(status().isOk())
@@ -98,7 +99,8 @@ class ModuleControllerTests {
 
   @Test
   void getModuleByIdReturns404WhenMissing() throws Exception {
-    when(moduleService.getModuleById(999L)).thenThrow(new ModuleNotFoundException(999L));
+    when(moduleService.getModuleById(eq(999L), anyString()))
+        .thenThrow(new ModuleNotFoundException(999L));
 
     mockMvc.perform(get("/api/modules/999").with(asTeacher()))
         .andExpect(status().isNotFound());

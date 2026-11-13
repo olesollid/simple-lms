@@ -48,7 +48,8 @@ class CourseServiceTests {
   void createsAndStoresCourse() {
     Course course = createCourseAsTeacher();
 
-    assertEquals(course.getId(), courseService.getCourseById(course.getId()).getId());
+    assertEquals(course.getId(),
+        courseService.getCourseById(course.getId(), TEACHER_EMAIL).getId());
   }
 
   @Test
@@ -60,24 +61,48 @@ class CourseServiceTests {
   }
 
   @Test
-  void retrievesAllCourses() {
+  void retrievesOnlyMyCourses() {
     courseService.createCourse("Course A", "desc", Term.AUTUMN, 2026, TEACHER_EMAIL);
     courseService.createCourse("Course B", "desc", Term.SPRING, 2027, TEACHER_EMAIL);
+    User other = userRepository.save(new User("other-teacher@example.com", "Other Teacher"));
+    Course otherCourse = courseService.createCourse("Course C", "desc", Term.SPRING, 2027,
+        other.getEmail());
 
-    List<Course> courses = courseService.getAllCourses();
+    List<Course> courses = courseService.getMyCourses(TEACHER_EMAIL);
 
     assertEquals(2, courses.size());
+    assertTrue(courses.stream().noneMatch(course -> course.getId().equals(otherCourse.getId())));
   }
 
   @Test
   void retrievesCourseById() {
     Course course = createCourseAsTeacher();
 
-    Course found = courseService.getCourseById(course.getId());
+    Course found = courseService.getCourseById(course.getId(), TEACHER_EMAIL);
 
     assertEquals("Intro to Testing", found.getTitle());
     assertEquals(Term.AUTUMN, found.getTerm());
     assertEquals(2026, found.getYear());
+  }
+
+  @Test
+  void rejectsGetCourseByIdWhenNotEnrolled() {
+    Course course = createCourseAsTeacher();
+    userRepository.save(new User("stranger@example.com", "Stranger"));
+
+    assertThrows(ForbiddenException.class,
+        () -> courseService.getCourseById(course.getId(), "stranger@example.com"));
+  }
+
+  @Test
+  void rejectsGetCourseByIdForTeacherOfADifferentCourse() {
+    Course course = createCourseAsTeacher();
+    User otherTeacher = userRepository.save(new User("other-teacher@example.com", "Other Teacher"));
+    courseService.createCourse("Other Course", "desc", Term.SPRING, 2027,
+        otherTeacher.getEmail());
+
+    assertThrows(ForbiddenException.class,
+        () -> courseService.getCourseById(course.getId(), otherTeacher.getEmail()));
   }
 
   @Test
@@ -92,7 +117,7 @@ class CourseServiceTests {
     assertEquals(Term.SPRING, updated.getTerm());
     assertEquals(2027, updated.getYear());
 
-    Course reloaded = courseService.getCourseById(course.getId());
+    Course reloaded = courseService.getCourseById(course.getId(), TEACHER_EMAIL);
     assertEquals("Advanced Testing", reloaded.getTitle());
   }
 
@@ -112,7 +137,8 @@ class CourseServiceTests {
 
   @Test
   void throwsWhenCourseNotFoundOnGet() {
-    assertThrows(CourseNotFoundException.class, () -> courseService.getCourseById(999L));
+    assertThrows(CourseNotFoundException.class,
+        () -> courseService.getCourseById(999L, TEACHER_EMAIL));
   }
 
   @Test
@@ -134,7 +160,8 @@ class CourseServiceTests {
 
     courseService.deleteCourse(course.getId(), TEACHER_EMAIL);
 
-    assertThrows(CourseNotFoundException.class, () -> courseService.getCourseById(course.getId()));
+    assertThrows(CourseNotFoundException.class,
+        () -> courseService.getCourseById(course.getId(), TEACHER_EMAIL));
   }
 
   @Test
@@ -146,6 +173,6 @@ class CourseServiceTests {
     assertThrows(CourseHasDependentsException.class,
         () -> courseService.deleteCourse(course.getId(), TEACHER_EMAIL));
 
-    assertTrue(courseService.getCourseById(course.getId()) != null);
+    assertTrue(courseService.getCourseById(course.getId(), TEACHER_EMAIL) != null);
   }
 }

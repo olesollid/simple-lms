@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
@@ -125,7 +126,7 @@ class ContentControllerTests {
   void getContentsByModuleReturnsExistingContents() throws Exception {
     Module module = module(1L);
     StaticPage page = page(1L, module, "Syllabus", "Welcome!");
-    when(contentService.getContentsByModule(1L)).thenReturn(List.of(page));
+    when(contentService.getContentsByModule(eq(1L), anyString())).thenReturn(List.of(page));
 
     mockMvc.perform(get("/api/modules/1/contents").with(asTeacher()))
         .andExpect(status().isOk())
@@ -134,7 +135,8 @@ class ContentControllerTests {
 
   @Test
   void getContentByIdReturns404WhenMissing() throws Exception {
-    when(contentService.getContentById(999L)).thenThrow(new ContentNotFoundException(999L));
+    when(contentService.getContentById(eq(999L), anyString()))
+        .thenThrow(new ContentNotFoundException(999L));
 
     mockMvc.perform(get("/api/contents/999").with(asTeacher()))
         .andExpect(status().isNotFound());

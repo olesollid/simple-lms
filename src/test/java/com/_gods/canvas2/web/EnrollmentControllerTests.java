@@ -101,7 +101,7 @@ class EnrollmentControllerTests {
 
   @Test
   void getEnrollmentsReturnsAllEnrollments() throws Exception {
-    when(enrollmentService.getEnrollmentsByCourse(1L))
+    when(enrollmentService.getEnrollmentsByCourse(eq(1L), anyString()))
         .thenReturn(List.of(enrollment(Role.STUDENT)));
 
     mockMvc.perform(get("/api/courses/1/enrollments").with(asTeacher()))
@@ -111,7 +111,7 @@ class EnrollmentControllerTests {
 
   @Test
   void getEnrollmentsFiltersByRole() throws Exception {
-    when(enrollmentService.getEnrollmentsByCourse(1L, Role.TEACHER))
+    when(enrollmentService.getEnrollmentsByCourse(eq(1L), eq(Role.TEACHER), anyString()))
         .thenReturn(List.of(enrollment(Role.TEACHER)));
 
     mockMvc.perform(get("/api/courses/1/enrollments").param("role", "TEACHER").with(asTeacher()))
@@ -121,7 +121,7 @@ class EnrollmentControllerTests {
 
   @Test
   void getEnrollmentReturns404WhenNotEnrolled() throws Exception {
-    when(enrollmentService.getEnrollment(1L, "student@example.com"))
+    when(enrollmentService.getEnrollment(eq(1L), eq("student@example.com"), anyString()))
         .thenThrow(new NotFoundException("not enrolled"));
 
     mockMvc.perform(get("/api/courses/1/enrollments/student@example.com").with(asTeacher()))

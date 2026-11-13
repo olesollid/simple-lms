@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com._gods.canvas2.model.User;
 import com._gods.canvas2.service.EnrollmentService;
+import com._gods.canvas2.service.ForbiddenException;
 import com._gods.canvas2.service.UserService;
 import com._gods.canvas2.web.dto.EnrollmentResponse;
 import com._gods.canvas2.web.dto.UserRequest;
@@ -31,7 +33,8 @@ public class UserController {
   }
 
   @GetMapping("/{email}")
-  public UserResponse getUserByEmail(@PathVariable String email) {
+  public UserResponse getUserByEmail(@PathVariable String email, Authentication authentication) {
+    requireSelf(email, authentication);
     return UserResponse.from(userService.getUserByEmail(email));
   }
 
@@ -55,9 +58,16 @@ public class UserController {
   }
 
   @GetMapping("/{email}/enrollments")
-  public List<EnrollmentResponse> getEnrollmentsByUser(@PathVariable String email) {
-    return enrollmentService.getEnrollmentsByUser(email).stream()
+  public List<EnrollmentResponse> getEnrollmentsByUser(@PathVariable String email,
+      Authentication authentication) {
+    return enrollmentService.getEnrollmentsByUser(email, authentication.getName()).stream()
         .map(EnrollmentResponse::from)
         .toList();
+  }
+
+  private void requireSelf(String email, Authentication authentication) {
+    if (!User.normalizeEmail(email).equals(User.normalizeEmail(authentication.getName()))) {
+      throw new ForbiddenException("Users may only view their own account");
+    }
   }
 }

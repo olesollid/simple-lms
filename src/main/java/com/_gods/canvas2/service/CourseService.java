@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com._gods.canvas2.model.Course;
+import com._gods.canvas2.model.Enrollment;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
@@ -36,11 +37,20 @@ public class CourseService {
     return course;
   }
 
-  public List<Course> getAllCourses() {
-    return courseRepository.findAll();
+  /** Not a global catalog: only the courses the requester is enrolled in. */
+  public List<Course> getMyCourses(String requesterEmail) {
+    return enrollmentService.getEnrollmentsByUser(requesterEmail, requesterEmail).stream()
+        .map(Enrollment::getCourse)
+        .distinct()
+        .toList();
   }
 
-  public Course getCourseById(Long id) {
+  public Course getCourseById(Long id, String requesterEmail) {
+    enrollmentService.requireEnrolled(id, requesterEmail);
+    return getCourse(id);
+  }
+
+  private Course getCourse(Long id) {
     return courseRepository.findById(id)
         .orElseThrow(() -> new CourseNotFoundException(id));
   }
@@ -48,7 +58,7 @@ public class CourseService {
   public Course updateCourse(Long id, String title, String description, Term term, int year,
       String requesterEmail) {
     requireTeacher(id, requesterEmail);
-    Course course = getCourseById(id);
+    Course course = getCourse(id);
     course.setTitle(title);
     course.setDescription(description);
     course.setTerm(term);
@@ -58,7 +68,7 @@ public class CourseService {
 
   public void deleteCourse(Long id, String requesterEmail) {
     requireTeacher(id, requesterEmail);
-    Course course = getCourseById(id);
+    Course course = getCourse(id);
     boolean hasModules = !moduleRepository.findByCourse(course).isEmpty();
     // Creating a course auto-enrolls the creator as TEACHER, so their own enrollment doesn't
     // count as a dependent -- otherwise a course could never be deleted by anyone.

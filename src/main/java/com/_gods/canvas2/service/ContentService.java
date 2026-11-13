@@ -35,13 +35,20 @@ public class ContentService {
         new StaticPage(module, title, position, body, visibleFrom, visibleUntil));
   }
 
-  public List<Content> getContentsByModule(Long moduleId) {
+  public List<Content> getContentsByModule(Long moduleId, String requesterEmail) {
     Module module = moduleRepository.findById(moduleId)
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
+    enrollmentService.requireEnrolled(module.getCourse().getId(), requesterEmail);
     return contentRepository.findByModuleOrderByPosition(module);
   }
 
-  public Content getContentById(Long id) {
+  public Content getContentById(Long id, String requesterEmail) {
+    Content content = getContentById(id);
+    enrollmentService.requireEnrolled(content.getModule().getCourse().getId(), requesterEmail);
+    return content;
+  }
+
+  private Content getContentById(Long id) {
     return contentRepository.findById(id)
         .orElseThrow(() -> new ContentNotFoundException(id));
   }
