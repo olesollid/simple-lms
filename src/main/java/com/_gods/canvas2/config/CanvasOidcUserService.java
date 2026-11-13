@@ -20,8 +20,8 @@ import org.springframework.stereotype.Service;
 import com._gods.canvas2.model.User;
 
 /**
- * Resolves Google's and Feide's OIDC logins (both request the openid scope) into a provisioned
- * {@link User} and a principal whose name attribute is the account's normalized, verified email.
+ * Resolves Google's OIDC login (requests the openid scope) into a provisioned {@link User} and a
+ * principal whose name attribute is the account's normalized, verified email.
  */
 @Service
 public class CanvasOidcUserService implements OAuth2UserService<OidcUserRequest, OidcUser> {
@@ -63,7 +63,6 @@ public class CanvasOidcUserService implements OAuth2UserService<OidcUserRequest,
           new OAuth2Error("unverified_email"), "Google account email is not verified");
     }
 
-    // Feide's institutional email is trusted without an additional verified-claim check.
     return email;
   }
 }
