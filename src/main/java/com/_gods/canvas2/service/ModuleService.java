@@ -37,13 +37,20 @@ public class ModuleService {
     return moduleRepository.save(new Module(course, title));
   }
 
-  public List<Module> getModulesByCourse(Long courseId) {
+  public List<Module> getModulesByCourse(Long courseId, String requesterEmail) {
+    enrollmentService.requireEnrolled(courseId, requesterEmail);
     Course course = courseRepository.findById(courseId)
         .orElseThrow(() -> new CourseNotFoundException(courseId));
     return topologicalSort(moduleRepository.findByCourse(course));
   }
 
-  public Module getModuleById(Long id) {
+  public Module getModuleById(Long id, String requesterEmail) {
+    Module module = getModuleById(id);
+    enrollmentService.requireEnrolled(module.getCourse().getId(), requesterEmail);
+    return module;
+  }
+
+  private Module getModuleById(Long id) {
     return moduleRepository.findById(id)
         .orElseThrow(() -> new ModuleNotFoundException(id));
   }

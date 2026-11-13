@@ -41,17 +41,18 @@ public class EnrollmentController {
 
   @GetMapping
   public List<EnrollmentResponse> getEnrollments(@PathVariable Long courseId,
-      @RequestParam(required = false) Role role) {
+      @RequestParam(required = false) Role role, Authentication authentication) {
     List<Enrollment> enrollments = role == null
-        ? enrollmentService.getEnrollmentsByCourse(courseId)
-        : enrollmentService.getEnrollmentsByCourse(courseId, role);
+        ? enrollmentService.getEnrollmentsByCourse(courseId, authentication.getName())
+        : enrollmentService.getEnrollmentsByCourse(courseId, role, authentication.getName());
     return enrollments.stream().map(EnrollmentResponse::from).toList();
   }
 
   @GetMapping("/{email}")
   public EnrollmentResponse getEnrollment(@PathVariable Long courseId,
-      @PathVariable String email) {
-    return EnrollmentResponse.from(enrollmentService.getEnrollment(courseId, email));
+      @PathVariable String email, Authentication authentication) {
+    return EnrollmentResponse.from(
+        enrollmentService.getEnrollment(courseId, email, authentication.getName()));
   }
 
   @PutMapping("/{email}")

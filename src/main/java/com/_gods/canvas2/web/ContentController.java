@@ -42,15 +42,17 @@ public class ContentController {
   }
 
   @GetMapping("/modules/{moduleId}/contents")
-  public List<ContentResponse> getContentsByModule(@PathVariable Long moduleId) {
-    return contentService.getContentsByModule(moduleId).stream()
+  public List<ContentResponse> getContentsByModule(@PathVariable Long moduleId,
+      Authentication authentication) {
+    return contentService.getContentsByModule(moduleId, authentication.getName()).stream()
         .map(ContentResponse::from)
         .toList();
   }
 
   @GetMapping("/contents/{contentId}")
-  public ContentResponse getContentById(@PathVariable Long contentId) {
-    return ContentResponse.from(contentService.getContentById(contentId));
+  public ContentResponse getContentById(@PathVariable Long contentId,
+      Authentication authentication) {
+    return ContentResponse.from(contentService.getContentById(contentId, authentication.getName()));
   }
 
   @PutMapping("/contents/{contentId}")

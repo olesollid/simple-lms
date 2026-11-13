@@ -98,19 +98,39 @@ class ContentServiceTests {
     contentService.createStaticPage(module.getId(), "Second", 1, "B", null, null, teacherEmail);
     contentService.createStaticPage(module.getId(), "First", 0, "A", null, null, teacherEmail);
 
-    List<Content> contents = contentService.getContentsByModule(module.getId());
+    List<Content> contents = contentService.getContentsByModule(module.getId(), teacherEmail);
 
     assertEquals(List.of("First", "Second"), contents.stream().map(Content::getTitle).toList());
   }
 
   @Test
+  void rejectsGetContentsByModuleWhenNotEnrolled() {
+    Module module = module();
+
+    assertThrows(ForbiddenException.class,
+        () -> contentService.getContentsByModule(module.getId(), "stranger@example.com"));
+  }
+
+  @Test
+  void studentCanGetContentsByModule() {
+    Module module = module();
+    String student = studentOf(module);
+    contentService.createStaticPage(module.getId(), "Syllabus", 0, "Welcome!", null, null,
+        teacherEmail);
+
+    assertEquals(1, contentService.getContentsByModule(module.getId(), student).size());
+  }
+
+  @Test
   void throwsWhenRetrievingContentsForMissingModule() {
-    assertThrows(ModuleNotFoundException.class, () -> contentService.getContentsByModule(999L));
+    assertThrows(ModuleNotFoundException.class,
+        () -> contentService.getContentsByModule(999L, "nobody@example.com"));
   }
 
   @Test
   void throwsWhenContentNotFound() {
-    assertThrows(ContentNotFoundException.class, () -> contentService.getContentById(999L));
+    assertThrows(ContentNotFoundException.class,
+        () -> contentService.getContentById(999L, "nobody@example.com"));
     assertThrows(ContentNotFoundException.class,
         () -> contentService.updateContentMetadata(999L, "x", 0, null, null, "nobody@example.com"));
     assertThrows(ContentNotFoundException.class,
@@ -180,8 +200,9 @@ class ContentServiceTests {
 
     contentService.deleteContent(page.getId(), teacherEmail);
 
-    assertTrue(contentService.getContentsByModule(module.getId()).isEmpty());
-    assertThrows(ContentNotFoundException.class, () -> contentService.getContentById(page.getId()));
+    assertTrue(contentService.getContentsByModule(module.getId(), teacherEmail).isEmpty());
+    assertThrows(ContentNotFoundException.class,
+        () -> contentService.getContentById(page.getId(), teacherEmail));
   }
 
   @Test

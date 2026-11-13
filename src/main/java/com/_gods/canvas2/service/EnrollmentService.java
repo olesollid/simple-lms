@@ -53,23 +53,33 @@ public class EnrollmentService {
     return enrollmentRepository.save(new Enrollment(user, course, role));
   }
 
+  /** Any enrolled member (either role) may view the full roster. */
   @Transactional(readOnly = true)
-  public List<Enrollment> getEnrollmentsByCourse(Long courseId) {
+  public List<Enrollment> getEnrollmentsByCourse(Long courseId, String requesterEmail) {
+    requireEnrolled(courseId, requesterEmail);
     return enrollmentRepository.findByCourse(getCourse(courseId));
   }
 
   @Transactional(readOnly = true)
-  public List<Enrollment> getEnrollmentsByCourse(Long courseId, Role role) {
+  public List<Enrollment> getEnrollmentsByCourse(Long courseId, Role role, String requesterEmail) {
+    requireEnrolled(courseId, requesterEmail);
     return enrollmentRepository.findByCourseAndRole(getCourse(courseId), role);
   }
 
+  /** Self-only: a user may list only their own enrollments. */
   @Transactional(readOnly = true)
-  public List<Enrollment> getEnrollmentsByUser(String email) {
+  public List<Enrollment> getEnrollmentsByUser(String email, String requesterEmail) {
+    requireSelf(email, requesterEmail);
     return enrollmentRepository.findByUser(userService.getUserByEmail(email));
   }
 
   @Transactional(readOnly = true)
-  public Enrollment getEnrollment(Long courseId, String email) {
+  public Enrollment getEnrollment(Long courseId, String email, String requesterEmail) {
+    requireEnrolled(courseId, requesterEmail);
+    return getEnrollment(courseId, email);
+  }
+
+  private Enrollment getEnrollment(Long courseId, String email) {
     Course course = getCourse(courseId);
     User user = userService.getUserByEmail(email);
     return enrollmentRepository.findByUserAndCourse(user, course)
@@ -89,6 +99,27 @@ public class EnrollmentService {
     return enrollmentRepository.findByUserAndCourse(user, course)
         .map(enrollment -> enrollment.getRole() == role)
         .orElse(false);
+  }
+
+  /** True if the user has any enrollment (either role) in the course. */
+  @Transactional(readOnly = true)
+  public boolean isEnrolled(Long courseId, String email) {
+    Course course = getCourse(courseId);
+    User user;
+    try {
+      user = userService.getUserByEmail(email);
+    } catch (NotFoundException e) {
+      return false;
+    }
+    return enrollmentRepository.findByUserAndCourse(user, course).isPresent();
+  }
+
+  /** Shared read-access guard: any role enrolled in the course may read its contents. */
+  public void requireEnrolled(Long courseId, String requesterEmail) {
+    if (!isEnrolled(courseId, requesterEmail)) {
+      throw new ForbiddenException(
+          "Only a member of course " + courseId + " may view this resource");
+    }
   }
 
   public Enrollment changeRole(Long courseId, String email, Role role, String requesterEmail) {
@@ -118,6 +149,12 @@ public class EnrollmentService {
         groupMembershipRepository.findByUserAndGroupCourse(enrollment.getUser(),
             enrollment.getCourse()));
     enrollmentRepository.delete(enrollment);
+  }
+
+  private void requireSelf(String email, String requesterEmail) {
+    if (!User.normalizeEmail(email).equals(User.normalizeEmail(requesterEmail))) {
+      throw new ForbiddenException("Users may only view their own enrollments");
+    }
   }
 
   private void requireTeacher(Long courseId, String requesterEmail) {

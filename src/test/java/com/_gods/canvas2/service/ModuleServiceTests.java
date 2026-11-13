@@ -103,10 +103,31 @@ class ModuleServiceTests {
     moduleService.addDependency(b.getId(), a.getId(), teacher);
     moduleService.addDependency(c.getId(), b.getId(), teacher);
 
-    List<Module> ordered = moduleService.getModulesByCourse(course.getId());
+    List<Module> ordered = moduleService.getModulesByCourse(course.getId(), teacher);
 
     assertEquals(List.of(a.getId(), b.getId(), c.getId()),
         ordered.stream().map(Module::getId).toList());
+  }
+
+  @Test
+  void rejectsGetModulesByCourseWhenNotEnrolled() {
+    Course course = course();
+    teacherOf(course);
+
+    assertThrows(ForbiddenException.class,
+        () -> moduleService.getModulesByCourse(course.getId(), "stranger@example.com"));
+  }
+
+  @Test
+  void studentCanListModulesByCourse() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Module module = moduleService.createModule(course.getId(), "Week 1", teacher);
+
+    List<Module> modules = moduleService.getModulesByCourse(course.getId(), student);
+
+    assertEquals(List.of(module.getId()), modules.stream().map(Module::getId).toList());
   }
 
   @Test
@@ -116,8 +137,8 @@ class ModuleServiceTests {
     Module first = moduleService.createModule(course.getId(), "First", teacher);
     Module second = moduleService.createModule(course.getId(), "Second", teacher);
 
-    List<Module> firstCall = moduleService.getModulesByCourse(course.getId());
-    List<Module> secondCall = moduleService.getModulesByCourse(course.getId());
+    List<Module> firstCall = moduleService.getModulesByCourse(course.getId(), teacher);
+    List<Module> secondCall = moduleService.getModulesByCourse(course.getId(), teacher);
 
     assertEquals(List.of(first.getId(), second.getId()),
         firstCall.stream().map(Module::getId).toList());
@@ -149,11 +170,32 @@ class ModuleServiceTests {
 
   @Test
   void throwsWhenModuleNotFound() {
-    assertThrows(ModuleNotFoundException.class, () -> moduleService.getModuleById(999L));
+    assertThrows(ModuleNotFoundException.class,
+        () -> moduleService.getModuleById(999L, "nobody@example.com"));
     assertThrows(ModuleNotFoundException.class,
         () -> moduleService.updateModuleTitle(999L, "x", "nobody@example.com"));
     assertThrows(ModuleNotFoundException.class,
         () -> moduleService.deleteModule(999L, "nobody@example.com"));
+  }
+
+  @Test
+  void rejectsGetModuleByIdWhenNotEnrolled() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    Module module = moduleService.createModule(course.getId(), "Week 1", teacher);
+
+    assertThrows(ForbiddenException.class,
+        () -> moduleService.getModuleById(module.getId(), "stranger@example.com"));
+  }
+
+  @Test
+  void studentCanGetModuleById() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Module module = moduleService.createModule(course.getId(), "Week 1", teacher);
+
+    assertEquals("Week 1", moduleService.getModuleById(module.getId(), student).getTitle());
   }
 
   @Test
@@ -165,7 +207,8 @@ class ModuleServiceTests {
     List<Module> affected = moduleService.deleteModule(module.getId(), teacher);
 
     assertTrue(affected.isEmpty());
-    assertThrows(ModuleNotFoundException.class, () -> moduleService.getModuleById(module.getId()));
+    assertThrows(ModuleNotFoundException.class,
+        () -> moduleService.getModuleById(module.getId(), teacher));
   }
 
   @Test
@@ -193,9 +236,10 @@ class ModuleServiceTests {
 
     assertEquals(List.of(b.getId(), c.getId()),
         affected.stream().map(Module::getId).sorted().toList());
-    assertThrows(ModuleNotFoundException.class, () -> moduleService.getModuleById(a.getId()));
-    assertTrue(moduleService.getModuleById(b.getId()).getDependencies().isEmpty());
-    assertTrue(moduleService.getModuleById(c.getId()).getDependencies().isEmpty());
+    assertThrows(ModuleNotFoundException.class,
+        () -> moduleService.getModuleById(a.getId(), teacher));
+    assertTrue(moduleService.getModuleById(b.getId(), teacher).getDependencies().isEmpty());
+    assertTrue(moduleService.getModuleById(c.getId(), teacher).getDependencies().isEmpty());
   }
 
   @Test
@@ -210,7 +254,8 @@ class ModuleServiceTests {
     List<Module> affected = moduleService.deleteModule(a.getId(), teacher);
 
     assertTrue(affected.isEmpty());
-    assertTrue(moduleService.getModuleById(unrelated.getId()).getDependencies().isEmpty());
+    assertTrue(
+        moduleService.getModuleById(unrelated.getId(), otherTeacher).getDependencies().isEmpty());
   }
 
   @Test
@@ -221,10 +266,10 @@ class ModuleServiceTests {
     Module b = moduleService.createModule(course.getId(), "B", teacher);
 
     moduleService.addDependency(b.getId(), a.getId(), teacher);
-    assertTrue(moduleService.getModuleById(b.getId()).getDependencies().contains(a));
+    assertTrue(moduleService.getModuleById(b.getId(), teacher).getDependencies().contains(a));
 
     moduleService.removeDependency(b.getId(), a.getId(), teacher);
-    assertTrue(moduleService.getModuleById(b.getId()).getDependencies().isEmpty());
+    assertTrue(moduleService.getModuleById(b.getId(), teacher).getDependencies().isEmpty());
   }
 
   @Test
