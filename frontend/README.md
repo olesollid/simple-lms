@@ -4,7 +4,7 @@ React, TypeScript, and Vite frontend for the Spring Boot LMS.
 
 ## Requirements
 
-Use Node.js 22.19.0 and its bundled npm. The version is recorded in `.nvmrc`
+Use Node.js 22.22.2 and its bundled npm. The version is recorded in `.nvmrc`
 and used by the GitLab frontend job. Run frontend commands from this directory.
 If your Node version manager supports `.nvmrc`, use it to select that version.
 
@@ -55,14 +55,15 @@ successful build and is for local verification, not production hosting.
 
 Tests use [Vitest](https://vitest.dev/) with jsdom (a simulated browser) and
 [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/).
-Test files sit next to the code they cover and are named `*.test.ts` or
-`*.test.tsx`. Shared setup is in `src/test/setup.ts`, and the test options are
-in the `test` block of `vite.config.ts`.
+Tests include `src/**/*.test.ts`, `src/**/*.test.tsx`, and the migrated
+`tests/**/*.test.mjs` API/service/rendering suites. All use Vitest and run through
+the same `npm test` command locally and in CI. Shared setup is in
+`src/test/setup.ts`, and the test options are in `vite.config.ts`.
 
 ```sh
 npm test                                   # run everything once
 npm run test:watch                         # watch mode while developing
-npx vitest run src/components/Counter.test.tsx   # a single file
+npx vitest run src/components/CourseCard.test.tsx   # a single file
 ```
 
 Query the page the way a user sees it (`getByRole`, `getByText`) and trigger
@@ -123,7 +124,7 @@ not included in the current test setup.
 
 The root `.gitlab-ci.yml` defines three frontend jobs for merge requests and the
 default branch. They share a hidden `.frontend` template that uses Node.js
-22.19.0 and installs with `npm ci`:
+22.22.2 and installs with `npm ci`:
 
 | Job | Stage | What it does |
 | --- | --- | --- |

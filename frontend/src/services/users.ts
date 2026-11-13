@@ -5,11 +5,9 @@ import type { ApiCallOptions, ApiRequest } from './apiClient.ts'
 export function createUserService(request: ApiRequest) {
   const path = (email: string) => `/users/${encodeURIComponent(email)}`
   return {
-    getUsers: (options?: ApiCallOptions) => request<UserResponse[]>('/users', options),
+    getCurrentUser: (options?: ApiCallOptions) => request<UserResponse>('/users/me', options),
     getUser: (email: string, options?: ApiCallOptions) =>
       request<UserResponse>(path(email), options),
-    createUser: (body: UserRequest, options?: ApiCallOptions) =>
-      request<UserResponse>('/users', { ...options, method: 'POST', body }),
     updateUser: (email: string, body: UserRequest, options?: ApiCallOptions) =>
       request<UserResponse>(path(email), { ...options, method: 'PUT', body }),
     deleteUser: (email: string, options?: ApiCallOptions) =>

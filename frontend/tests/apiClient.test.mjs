@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { ApiError, ApiResponseError, createApiClient } from '../src/services/apiClient.ts'
 
 test('joins the base URL, sends cookies, and returns JSON', async () => {
@@ -19,14 +19,14 @@ test('serializes request bodies and forwards custom CSRF headers and abort signa
     assert.equal(url, '/api/courses')
     assert.equal(options.method, 'POST')
     assert.equal(options.headers.get('Content-Type'), 'application/json')
-    assert.equal(options.headers.get('X-CSRF-TOKEN'), 'token-from-auth-layer')
+    assert.equal(options.headers.get('X-XSRF-TOKEN'), 'token-from-auth-layer')
     assert.equal(options.signal, controller.signal)
     assert.deepEqual(JSON.parse(options.body), { title: 'DAT250' })
     return Response.json({ id: 1 }, { status: 201 })
   })
   await request('courses', {
     method: 'POST', body: { title: 'DAT250' },
-    headers: { 'X-CSRF-TOKEN': 'token-from-auth-layer' }, signal: controller.signal,
+    headers: { 'X-XSRF-TOKEN': 'token-from-auth-layer' }, signal: controller.signal,
   })
 })
 
