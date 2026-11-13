@@ -31,9 +31,10 @@ failures and cancelled requests retain their native fetch errors.
 An unexpected non-JSON success throws ApiResponseError (for example, HTML from
 a login redirect). The client does not redirect users or manage login state.
 
-Session cookies alone do not complete authentication. The auth layer must obtain
-and refresh a CSRF token and pass its agreed header through `headers` on requests
-that modify data. No token endpoint or header convention is assumed here.
+Session cookies alone do not complete authentication. Spring Security's SPA
+CSRF configuration supplies an XSRF-TOKEN cookie. The client reads it for each
+write and sends it as X-XSRF-TOKEN, unless that header is explicitly supplied.
+The authentication flow must still ensure the token cookie is obtained/refreshed.
 The auth layer should handle ApiError status 401; authorization/CSRF failures may
 return 403. For a cross-origin API, backend CORS and cookie settings must also
 permit credentialed requests. Keep `/api` for the simple same-origin setup.
@@ -50,11 +51,15 @@ const course = await courses.getCourse(1)
 const students = await enrollments.getEnrollments(1, 'STUDENT')
 const courseModules = await modules.getModules(1)
 const user = await users.getUser('student@example.com')
+const currentUser = await users.getCurrentUser()
 ```
 
 `courses.ts`, `users.ts`, `enrollments.ts`, and `modules.ts` cover the current
 controllers' read, create, update and delete operations, including module
 dependencies and enrollments by user. Email path segments are URL-encoded.
+Users are created by backend OAuth provisioning. There is no public create-user
+or list-all-users operation. `users.getCurrentUser()` calls `/api/users/me`;
+user lookup, name update, deletion, and enrollment lookup use the existing endpoints.
 Each function accepts optional request headers and an AbortSignal as its last
 argument, allowing the authentication layer to provide CSRF headers.
 For example: `courses.createCourse(body, { headers: csrfHeaders })`.
@@ -71,7 +76,9 @@ functions, return types, and ApiError handling in either mode.
 
 Mock data includes courses 1 and 2, student@example.com, teacher@example.com,
 two modules and two enrollments in course 1. Course 2 has no modules/enrollments
-for empty-state development. Unknown resources return 404. Every non-GET request
+for empty-state development. `/users/me` returns the sample student; `/users`
+returns 404, matching the removed list endpoint. The sample identity does not
+represent a real authenticated session. Unknown resources return 404. Every non-GET request
 returns 501 with a clear read-only message. The mock does not authenticate users,
 simulate persistence, enforce course permissions, or replace backend tests.
 It intercepts only these service calls, not arbitrary browser fetch requests.

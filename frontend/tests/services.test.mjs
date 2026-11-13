@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import { createApiClient, ApiError } from '../src/services/apiClient.ts'
 import { createServices } from '../src/services/createServices.ts'
 import { createMockFetch } from '../src/services/mocks/mockFetch.ts'
@@ -13,7 +13,7 @@ test('the same feature services load courses, users, modules and enrollments fro
   const list = await courses.getCourses()
   assert.equal(list.length, 2)
   assert.deepEqual(await courses.getCourse(1), list[0])
-  assert.equal((await users.getUsers()).length, 2)
+  assert.equal((await users.getCurrentUser()).email, 'student@example.com')
   assert.equal((await users.getUser('student@example.com')).name, 'Example Student')
   assert.equal((await modules.getModules(1))[1].dependencyIds[0], 1)
   assert.equal((await modules.getModule(2)).title, 'Persistence')
@@ -66,11 +66,11 @@ test('real transport encodes email paths and preserves bodies, methods, CSRF hea
   assert.equal(calls.at(-1).url, `/api/users/${encoded}`)
   await services.enrollments.getEnrollments(1, 'STUDENT')
   assert.equal(calls.at(-1).url, '/api/courses/1/enrollments?role=STUDENT')
-  await services.enrollments.changeRole(1, email, 'TEACHER', { headers: { 'X-CSRF-TOKEN': 'token' } })
+  await services.enrollments.changeRole(1, email, 'TEACHER', { headers: { 'X-XSRF-TOKEN': 'token' } })
   assert.equal(calls.at(-1).url, `/api/courses/1/enrollments/${encoded}`)
   assert.equal(calls.at(-1).method, 'PUT')
   assert.deepEqual(JSON.parse(calls.at(-1).body), { email, role: 'TEACHER' })
-  assert.equal(calls.at(-1).headers.get('X-CSRF-TOKEN'), 'token')
+  assert.equal(calls.at(-1).headers.get('X-XSRF-TOKEN'), 'token')
   await services.modules.addDependency(3, 2)
   assert.equal(calls.at(-1).url, '/api/modules/3/dependencies/2')
   assert.equal(calls.at(-1).method, 'POST')
@@ -93,4 +93,26 @@ test('mock reads respect request cancellation', async () => {
   controller.abort()
   await assert.rejects(mockServices().courses.getCourses({ signal: controller.signal }),
     error => error.name === 'AbortError')
+})
+
+test('current-user service calls the OAuth identity endpoint and forwards request options', async () => {
+  const controller = new AbortController()
+  const identity = { email: 'teacher@example.com', name: 'Example Teacher' }
+  const services = createServices(createApiClient('/api', async (url, options) => {
+    assert.equal(url, '/api/users/me')
+    assert.equal(options.signal, controller.signal)
+    assert.equal(options.credentials, 'include')
+    return Response.json(identity)
+  }))
+  assert.deepEqual(await services.users.getCurrentUser({ signal: controller.signal }), identity)
+  assert.equal('getUsers' in services.users, false)
+  assert.equal('createUser' in services.users, false)
+})
+
+test('mock current user matches the user lookup and removed list endpoint returns 404', async () => {
+  const request = createApiClient('/api', createMockFetch())
+  const { users } = createServices(request)
+  const currentUser = await users.getCurrentUser()
+  assert.deepEqual(currentUser, await users.getUser(currentUser.email))
+  await assert.rejects(request('/users'), error => error instanceof ApiError && error.status === 404)
 })

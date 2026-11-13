@@ -60,7 +60,9 @@ export function createMockFetch(): typeof fetch {
       }
     }
     if (resource === 'users') {
-      if (!key) return result(users)
+      if (!key) return missing()
+      // A fixed sample identity; mock mode does not simulate OAuth sessions.
+      if (key === 'me' && !relation) return result(users[0])
       const user = users.find(item => item.email === decodeURIComponent(key).toLowerCase())
       if (!user) return missing()
       if (!relation) return result(user)

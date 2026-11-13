@@ -1,7 +1,7 @@
 ### Frontend development
 
 The React + TypeScript application lives in [frontend](frontend/README.md).
-Use Node.js 22.19.0 (also used in GitLab CI), then run from `frontend/`:
+Use Node.js 22.22.2 (also used in GitLab CI), then run from `frontend/`:
 
 ```powershell
 npm.cmd ci

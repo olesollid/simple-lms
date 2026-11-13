@@ -22,7 +22,7 @@ cache:
 # Shared setup for the frontend jobs: Node image, lockfile-keyed npm cache,
 # reproducible install with `npm ci`, and the same trigger rules as the backend.
 .frontend:
-  image: node:22.19.0-bookworm-slim
+  image: node:22.22.2-bookworm-slim
   cache:
     key:
       prefix: frontend-npm

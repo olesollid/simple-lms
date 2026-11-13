@@ -1,21 +1,10 @@
 import assert from 'node:assert/strict'
-import { after, before, test } from 'node:test'
+import { test } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { createServer } from 'vite'
+import CourseList from '../src/components/CourseList.tsx'
 import { courseListError } from '../src/pages/courseListState.ts'
 import { ApiError, ApiResponseError } from '../src/services/apiClient.ts'
-
-let server
-let CourseList
-
-before(async () => {
-  // Use the existing Vite JSX transform; no extra test framework is needed.
-  server = await createServer({ mode: 'test', server: { middlewareMode: true }, appType: 'custom' })
-  CourseList = (await server.ssrLoadModule('/src/components/CourseList.tsx')).default
-})
-
-after(async () => { await server?.close() })
 
 const render = state => renderToStaticMarkup(createElement(CourseList, { state }))
 
