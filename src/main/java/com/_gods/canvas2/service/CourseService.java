@@ -3,6 +3,7 @@ package com._gods.canvas2.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Enrollment;
@@ -14,6 +15,7 @@ import com._gods.canvas2.repository.EnrollmentRepository;
 import com._gods.canvas2.repository.ModuleRepository;
 
 @Service
+@Transactional
 public class CourseService {
 
   private final CourseRepository courseRepository;
@@ -38,6 +40,7 @@ public class CourseService {
   }
 
   /** Not a global catalog: only the courses the requester is enrolled in. */
+  @Transactional(readOnly = true)
   public List<Course> getMyCourses(String requesterEmail) {
     return enrollmentService.getEnrollmentsByUser(requesterEmail, requesterEmail).stream()
         .map(Enrollment::getCourse)
@@ -45,6 +48,7 @@ public class CourseService {
         .toList();
   }
 
+  @Transactional(readOnly = true)
   public Course getCourseById(Long id, String requesterEmail) {
     enrollmentService.requireEnrolled(id, requesterEmail);
     return getCourse(id);
