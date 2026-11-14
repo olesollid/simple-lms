@@ -122,9 +122,13 @@ public class EnrollmentService {
     }
   }
 
+  /**
+   * A self-change may only lower your own role (e.g. TEACHER to STUDENT); promoting yourself,
+   * including to TEACHER, always requires an existing teacher to make the change.
+   */
   public Enrollment changeRole(Long courseId, String email, Role role, String requesterEmail) {
     boolean self = User.normalizeEmail(email).equals(User.normalizeEmail(requesterEmail));
-    if (!self) {
+    if (!self || role == Role.TEACHER) {
       requireTeacher(courseId, requesterEmail);
     }
     Enrollment enrollment = getEnrollment(courseId, email);
