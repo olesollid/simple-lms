@@ -16,6 +16,7 @@ import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Enrollment;
 import com._gods.canvas2.model.Module;
+import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StaticPage;
 import com._gods.canvas2.model.Term;
@@ -89,6 +90,35 @@ class ContentServiceTests {
   void throwsWhenCreatingStaticPageForMissingModule() {
     assertThrows(ModuleNotFoundException.class,
         () -> contentService.createStaticPage(999L, "Syllabus", 0, "Welcome!", null, null,
+            "nobody@example.com"));
+  }
+
+  @Test
+  void createsQuiz() {
+    Module module = module();
+
+    Quiz quiz = contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, false, null,
+        teacherEmail);
+
+    assertEquals("Week 1 Quiz", quiz.getTitle());
+    assertEquals(1, quiz.getMaxAttempts());
+    assertEquals(module.getId(), quiz.getModule().getId());
+  }
+
+  @Test
+  void rejectsCreatingQuizByStudent() {
+    Module module = module();
+    String student = studentOf(module);
+
+    assertThrows(ForbiddenException.class,
+        () -> contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, false, null,
+            student));
+  }
+
+  @Test
+  void throwsWhenCreatingQuizForMissingModule() {
+    assertThrows(ModuleNotFoundException.class,
+        () -> contentService.createQuiz(999L, "Week 1 Quiz", 0, 1, false, null,
             "nobody@example.com"));
   }
 

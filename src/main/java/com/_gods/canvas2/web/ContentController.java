@@ -15,10 +15,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com._gods.canvas2.model.Content;
+import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.StaticPage;
 import com._gods.canvas2.service.ContentService;
 import com._gods.canvas2.web.dto.ContentMetadataRequest;
 import com._gods.canvas2.web.dto.ContentResponse;
+import com._gods.canvas2.web.dto.QuizRequest;
 import com._gods.canvas2.web.dto.StaticPageBodyRequest;
 import com._gods.canvas2.web.dto.StaticPageRequest;
 
@@ -39,6 +41,15 @@ public class ContentController {
         request.position(), request.body(), request.visibleFrom(), request.visibleUntil(),
         authentication.getName());
     return ResponseEntity.status(HttpStatus.CREATED).body(ContentResponse.from(page));
+  }
+
+  @PostMapping("/modules/{moduleId}/quizzes")
+  public ResponseEntity<ContentResponse> createQuiz(@PathVariable Long moduleId,
+      @RequestBody QuizRequest request, Authentication authentication) {
+    Quiz quiz = contentService.createQuiz(moduleId, request.title(), request.position(),
+        request.maxAttempts(), request.showHints(), request.deadline(),
+        authentication.getName());
+    return ResponseEntity.status(HttpStatus.CREATED).body(ContentResponse.from(quiz));
   }
 
   @GetMapping("/modules/{moduleId}/contents")

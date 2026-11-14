@@ -21,7 +21,7 @@ import com._gods.canvas2.model.*;
 import com._gods.canvas2.model.Module;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("dev")
+@ActiveProfiles("h2console")
 class H2DatabaseTests {
 
   @Autowired
@@ -66,6 +66,32 @@ class H2DatabaseTests {
     assertEquals(user.getEmail(), loaded.getUser().getEmail());
     assertEquals(items.get(0).getId(), loaded.getContent().getId());
     assertNotNull(entityManager.find(StudentInteraction.class, completed.getId()).getCompletedAt());
+  }
+
+  @Test
+  @Transactional
+  void cascadesQuizQuestionsAndAnswerOptionsThroughSaveAndReload() {
+    Course course = new Course("DAT250", "Database test", Term.AUTUMN, 2026);
+    entityManager.persist(course);
+    Module module = new Module(course, "Week 1");
+    entityManager.persist(module);
+
+    Quiz quiz = new Quiz(module, "Week 1 Quiz", 0, 3, true);
+    Question question = quiz.addQuestion("Which are prime?");
+    question.addOption("2", true);
+    question.addOption("3", true);
+    question.addOption("4", false);
+    entityManager.persist(quiz);
+    entityManager.flush();
+    entityManager.clear();
+
+    Quiz reloaded = entityManager.find(Quiz.class, quiz.getId());
+    assertEquals(1, reloaded.getQuestions().size());
+    Question reloadedQuestion = reloaded.getQuestions().get(0);
+    assertEquals("Which are prime?", reloadedQuestion.getText());
+    assertEquals(3, reloadedQuestion.getOptions().size());
+    long correctCount = reloadedQuestion.getOptions().stream().filter(AnswerOption::isCorrect).count();
+    assertEquals(2, correctCount);
   }
 
   @Test

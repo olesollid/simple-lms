@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Module;
+import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StaticPage;
 import com._gods.canvas2.repository.ContentRepository;
@@ -35,6 +36,14 @@ public class ContentService {
     requireTeacher(module.getCourse().getId(), requesterEmail);
     return contentRepository.save(
         new StaticPage(module, title, position, body, visibleFrom, visibleUntil));
+  }
+
+  public Quiz createQuiz(Long moduleId, String title, int position, int maxAttempts,
+      boolean showHints, LocalDateTime deadline, String requesterEmail) {
+    Module module = moduleRepository.findById(moduleId)
+        .orElseThrow(() -> new ModuleNotFoundException(moduleId));
+    requireTeacher(module.getCourse().getId(), requesterEmail);
+    return (Quiz) contentRepository.save(new Quiz(module, title, position, maxAttempts, showHints, deadline));
   }
 
   @Transactional(readOnly = true)

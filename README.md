@@ -28,8 +28,10 @@ Start from the directory containing pom.xml:
 
 On Linux/macOS use `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev`.
 If the wrapper is unavailable, use an installed Maven with the same arguments.
-The dev profile disables automatic Docker Compose startup; Redis and RabbitMQ
-are not required for these database operations.
+The dev profile disables automatic Docker Compose startup. Redis and RabbitMQ
+are not required for course/module/content operations, but **are** required
+to run the app at all once quiz grading is involved -- see
+[Quiz submission grading](#quiz-submission-grading) below.
 
 Open http://localhost:8080/h2-console/ and connect with:
 
@@ -62,15 +64,58 @@ Run automated checks:
 ```
 
 Repository tests cover users, courses, enrollments, modules, groups and memberships.
-H2DatabaseTests starts the actual web application using the dev datasource,
-saves and reloads all four content types and student interactions, and checks
-console access and API authentication. Tests do not need external services.
+H2DatabaseTests starts the actual web application using the `h2console` profile
+(not `dev` -- see below), saves and reloads all four content types and student
+interactions, and checks console access and API authentication.
+
+`QuizGradingPipelineIntegrationTests` is the one exception: it needs a local Docker
+daemon, since it uses Testcontainers to start disposable RabbitMQ and Redis containers
+and prove the submission-grading pipeline against real infrastructure. GitLab CI's
+runner doesn't expose a usable Docker daemon, so this one test is excluded there via
+`-Dsurefire.excludesFile=ci-excluded-tests.txt`; run it yourself locally with
+`./mvnw test -Dtest=QuizGradingPipelineIntegrationTests` whenever you touch the
+grading pipeline.
 
 These defaults are for development, not deployment. To retain data across restarts,
 configure a file URL such as `jdbc:h2:file:./data/canvas2;DB_CLOSE_ON_EXIT=FALSE`
 and change `ddl-auto` to `update` for local development; changing the URL alone
 does not prevent create-drop from deleting data. For deployment, configure an
 appropriate datasource and managed schema migrations, and leave the dev profile off.
+
+### Quiz submission grading
+
+Quiz submissions are graded asynchronously: a student's answers are published
+as an event to RabbitMQ, a listener consumes it, grades it, and stores the
+result in Redis. This only runs under the `dev` profile -- `SubmissionGradingListener`
+is `@Profile("dev")`-gated specifically so the rest of the test suite, CI, and
+a no-profile run never need a reachable broker.
+
+To run the app with quiz grading working, start RabbitMQ and Redis first:
+
+```powershell
+docker compose up rabbitmq redis -d
+```
+
+Then start the app with the `dev` profile as above. Connection details
+(host, port, credentials) are in `application-dev.properties`, matching
+`compose.yaml`. Without these containers running, the app still starts, but
+`POST /api/quizzes/{quizId}/submissions` will fail since the RabbitMQ listener
+can't connect.
+
+Two separate profiles exist for a reason: `dev` is the full app (H2 console +
+quiz grading, needs a broker); `h2console` is H2-console-only, used by
+`H2DatabaseTests` so that test doesn't need RabbitMQ or Redis at all.
+
+Quiz-related endpoints (all under `/api`, teacher-only writes unless noted):
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/modules/{moduleId}/quizzes` | Create a quiz (teacher) |
+| `POST` | `/quizzes/{quizId}/questions` | Add a question with answer options, supports multi-select (teacher) |
+| `GET` | `/quizzes/{quizId}/questions` | List questions without correct-answer flags (any enrolled member) |
+| `GET` | `/quizzes/{quizId}/questions/with-answers` | List questions including correct-answer flags (teacher) |
+| `POST` | `/quizzes/{quizId}/submissions` | Submit answers for grading; returns 202, grading happens async (any enrolled member) |
+| `GET` | `/quizzes/{quizId}/grade` | Read the caller's own grade; 404 until grading completes (any enrolled member) |
 
 ### Java Spring template project
 

@@ -39,4 +39,27 @@ class QuizTests {
   void rejectsNonPositiveMaxAttempts() {
     assertThrows(IllegalArgumentException.class, () -> new Quiz(module(), "Week 1 Quiz", 0, 0, true));
   }
+
+  @Test
+  void addsQuestionsInOrder() {
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+
+    Question first = quiz.addQuestion("What is 2+2?");
+    Question second = quiz.addQuestion("What is 3+3?");
+
+    assertEquals(2, quiz.getQuestions().size());
+    assertEquals(first, quiz.getQuestions().get(0));
+    assertEquals(second, quiz.getQuestions().get(1));
+    assertEquals(0, first.getPosition());
+    assertEquals(1, second.getPosition());
+  }
+
+  @Test
+  void questionsListIsUnmodifiable() {
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    quiz.addQuestion("What is 2+2?");
+
+    assertThrows(UnsupportedOperationException.class,
+        () -> quiz.getQuestions().add(null));
+  }
 }
