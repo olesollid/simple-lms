@@ -183,6 +183,17 @@ class EnrollmentServiceTests {
   }
 
   @Test
+  void rejectsStudentSelfPromotingToTeacher() {
+    enrollmentService.enroll(course.getId(), EMAIL, Role.STUDENT, TEACHER_EMAIL);
+
+    assertThrows(ForbiddenException.class,
+        () -> enrollmentService.changeRole(course.getId(), EMAIL, Role.TEACHER, EMAIL));
+
+    assertEquals(Role.STUDENT,
+        enrollmentService.getEnrollment(course.getId(), EMAIL, TEACHER_EMAIL).getRole());
+  }
+
+  @Test
   void rejectsChangingRoleByNonTeacher() {
     enrollmentService.enroll(course.getId(), EMAIL, Role.STUDENT, TEACHER_EMAIL);
     User other = userRepository.save(new User("other@example.com", "Other Name"));
