@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Queue;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
@@ -17,6 +18,7 @@ import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.ModuleRepository;
 
 @Service
+@Transactional
 public class ModuleService {
 
   private final ModuleRepository moduleRepository;
@@ -37,6 +39,7 @@ public class ModuleService {
     return moduleRepository.save(new Module(course, title));
   }
 
+  @Transactional(readOnly = true)
   public List<Module> getModulesByCourse(Long courseId, String requesterEmail) {
     enrollmentService.requireEnrolled(courseId, requesterEmail);
     Course course = courseRepository.findById(courseId)
@@ -44,6 +47,7 @@ public class ModuleService {
     return topologicalSort(moduleRepository.findByCourse(course));
   }
 
+  @Transactional(readOnly = true)
   public Module getModuleById(Long id, String requesterEmail) {
     Module module = getModuleById(id);
     enrollmentService.requireEnrolled(module.getCourse().getId(), requesterEmail);
@@ -51,8 +55,12 @@ public class ModuleService {
   }
 
   private Module getModuleById(Long id) {
-    return moduleRepository.findById(id)
+    Module module = moduleRepository.findById(id)
         .orElseThrow(() -> new ModuleNotFoundException(id));
+    // Force the lazy dependency collection to load before the transaction (and its session)
+    // closes, since the entity is returned to callers outside this method's transaction.
+    module.initializeDependencies();
+    return module;
   }
 
   public Module updateModuleTitle(Long id, String title, String requesterEmail) {

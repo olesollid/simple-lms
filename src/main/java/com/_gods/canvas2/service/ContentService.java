@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Module;
@@ -13,6 +14,7 @@ import com._gods.canvas2.repository.ContentRepository;
 import com._gods.canvas2.repository.ModuleRepository;
 
 @Service
+@Transactional
 public class ContentService {
 
   private final ContentRepository contentRepository;
@@ -35,6 +37,7 @@ public class ContentService {
         new StaticPage(module, title, position, body, visibleFrom, visibleUntil));
   }
 
+  @Transactional(readOnly = true)
   public List<Content> getContentsByModule(Long moduleId, String requesterEmail) {
     Module module = moduleRepository.findById(moduleId)
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
@@ -42,6 +45,7 @@ public class ContentService {
     return contentRepository.findByModuleOrderByPosition(module);
   }
 
+  @Transactional(readOnly = true)
   public Content getContentById(Long id, String requesterEmail) {
     Content content = getContentById(id);
     enrollmentService.requireEnrolled(content.getModule().getCourse().getId(), requesterEmail);

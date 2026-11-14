@@ -4,6 +4,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.hibernate.Hibernate;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -74,6 +76,16 @@ public class Module {
     return Collections.unmodifiableSet(dependencies);
   }
 
+  /**
+   * Forces the lazy dependency collection to load now, while a Hibernate session is still open.
+   * Needed before returning this entity to a caller outside the current transaction, since
+   * {@link #getDependencies()} wraps the collection in {@code Collections.unmodifiableSet},
+   * which {@link Hibernate#initialize} cannot see through to find the underlying lazy proxy.
+   */
+  public void initializeDependencies() {
+    Hibernate.initialize(dependencies);
+  }
+
   public void addDependency(Module other) {
     if (other == null) {
       throw new IllegalArgumentException("Dependency must not be null");
@@ -81,7 +93,7 @@ public class Module {
     if (other.equals(this)) {
       throw new IllegalArgumentException("A module cannot depend on itself");
     }
-    if (other.getCourse() != this.course) {
+    if (!sameCourse(other.getCourse(), this.course)) {
       throw new IllegalArgumentException("Dependency must belong to the same course");
     }
     if (createsCycle(other)) {
@@ -92,6 +104,19 @@ public class Module {
 
   public void removeDependency(Module other) {
     dependencies.remove(other);
+  }
+
+  /**
+   * Same course if it's literally the same object (unpersisted entities, e.g. in unit tests) or
+   * the same persisted row (by id) -- plain reference equality fails once two Module instances
+   * hold separately-loaded Course objects for the same row, which happens outside a single
+   * Hibernate session/transaction.
+   */
+  private static boolean sameCourse(Course a, Course b) {
+    if (a == b) {
+      return true;
+    }
+    return a.getId() != null && a.getId().equals(b.getId());
   }
 
   private boolean createsCycle(Module candidate) {
