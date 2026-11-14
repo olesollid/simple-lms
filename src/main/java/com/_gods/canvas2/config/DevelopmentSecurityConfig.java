@@ -8,7 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration(proxyBeanMethods = false)
-@Profile("dev")
+@Profile({"dev", "h2console"})
 public class DevelopmentSecurityConfig {
 
   @Bean
