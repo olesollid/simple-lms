@@ -30,14 +30,6 @@ export default function CoursesPage() {
 
   return (
     <>
-      <a className="skip-link" href="#main-content">Skip to courses</a>
-      <header className="app-header">
-        <div className="app-header-inner">
-          <span className="brand"><span className="brand-mark" aria-hidden="true">C</span>Canvas 2.0</span>
-          <span className="header-label">Learning management</span>
-        </div>
-      </header>
-      <main id="main-content" className="courses-page">
         <div className="page-heading">
           <div>
             <p className="eyebrow">Course catalogue</p>
@@ -52,7 +44,6 @@ export default function CoursesPage() {
         <section aria-label="Course results" aria-busy={state.status === 'loading'}>
           <CourseList state={state} />
         </section>
-      </main>
     </>
   )
 }
