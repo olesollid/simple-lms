@@ -1,9 +1,32 @@
 ﻿.app-header { background: #fff; border-bottom: 1px solid #e1e4e9; }
 .app-header-inner {
-  max-width: 1160px; margin: auto; padding: 22px 32px;
+  max-width: 1440px; margin: auto; padding: 22px 32px;
   display: flex; justify-content: space-between; align-items: center; gap: 20px;
 }
 .brand { display: inline-flex; gap: 12px; align-items: center; font-size: 19px; font-weight: 700; }
+.brand { color: inherit; text-decoration: none; }
+.app-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); max-width: 1440px; margin: auto; min-height: calc(100dvh - 79px); }
+.app-sidebar { padding: 40px 20px; border-right: 1px solid #e1e4e9; background: #fff; }
+.sidebar-label { padding: 0 14px; margin-bottom: 16px; color: #596273; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; }
+.app-sidebar nav { display: flex; flex-direction: column; gap: 8px; }
+.app-sidebar a { padding: 12px 14px; border-radius: 7px; color: #596273; text-decoration: none; font-weight: 600; }
+.app-sidebar a:hover { background: #f5f6f8; color: #8a2940; }
+.app-sidebar a.active { background: #f7e9ed; color: #8a2940; box-shadow: inset 3px 0 #a32d44; }
+.page-content { min-width: 0; padding: 52px 36px 80px; }
+.page-content:focus { outline: none; }
+.menu-toggle { display: none; border: 1px solid #c9cdd5; border-radius: 7px; padding: 8px 12px; background: #fff; color: #303947; cursor: pointer; }
+.placeholder-panel { background: #fff; border: 1px solid #dfe3e8; border-radius: 10px; padding: clamp(24px, 5vw, 48px); }
+.placeholder-panel h2 { font-size: 24px; margin: 12px 0; }
+.placeholder-panel p { color: #596273; margin-bottom: 24px; }
+.text-link { color: #8a2940; font-weight: 600; text-underline-offset: 4px; }
+@media (max-width: 760px) {
+  .menu-toggle { display: block; }
+  .header-label { display: none; }
+  .app-shell { display: flex; flex-direction: column; }
+  .app-sidebar { display: none; border-right: 0; border-bottom: 1px solid #e1e4e9; padding: 16px 20px; }
+  .app-sidebar.is-open { display: block; }
+  .page-content { padding: 32px 20px 60px; }
+}
 .brand-mark {
   display: inline-grid; place-items: center; width: 34px; height: 34px;
   border-radius: 9px; background: #a32d44; color: #fff; font-size: 22px;

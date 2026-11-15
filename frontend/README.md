@@ -28,7 +28,8 @@ npm run dev
 
 `npm.cmd` avoids PowerShell execution-policy errors involving `npm.ps1`.
 Open the URL printed by Vite, normally http://localhost:5173/.
-The home page now lists courses through the feature service. Enable mock mode
+The home page opens the Dashboard placeholder. Open Courses in the navigation
+to list courses through the feature service. Enable mock mode
 as described below to view sample courses without the backend.
 
 `npm ci` installs the versions in `package-lock.json`. Keep this file in version
@@ -78,12 +79,27 @@ src/
   services/      Shared API client, feature services, and mock transport
   types/         Shared TypeScript request/response DTO interfaces
   assets/        Images and other imported assets
-  App.tsx        Application entry component; routing can be added later
-  main.tsx       Mounts React into the HTML document
+  App.tsx        Routes within the shared application layout
+  main.tsx       Mounts React with BrowserRouter
 ```
 
 See the services README for request examples and error handling. Keep
 component-specific types with their component.
+
+## Navigation and layout
+
+React Router provides `/dashboard`, `/courses`, and `/profile`. The root URL
+redirects to `/dashboard`; unknown URLs show a page-not-found view. Dashboard
+and Profile are placeholders. Courses retains its existing API integration.
+
+`AppLayout` shares a header, navigation sidebar, skip link, and main content
+area across routes. Below 760px, the sidebar is controlled by the header's
+menu button and closes after selecting a view. Active links identify the current
+view. Route changes move keyboard focus to the main content.
+
+Production hosting must serve `index.html` for frontend URLs such as `/profile`
+so direct visits and refreshes work. Preserve backend `/api` routes when
+configuring this fallback. Vite provides this fallback during development.
 
 ## Running alongside Spring Boot
 
