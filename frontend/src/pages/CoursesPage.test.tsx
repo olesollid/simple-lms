@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../services/apiClient'
 import CoursesPage from './CoursesPage'
@@ -14,7 +15,7 @@ describe('CoursesPage', () => {
 
   it('shows the heading and loads courses', async () => {
     getCourses.mockResolvedValue([course])
-    render(<CoursesPage />)
+    render(<MemoryRouter><CoursesPage /></MemoryRouter>)
 
     expect(screen.getByRole('heading', { level: 1, name: 'Courses' })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'DAT250' })).toBeInTheDocument()
@@ -23,7 +24,7 @@ describe('CoursesPage', () => {
   it('shows an error and recovers on retry', async () => {
     const user = userEvent.setup()
     getCourses.mockRejectedValueOnce(new ApiError(403, 'Forbidden', null))
-    render(<CoursesPage />)
+    render(<MemoryRouter><CoursesPage /></MemoryRouter>)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/permission/i)
 

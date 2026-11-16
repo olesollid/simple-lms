@@ -51,6 +51,12 @@ h1 { font-size: clamp(32px, 5vw, 42px); line-height: 1.2; letter-spacing: -0.04e
 .course-state { padding: 64px 24px; border: 1px solid #dfe3e8; border-radius: 10px; background: #fff; text-align: center; }
 .course-state h2 { font-size: 21px; margin-bottom: 10px; }
 .course-state p { color: #596273; }
+.course-error { border-color: #d9aab4; }
+.course-error .text-link { display: inline-block; margin-top: 16px; }
+.module-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.module-card { padding: 22px 26px; background: #fff; border: 1px solid #dfe3e8; border-radius: 10px; }
+.module-card h3 { font-size: 18px; margin-bottom: 6px; }
+.module-placeholder { color: #596273; font-size: 14px; }
 .skip-link { position: absolute; left: 16px; top: -100px; padding: 10px 16px; background: #fff; color: #8a2940; z-index: 1; }
 .skip-link:focus { top: 12px; }
 @media (max-width: 600px) {
