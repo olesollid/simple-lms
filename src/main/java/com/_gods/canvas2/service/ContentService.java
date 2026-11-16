@@ -51,14 +51,27 @@ public class ContentService {
     Module module = moduleRepository.findById(moduleId)
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
     enrollmentService.requireEnrolled(module.getCourse().getId(), requesterEmail);
-    return contentRepository.findByModuleOrderByPosition(module);
+    List<Content> contents = contentRepository.findByModuleOrderByPosition(module);
+    if (isTeacher(module.getCourse().getId(), requesterEmail)) {
+      return contents;
+    }
+    LocalDateTime now = LocalDateTime.now();
+    return contents.stream().filter(content -> content.isVisibleAt(now)).toList();
   }
 
   @Transactional(readOnly = true)
   public Content getContentById(Long id, String requesterEmail) {
     Content content = getContentById(id);
-    enrollmentService.requireEnrolled(content.getModule().getCourse().getId(), requesterEmail);
+    Long courseId = content.getModule().getCourse().getId();
+    enrollmentService.requireEnrolled(courseId, requesterEmail);
+    if (!isTeacher(courseId, requesterEmail) && !content.isVisibleAt(LocalDateTime.now())) {
+      throw new ContentNotFoundException(id);
+    }
     return content;
+  }
+
+  private boolean isTeacher(Long courseId, String requesterEmail) {
+    return enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER);
   }
 
   private Content getContentById(Long id) {
@@ -91,7 +104,7 @@ public class ContentService {
   }
 
   private void requireTeacher(Long courseId, String requesterEmail) {
-    if (!enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER)) {
+    if (!isTeacher(courseId, requesterEmail)) {
       throw new ForbiddenException(
           "Only a teacher enrolled in course " + courseId + " may perform this action");
     }
