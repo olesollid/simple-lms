@@ -1,23 +1,19 @@
 import type { CourseListState } from '../pages/courseListState'
+import ErrorMessage from './ui/ErrorMessage'
+import LoadingIndicator from './ui/LoadingIndicator'
 import CourseCard from './CourseCard'
 
 export default function CourseList({ state }: { state: CourseListState }) {
   if (state.status === 'loading') {
     return (
-      <div className="course-state" role="status">
-        <span className="loading-indicator" aria-hidden="true" />
-        <p>Loading courses…</p>
+      <div className="course-state">
+        <LoadingIndicator message="Loading courses…" />
       </div>
     )
   }
 
   if (state.status === 'error') {
-    return (
-      <div className="course-state course-error" role="alert">
-        <h2>Unable to load courses</h2>
-        <p>{state.message}</p>
-      </div>
-    )
+    return <ErrorMessage title="Unable to load courses" message={state.message} />
   }
 
   if (state.courses.length === 0) {
