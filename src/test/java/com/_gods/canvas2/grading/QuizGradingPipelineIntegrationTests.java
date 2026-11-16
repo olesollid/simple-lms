@@ -24,12 +24,14 @@ import com._gods.canvas2.model.Enrollment;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Role;
+import com._gods.canvas2.model.StudentInteraction;
 import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.ContentRepository;
 import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.EnrollmentRepository;
 import com._gods.canvas2.repository.ModuleRepository;
+import com._gods.canvas2.repository.StudentInteractionRepository;
 import com._gods.canvas2.repository.UserRepository;
 import com._gods.canvas2.service.QuizService;
 import com._gods.canvas2.service.QuizSubmissionService;
@@ -90,6 +92,9 @@ class QuizGradingPipelineIntegrationTests {
   @Autowired
   private EnrollmentRepository enrollmentRepository;
 
+  @Autowired
+  private StudentInteractionRepository studentInteractionRepository;
+
   @Test
   void submittedQuizIsGradedAsynchronouslyAndStoredInRedis() throws InterruptedException {
     Course course = courseRepository.save(new Course("Pipeline Test", "desc", Term.AUTUMN, 2026));
@@ -120,6 +125,11 @@ class QuizGradingPipelineIntegrationTests {
     assertEquals(1, grade.get().correctQuestions());
     assertEquals(1, grade.get().totalQuestions());
     assertEquals(1.0, grade.get().score());
+
+    Optional<StudentInteraction> interaction =
+        studentInteractionRepository.findByUserAndContent(student, quiz);
+    assertTrue(interaction.isPresent(), "submitting a quiz should mark it as interacted with");
+    assertTrue(interaction.get().getCompletedAt() != null);
   }
 
   /** Grading happens asynchronously off a real broker, so poll instead of asserting immediately. */

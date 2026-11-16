@@ -24,12 +24,14 @@ public class ModuleService {
   private final ModuleRepository moduleRepository;
   private final CourseRepository courseRepository;
   private final EnrollmentService enrollmentService;
+  private final StudentInteractionService studentInteractionService;
 
   public ModuleService(ModuleRepository moduleRepository, CourseRepository courseRepository,
-      EnrollmentService enrollmentService) {
+      EnrollmentService enrollmentService, StudentInteractionService studentInteractionService) {
     this.moduleRepository = moduleRepository;
     this.courseRepository = courseRepository;
     this.enrollmentService = enrollmentService;
+    this.studentInteractionService = studentInteractionService;
   }
 
   public Module createModule(Long courseId, String title, String requesterEmail) {
@@ -101,6 +103,19 @@ public class ModuleService {
     Module dependsOn = getModuleById(dependsOnModuleId);
     module.removeDependency(dependsOn);
     return moduleRepository.save(module);
+  }
+
+  /**
+   * A module is locked for a student if they haven't yet completed every content item in all of
+   * its dependency modules. Teachers are never locked out of any module, since they administer
+   * the course rather than progress through it.
+   */
+  @Transactional(readOnly = true)
+  public boolean isLocked(Module module, String requesterEmail) {
+    if (enrollmentService.hasRole(module.getCourse().getId(), requesterEmail, Role.TEACHER)) {
+      return false;
+    }
+    return !studentInteractionService.hasCompletedDependencies(module, requesterEmail);
   }
 
   private void requireTeacher(Long courseId, String requesterEmail) {

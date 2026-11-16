@@ -33,10 +33,13 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.StaticPage;
+import com._gods.canvas2.model.StudentInteraction;
 import com._gods.canvas2.model.Term;
+import com._gods.canvas2.model.User;
 import com._gods.canvas2.service.ContentNotFoundException;
 import com._gods.canvas2.service.ContentService;
 import com._gods.canvas2.service.ModuleNotFoundException;
+import com._gods.canvas2.service.StudentInteractionService;
 
 @WebMvcTest(ContentController.class)
 @AutoConfigureMockMvc
@@ -47,6 +50,9 @@ class ContentControllerTests {
 
   @MockitoBean
   private ContentService contentService;
+
+  @MockitoBean
+  private StudentInteractionService studentInteractionService;
 
   private Module module(Long id) {
     Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
@@ -179,5 +185,30 @@ class ContentControllerTests {
   void deleteContentReturns204() throws Exception {
     mockMvc.perform(delete("/api/contents/1").with(asTeacher()))
         .andExpect(status().isNoContent());
+  }
+
+  @Test
+  void markCompletedReturnsTheInteraction() throws Exception {
+    Module module = module(1L);
+    StaticPage page = page(1L, module, "Syllabus", "Welcome!");
+    User user = new User("teacher@example.com", "Teacher");
+    StudentInteraction interaction = new StudentInteraction(user, page);
+    interaction.markCompleted();
+    when(studentInteractionService.markCompleted(eq(1L), anyString())).thenReturn(interaction);
+
+    mockMvc.perform(post("/api/contents/1/interactions").with(asTeacher()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.contentId").value(1))
+        .andExpect(jsonPath("$.userEmail").value("teacher@example.com"))
+        .andExpect(jsonPath("$.completedAt").exists());
+  }
+
+  @Test
+  void markCompletedReturns404WhenContentMissing() throws Exception {
+    when(studentInteractionService.markCompleted(eq(999L), anyString()))
+        .thenThrow(new ContentNotFoundException(999L));
+
+    mockMvc.perform(post("/api/contents/999/interactions").with(asTeacher()))
+        .andExpect(status().isNotFound());
   }
 }

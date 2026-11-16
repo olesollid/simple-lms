@@ -27,7 +27,8 @@ import com._gods.canvas2.repository.ModuleRepository;
 import com._gods.canvas2.repository.UserRepository;
 
 @DataJpaTest
-@Import({ContentService.class, EnrollmentService.class, UserService.class})
+@Import({ContentService.class, ModuleService.class, EnrollmentService.class, UserService.class,
+    StudentInteractionService.class})
 class ContentServiceTests {
 
   @Autowired

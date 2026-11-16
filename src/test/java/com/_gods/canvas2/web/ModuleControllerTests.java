@@ -94,7 +94,20 @@ class ModuleControllerTests {
 
     mockMvc.perform(get("/api/courses/1/modules").with(asTeacher()))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].title").value("Week 1"));
+        .andExpect(jsonPath("$[0].title").value("Week 1"))
+        .andExpect(jsonPath("$[0].locked").value(false));
+  }
+
+  @Test
+  void getModulesByCourseFlagsLockedModules() throws Exception {
+    Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
+    Module module = module(1L, course, "Week 2");
+    when(moduleService.getModulesByCourse(eq(1L), anyString())).thenReturn(List.of(module));
+    when(moduleService.isLocked(module, "teacher@example.com")).thenReturn(true);
+
+    mockMvc.perform(get("/api/courses/1/modules").with(asTeacher()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].locked").value(true));
   }
 
   @Test
