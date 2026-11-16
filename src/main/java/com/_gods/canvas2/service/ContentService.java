@@ -21,12 +21,14 @@ public class ContentService {
   private final ContentRepository contentRepository;
   private final ModuleRepository moduleRepository;
   private final EnrollmentService enrollmentService;
+  private final ModuleService moduleService;
 
   public ContentService(ContentRepository contentRepository, ModuleRepository moduleRepository,
-      EnrollmentService enrollmentService) {
+      EnrollmentService enrollmentService, ModuleService moduleService) {
     this.contentRepository = contentRepository;
     this.moduleRepository = moduleRepository;
     this.enrollmentService = enrollmentService;
+    this.moduleService = moduleService;
   }
 
   public StaticPage createStaticPage(Long moduleId, String title, int position, String body,
@@ -55,6 +57,9 @@ public class ContentService {
     if (isTeacher(module.getCourse().getId(), requesterEmail)) {
       return contents;
     }
+    if (moduleService.isLocked(module, requesterEmail)) {
+      return List.of();
+    }
     LocalDateTime now = LocalDateTime.now();
     return contents.stream().filter(content -> content.isVisibleAt(now)).toList();
   }
@@ -64,7 +69,11 @@ public class ContentService {
     Content content = getContentById(id);
     Long courseId = content.getModule().getCourse().getId();
     enrollmentService.requireEnrolled(courseId, requesterEmail);
-    if (!isTeacher(courseId, requesterEmail) && !content.isVisibleAt(LocalDateTime.now())) {
+    if (isTeacher(courseId, requesterEmail)) {
+      return content;
+    }
+    if (moduleService.isLocked(content.getModule(), requesterEmail)
+        || !content.isVisibleAt(LocalDateTime.now())) {
       throw new ContentNotFoundException(id);
     }
     return content;

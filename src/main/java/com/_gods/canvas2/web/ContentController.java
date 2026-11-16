@@ -17,21 +17,27 @@ import org.springframework.web.bind.annotation.RestController;
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.StaticPage;
+import com._gods.canvas2.model.StudentInteraction;
 import com._gods.canvas2.service.ContentService;
+import com._gods.canvas2.service.StudentInteractionService;
 import com._gods.canvas2.web.dto.ContentMetadataRequest;
 import com._gods.canvas2.web.dto.ContentResponse;
 import com._gods.canvas2.web.dto.QuizRequest;
 import com._gods.canvas2.web.dto.StaticPageBodyRequest;
 import com._gods.canvas2.web.dto.StaticPageRequest;
+import com._gods.canvas2.web.dto.StudentInteractionResponse;
 
 @RestController
 @RequestMapping("/api")
 public class ContentController {
 
   private final ContentService contentService;
+  private final StudentInteractionService studentInteractionService;
 
-  public ContentController(ContentService contentService) {
+  public ContentController(ContentService contentService,
+      StudentInteractionService studentInteractionService) {
     this.contentService = contentService;
+    this.studentInteractionService = studentInteractionService;
   }
 
   @PostMapping("/modules/{moduleId}/pages")
@@ -88,5 +94,13 @@ public class ContentController {
       Authentication authentication) {
     contentService.deleteContent(contentId, authentication.getName());
     return ResponseEntity.noContent().build();
+  }
+
+  @PostMapping("/contents/{contentId}/interactions")
+  public StudentInteractionResponse markCompleted(@PathVariable Long contentId,
+      Authentication authentication) {
+    StudentInteraction interaction =
+        studentInteractionService.markCompleted(contentId, authentication.getName());
+    return StudentInteractionResponse.from(interaction);
   }
 }

@@ -40,13 +40,17 @@ public class ModuleController {
   @GetMapping("/courses/{courseId}/modules")
   public List<ModuleResponse> getModulesByCourse(@PathVariable Long courseId,
       Authentication authentication) {
-    return moduleService.getModulesByCourse(courseId, authentication.getName()).stream()
-        .map(ModuleResponse::from).toList();
+    String requesterEmail = authentication.getName();
+    return moduleService.getModulesByCourse(courseId, requesterEmail).stream()
+        .map(module -> ModuleResponse.from(module, moduleService.isLocked(module, requesterEmail)))
+        .toList();
   }
 
   @GetMapping("/modules/{moduleId}")
   public ModuleResponse getModuleById(@PathVariable Long moduleId, Authentication authentication) {
-    return ModuleResponse.from(moduleService.getModuleById(moduleId, authentication.getName()));
+    String requesterEmail = authentication.getName();
+    Module module = moduleService.getModuleById(moduleId, requesterEmail);
+    return ModuleResponse.from(module, moduleService.isLocked(module, requesterEmail));
   }
 
   @PutMapping("/modules/{moduleId}")

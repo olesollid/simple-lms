@@ -10,6 +10,7 @@ import com._gods.canvas2.grading.QuizGradeStore;
 import com._gods.canvas2.grading.QuizGrader;
 import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.service.QuizService;
+import com._gods.canvas2.service.StudentInteractionService;
 
 /**
  * Consumes submission events and writes a graded result to Redis. Profile-gated to "dev" (the
@@ -25,19 +26,24 @@ public class SubmissionGradingListener {
   private final QuizService quizService;
   private final QuizGrader quizGrader;
   private final QuizGradeStore quizGradeStore;
+  private final StudentInteractionService studentInteractionService;
 
   public SubmissionGradingListener(QuizService quizService, QuizGrader quizGrader,
-      QuizGradeStore quizGradeStore) {
+      QuizGradeStore quizGradeStore, StudentInteractionService studentInteractionService) {
     this.quizService = quizService;
     this.quizGrader = quizGrader;
     this.quizGradeStore = quizGradeStore;
+    this.studentInteractionService = studentInteractionService;
   }
 
   @RabbitListener(queues = RabbitConfig.SUBMISSIONS_QUEUE)
-  @Transactional(readOnly = true)
+  @Transactional
   public void onSubmissionCreated(SubmissionCreatedEvent event) {
     Quiz quiz = quizService.getQuiz(event.quizId());
     QuizGrade grade = quizGrader.grade(quiz, event.studentEmail(), event.answers());
     quizGradeStore.save(grade);
+    // Submitting a quiz is the unambiguous "done" signal for it, so mark completion
+    // automatically rather than requiring a separate explicit call from the student.
+    studentInteractionService.markCompleted(quiz.getId(), event.studentEmail());
   }
 }
