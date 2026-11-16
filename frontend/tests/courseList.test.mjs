@@ -2,11 +2,13 @@ import assert from 'node:assert/strict'
 import { test } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { MemoryRouter } from 'react-router'
 import CourseList from '../src/components/CourseList.tsx'
 import { courseListError } from '../src/pages/courseListState.ts'
 import { ApiError, ApiResponseError } from '../src/services/apiClient.ts'
 
-const render = state => renderToStaticMarkup(createElement(CourseList, { state }))
+const render = state =>
+  renderToStaticMarkup(createElement(MemoryRouter, null, createElement(CourseList, { state })))
 
 test('loading is announced without showing an empty result', () => {
   const html = render({ status: 'loading' })

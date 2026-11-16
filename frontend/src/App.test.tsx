@@ -4,7 +4,15 @@ import App from './App'
 import { MemoryRouter } from 'react-router'
 import userEvent from '@testing-library/user-event'
 
-vi.mock('./services', () => ({ courses: { getCourses: () => Promise.resolve([]) } }))
+const course = { id: 1, title: 'DAT250', description: 'Software technology', term: 'AUTUMN', year: 2026 }
+
+vi.mock('./services', () => ({
+  courses: {
+    getCourses: () => Promise.resolve([course]),
+    getCourse: () => Promise.resolve(course),
+  },
+  modules: { getModules: () => Promise.resolve([]) },
+}))
 
 describe('App', () => {
   it('opens the dashboard by default and navigates through the shared layout', async () => {
@@ -15,11 +23,22 @@ describe('App', () => {
     await user.click(screen.getByRole('link', { name: 'Courses' }))
 
     expect(screen.getByRole('heading', { level: 1, name: 'Courses' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: 'No courses yet' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'DAT250' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Courses' })).toHaveAttribute('aria-current', 'page')
     await user.click(screen.getByRole('link', { name: 'Profile' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Profile' })).toBeInTheDocument()
     expect(screen.getAllByRole('banner')).toHaveLength(1)
+  })
+
+  it('navigates from the course list into a course detail page', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><App /></MemoryRouter>)
+
+    await user.click(screen.getByRole('link', { name: 'Courses' }))
+    await user.click(await screen.findByRole('link', { name: 'DAT250' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'DAT250' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'No modules yet' })).toBeInTheDocument()
   })
 
   it('supports direct routes and closes the mobile menu after navigation', async () => {
