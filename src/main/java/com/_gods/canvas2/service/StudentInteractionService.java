@@ -1,12 +1,16 @@
 package com._gods.canvas2.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Module;
+import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StudentInteraction;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.ContentRepository;
@@ -38,17 +42,58 @@ public class StudentInteractionService {
     this.enrollmentService = enrollmentService;
   }
 
-  /** Any enrolled member may mark content as completed for themselves. */
+  /**
+   * Any enrolled member may mark content as completed for themselves, as long as a student could
+   * actually see that content: it must not be in a module still locked by an unmet prerequisite,
+   * nor outside its own visibility window. Without this check a student could mark content
+   * "completed" by content id alone, bypassing the same gate enforced on the read path and
+   * unlocking further modules from content they were never shown. Teachers bypass both checks,
+   * matching how they bypass them when reading content.
+   */
   public StudentInteraction markCompleted(Long contentId, String requesterEmail) {
     Content content = contentRepository.findById(contentId)
         .orElseThrow(() -> new ContentNotFoundException(contentId));
-    enrollmentService.requireEnrolled(content.getModule().getCourse().getId(), requesterEmail);
+    Long courseId = content.getModule().getCourse().getId();
+    enrollmentService.requireEnrolled(courseId, requesterEmail);
+    boolean isTeacher = enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER);
+    if (!isTeacher && (isLocked(content.getModule(), requesterEmail)
+        || !content.isVisibleAt(LocalDateTime.now()))) {
+      throw new ContentNotFoundException(contentId);
+    }
     User user = userService.getUserByEmail(requesterEmail);
 
+    try {
+      return saveCompletion(user, content);
+    } catch (DataIntegrityViolationException raceLostToConcurrentInsert) {
+      return updateExistingCompletion(user, content);
+    }
+  }
+
+  /**
+   * Runs in its own transaction: a unique (user, content) constraint means a concurrent duplicate
+   * call can make this insert fail, which marks the surrounding transaction for rollback. Keeping
+   * this attempt in its own transaction lets the fallback in {@link #updateExistingCompletion}
+   * still run cleanly in the caller's transaction after the failure.
+   */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  protected StudentInteraction saveCompletion(User user, Content content) {
     StudentInteraction interaction = studentInteractionRepository.findByUserAndContent(user, content)
         .orElseGet(() -> new StudentInteraction(user, content));
     interaction.markCompleted();
     return studentInteractionRepository.save(interaction);
+  }
+
+  private StudentInteraction updateExistingCompletion(User user, Content content) {
+    StudentInteraction interaction = studentInteractionRepository.findByUserAndContent(user, content)
+        .orElseThrow(() -> new IllegalStateException(
+            "Expected a concurrently-inserted StudentInteraction for user " + user.getEmail()
+                + " and content " + content.getId() + " but found none"));
+    interaction.markCompleted();
+    return studentInteractionRepository.save(interaction);
+  }
+
+  private boolean isLocked(Module module, String requesterEmail) {
+    return !hasCompletedDependencies(module, requesterEmail);
   }
 
   /**
