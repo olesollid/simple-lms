@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Button from '../components/ui/Button'
 import CourseList from '../components/CourseList'
 import { courses } from '../services'
 import { courseListError } from './courseListState'
@@ -44,10 +45,9 @@ export default function CoursesPage() {
             <h1>Courses</h1>
             <p className="page-description">Explore course topics and find your next place to learn.</p>
           </div>
-          <button className="refresh-button" type="button" onClick={reload}
-            disabled={state.status === 'loading'}>
+          <Button variant="secondary" className="refresh-button" onClick={reload} loading={state.status === 'loading'}>
             {state.status === 'error' ? 'Try again' : 'Refresh courses'}
-          </button>
+          </Button>
         </div>
         <section aria-label="Course results" aria-busy={state.status === 'loading'}>
           <CourseList state={state} />
