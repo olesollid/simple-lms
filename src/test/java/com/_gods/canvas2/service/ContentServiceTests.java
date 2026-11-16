@@ -245,4 +245,65 @@ class ContentServiceTests {
     assertThrows(ForbiddenException.class,
         () -> contentService.deleteContent(page.getId(), student));
   }
+
+  @Test
+  void studentCannotSeeContentBeforeItsVisibleFromDate() {
+    Module module = module();
+    String student = studentOf(module);
+    contentService.createStaticPage(module.getId(), "Future", 0, "Not yet",
+        LocalDateTime.now().plusDays(1), null, teacherEmail);
+
+    assertTrue(contentService.getContentsByModule(module.getId(), student).isEmpty());
+  }
+
+  @Test
+  void studentCannotSeeContentAfterItsVisibleUntilDate() {
+    Module module = module();
+    String student = studentOf(module);
+    contentService.createStaticPage(module.getId(), "Past", 0, "Expired",
+        LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1), teacherEmail);
+
+    assertTrue(contentService.getContentsByModule(module.getId(), student).isEmpty());
+  }
+
+  @Test
+  void studentSeesContentWithinItsVisibilityWindow() {
+    Module module = module();
+    String student = studentOf(module);
+    contentService.createStaticPage(module.getId(), "Current", 0, "Visible now",
+        LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1), teacherEmail);
+
+    assertEquals(1, contentService.getContentsByModule(module.getId(), student).size());
+  }
+
+  @Test
+  void teacherSeesContentOutsideItsVisibilityWindow() {
+    Module module = module();
+    contentService.createStaticPage(module.getId(), "Future", 0, "Not yet",
+        LocalDateTime.now().plusDays(1), null, teacherEmail);
+
+    assertEquals(1, contentService.getContentsByModule(module.getId(), teacherEmail).size());
+  }
+
+  @Test
+  void studentGettingInvisibleContentByIdGetsNotFound() {
+    Module module = module();
+    String student = studentOf(module);
+    StaticPage page = contentService.createStaticPage(module.getId(), "Future", 0, "Not yet",
+        LocalDateTime.now().plusDays(1), null, teacherEmail);
+
+    assertThrows(ContentNotFoundException.class,
+        () -> contentService.getContentById(page.getId(), student));
+  }
+
+  @Test
+  void teacherCanGetInvisibleContentById() {
+    Module module = module();
+    StaticPage page = contentService.createStaticPage(module.getId(), "Future", 0, "Not yet",
+        LocalDateTime.now().plusDays(1), null, teacherEmail);
+
+    Content content = contentService.getContentById(page.getId(), teacherEmail);
+
+    assertEquals(page.getId(), content.getId());
+  }
 }
