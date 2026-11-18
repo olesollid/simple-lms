@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
@@ -34,6 +35,7 @@ import com._gods.canvas2.model.Term;
 import com._gods.canvas2.service.CourseHasDependentsException;
 import com._gods.canvas2.service.CourseNotFoundException;
 import com._gods.canvas2.service.CourseService;
+import com._gods.canvas2.service.ForbiddenException;
 
 @WebMvcTest(CourseController.class)
 @AutoConfigureMockMvc
@@ -53,6 +55,13 @@ class CourseControllerTests {
     RequestPostProcessor login = oauth2Login().oauth2User(new DefaultOAuth2User(
         Set.of(new SimpleGrantedAuthority("ROLE_USER")),
         Map.of("email", "teacher@example.com"), "email"));
+    return request -> csrf().postProcessRequest(login.postProcessRequest(request));
+  }
+
+  private RequestPostProcessor asStudent() {
+    RequestPostProcessor login = oauth2Login().oauth2User(new DefaultOAuth2User(
+        Set.of(new SimpleGrantedAuthority("ROLE_USER")),
+        Map.of("email", "student@example.com"), "email"));
     return request -> csrf().postProcessRequest(login.postProcessRequest(request));
   }
 
@@ -110,11 +119,32 @@ class CourseControllerTests {
 
   @Test
   void deleteCourseWithDependentsReturns409() throws Exception {
-    org.mockito.Mockito.doThrow(new CourseHasDependentsException(1L))
+    doThrow(new CourseHasDependentsException(1L))
         .when(courseService).deleteCourse(any(), anyString());
 
     mockMvc.perform(delete("/api/courses/1").with(asTeacher()))
         .andExpect(status().isConflict());
+  }
+
+  @Test
+  void updateCourseReturns403ForStudent() throws Exception {
+    when(courseService.updateCourse(any(), any(), any(), any(), anyInt(), anyString()))
+        .thenThrow(new ForbiddenException("not a teacher"));
+
+    mockMvc.perform(put("/api/courses/1")
+            .with(asStudent())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(REQUEST_BODY))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void deleteCourseReturns403ForStudent() throws Exception {
+    doThrow(new ForbiddenException("not a teacher"))
+        .when(courseService).deleteCourse(any(), anyString());
+
+    mockMvc.perform(delete("/api/courses/1").with(asStudent()))
+        .andExpect(status().isForbidden());
   }
 
   @Test
