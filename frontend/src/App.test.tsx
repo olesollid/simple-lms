@@ -12,6 +12,8 @@ vi.mock('./services', () => ({
     getCourse: () => Promise.resolve(course),
   },
   modules: { getModules: () => Promise.resolve([]) },
+  contents: { getContentsByModule: () => Promise.resolve([]) },
+  users: { getCurrentUser: () => Promise.resolve({ email: 'teacher@example.com', name: 'Teacher' }) },
 }))
 
 describe('App', () => {

@@ -1,6 +1,7 @@
 package com._gods.canvas2.web;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -30,6 +31,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import com._gods.canvas2.model.Assignment;
+import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.StaticPage;
@@ -38,6 +41,7 @@ import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.service.ContentNotFoundException;
 import com._gods.canvas2.service.ContentService;
+import com._gods.canvas2.service.ForbiddenException;
 import com._gods.canvas2.service.ModuleNotFoundException;
 import com._gods.canvas2.service.StudentInteractionService;
 
@@ -65,6 +69,18 @@ class ContentControllerTests {
     StaticPage page = new StaticPage(module, title, 0, body);
     setField(page, "id", id);
     return page;
+  }
+
+  private Assignment assignment(Long id, Module module, String title, String instructions) {
+    Assignment assignment = new Assignment(module, title, 0, instructions);
+    setField(assignment, "id", id);
+    return assignment;
+  }
+
+  private CodingExercise codingExercise(Long id, Module module, String title, String repoUrl) {
+    CodingExercise codingExercise = new CodingExercise(module, title, 0, repoUrl);
+    setField(codingExercise, "id", id);
+    return codingExercise;
   }
 
   private void setField(Object target, String fieldName, Object value) {
@@ -126,6 +142,75 @@ class ContentControllerTests {
                 {"title":"Syllabus","position":0,"body":"Welcome!"}
                 """))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void createAssignmentReturns201() throws Exception {
+    Module module = module(1L);
+    Assignment assignment = assignment(1L, module, "Essay", "Write 500 words");
+    when(contentService.createAssignment(anyLong(), any(), anyInt(), any(), any(), anyBoolean(),
+        anyBoolean(), anyString())).thenReturn(assignment);
+
+    mockMvc.perform(post("/api/modules/1/assignments")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"title":"Essay","position":0,"instructions":"Write 500 words",
+                 "deadline":null,"lateSubmissionsAccepted":false,"groupSubmission":false}
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.title").value("Essay"))
+        .andExpect(jsonPath("$.instructions").value("Write 500 words"));
+  }
+
+  @Test
+  void createAssignmentReturns403ForStudent() throws Exception {
+    when(contentService.createAssignment(anyLong(), any(), anyInt(), any(), any(), anyBoolean(),
+        anyBoolean(), anyString())).thenThrow(new ForbiddenException("not a teacher"));
+
+    mockMvc.perform(post("/api/modules/1/assignments")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"title":"Essay","position":0,"instructions":"Write 500 words",
+                 "deadline":null,"lateSubmissionsAccepted":false,"groupSubmission":false}
+                """))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void createCodingExerciseReturns201() throws Exception {
+    Module module = module(1L);
+    CodingExercise codingExercise = codingExercise(1L, module, "Fix the bug",
+        "https://example.com/repo");
+    when(contentService.createCodingExercise(anyLong(), any(), anyInt(), any(), any(),
+        anyBoolean(), anyBoolean(), anyString())).thenReturn(codingExercise);
+
+    mockMvc.perform(post("/api/modules/1/coding-exercises")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"title":"Fix the bug","position":0,"repositoryUrl":"https://example.com/repo",
+                 "deadline":null,"lateSubmissionsAccepted":false,"groupSubmission":false}
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.title").value("Fix the bug"))
+        .andExpect(jsonPath("$.repositoryUrl").value("https://example.com/repo"));
+  }
+
+  @Test
+  void createCodingExerciseReturns403ForStudent() throws Exception {
+    when(contentService.createCodingExercise(anyLong(), any(), anyInt(), any(), any(),
+        anyBoolean(), anyBoolean(), anyString())).thenThrow(new ForbiddenException("not a teacher"));
+
+    mockMvc.perform(post("/api/modules/1/coding-exercises")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"title":"Fix the bug","position":0,"repositoryUrl":"https://example.com/repo",
+                 "deadline":null,"lateSubmissionsAccepted":false,"groupSubmission":false}
+                """))
+        .andExpect(status().isForbidden());
   }
 
   @Test

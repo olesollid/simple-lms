@@ -1,3 +1,4 @@
+import ModuleContents from './ModuleContents'
 import type { ModuleResponse } from '../types/module'
 
 export default function ModuleList({ modules }: { modules: ModuleResponse[] }) {
@@ -15,7 +16,7 @@ export default function ModuleList({ modules }: { modules: ModuleResponse[] }) {
       {modules.map(module => (
         <li key={module.id} className="module-card">
           <h3>{module.title}</h3>
-          <p className="module-placeholder">Content entries will appear here.</p>
+          <ModuleContents moduleId={module.id} />
         </li>
       ))}
     </ul>

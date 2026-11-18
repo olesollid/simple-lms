@@ -46,4 +46,14 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
         .body(new ErrorResponse("Malformed request"));
   }
+
+  /**
+   * Fallback for anything not covered above, so an unexpected bug still returns this API's own
+   * {@link ErrorResponse} shape instead of Spring Boot's default error body.
+   */
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<ErrorResponse> handleUnexpected(Exception exception) {
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body(new ErrorResponse("An unexpected error occurred"));
+  }
 }

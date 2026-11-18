@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com._gods.canvas2.model.Assignment;
+import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Quiz;
@@ -46,6 +48,26 @@ public class ContentService {
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
     requireTeacher(module.getCourse().getId(), requesterEmail);
     return (Quiz) contentRepository.save(new Quiz(module, title, position, maxAttempts, showHints, deadline));
+  }
+
+  public Assignment createAssignment(Long moduleId, String title, int position,
+      String instructions, LocalDateTime deadline, boolean lateSubmissionsAccepted,
+      boolean groupSubmission, String requesterEmail) {
+    Module module = moduleRepository.findById(moduleId)
+        .orElseThrow(() -> new ModuleNotFoundException(moduleId));
+    requireTeacher(module.getCourse().getId(), requesterEmail);
+    return (Assignment) contentRepository.save(new Assignment(module, title, position,
+        instructions, deadline, lateSubmissionsAccepted, groupSubmission));
+  }
+
+  public CodingExercise createCodingExercise(Long moduleId, String title, int position,
+      String repositoryUrl, LocalDateTime deadline, boolean lateSubmissionsAccepted,
+      boolean groupSubmission, String requesterEmail) {
+    Module module = moduleRepository.findById(moduleId)
+        .orElseThrow(() -> new ModuleNotFoundException(moduleId));
+    requireTeacher(module.getCourse().getId(), requesterEmail);
+    return (CodingExercise) contentRepository.save(new CodingExercise(module, title, position,
+        repositoryUrl, deadline, lateSubmissionsAccepted, groupSubmission));
   }
 
   @Transactional(readOnly = true)

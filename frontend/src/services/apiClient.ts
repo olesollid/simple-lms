@@ -31,7 +31,8 @@ export class ApiResponseError extends Error {
 const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE'])
 
 // Reads the XSRF-TOKEN cookie Spring Security's csrf().spa() writes after login.
-function readXsrfToken(): string | undefined {
+// Exported for callers outside the /api-scoped request client, such as POST /logout.
+export function readXsrfToken(): string | undefined {
   if (typeof document === 'undefined') return undefined
   const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/)
   return match ? decodeURIComponent(match[1]) : undefined
