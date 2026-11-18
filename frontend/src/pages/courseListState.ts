@@ -1,9 +1,10 @@
 import type { CourseResponse } from '../types/course.ts'
+import type { Role } from '../types/enrollment.ts'
 import { ApiError, ApiResponseError } from '../services/apiClient.ts'
 
 export type CourseListState =
   | { status: 'loading' }
-  | { status: 'success'; courses: CourseResponse[] }
+  | { status: 'success'; courses: CourseResponse[]; roleByCourseId: Record<number, Role> }
   | { status: 'error'; message: string }
 
 export function courseListError(error: unknown): string {

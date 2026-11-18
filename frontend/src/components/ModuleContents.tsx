@@ -4,6 +4,7 @@ import { contents } from '../services'
 import { ApiError, ApiResponseError } from '../services/apiClient'
 import LoadingIndicator from './ui/LoadingIndicator'
 import ErrorMessage from './ui/ErrorMessage'
+import Button from './ui/Button'
 import type { ContentResponse } from '../types/content'
 
 type ContentListState =
@@ -28,8 +29,15 @@ const CONTENT_TYPE_LABEL: Record<ContentResponse['type'], string> = {
   CodingExercise: 'Coding exercise',
 }
 
-export default function ModuleContents({ moduleId }: { moduleId: number }) {
+export default function ModuleContents({ courseId, moduleId, isTeacher }: {
+  courseId: number
+  moduleId: number
+  isTeacher: boolean
+}) {
   const [state, setState] = useState<ContentListState>({ status: 'loading' })
+  const [attempt, setAttempt] = useState(0)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -44,7 +52,21 @@ export default function ModuleContents({ moduleId }: { moduleId: number }) {
       },
     )
     return () => controller.abort()
-  }, [moduleId])
+  }, [moduleId, attempt])
+
+  async function handleDelete(item: ContentResponse) {
+    if (!window.confirm(`Delete "${item.title}"? This cannot be undone.`)) return
+    setDeletingId(item.id)
+    setDeleteError(null)
+    try {
+      await contents.deleteContent(item.id, {})
+      setAttempt(previous => previous + 1)
+    } catch (error) {
+      setDeleteError(contentListError(error))
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   if (state.status === 'loading') {
     return <LoadingIndicator message="Loading content…" className="module-contents-loading" />
@@ -59,15 +81,27 @@ export default function ModuleContents({ moduleId }: { moduleId: number }) {
   }
 
   return (
-    <ul className="content-list" aria-label="Module content">
-      {state.contents.map(item => (
-        <li key={item.id} className="content-item">
-          <Link to={`/contents/${item.id}`}>
-            <span className="content-type">{CONTENT_TYPE_LABEL[item.type]}</span>
-            {item.title}
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <>
+      {deleteError && <ErrorMessage message={deleteError} className="module-contents-error" />}
+      <ul className="content-list" aria-label="Module content">
+        {state.contents.map(item => (
+          <li key={item.id} className="content-item">
+            <Link to={`/courses/${courseId}/modules/${moduleId}/contents/${item.id}`}>
+              <span className="content-type">{CONTENT_TYPE_LABEL[item.type]}</span>
+              {item.title}
+            </Link>
+            {isTeacher && (
+              <Button
+                variant="danger"
+                onClick={() => handleDelete(item)}
+                loading={deletingId === item.id}
+              >
+                Delete
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }

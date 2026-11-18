@@ -14,6 +14,7 @@ vi.mock('./services', () => ({
   modules: { getModules: () => Promise.resolve([]) },
   contents: { getContentsByModule: () => Promise.resolve([]) },
   users: { getCurrentUser: () => Promise.resolve({ email: 'teacher@example.com', name: 'Teacher' }) },
+  enrollments: { getEnrollment: () => Promise.resolve({ role: 'STUDENT' }) },
 }))
 
 describe('App', () => {
@@ -25,7 +26,7 @@ describe('App', () => {
     await user.click(screen.getByRole('link', { name: 'Courses' }))
 
     expect(screen.getByRole('heading', { level: 1, name: 'Courses' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: 'DAT250' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /DAT250/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Courses' })).toHaveAttribute('aria-current', 'page')
     await user.click(screen.getByRole('link', { name: 'Profile' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Profile' })).toBeInTheDocument()
@@ -39,7 +40,7 @@ describe('App', () => {
     await user.click(screen.getByRole('link', { name: 'Courses' }))
     await user.click(await screen.findByRole('link', { name: 'DAT250' }))
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'DAT250' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: /DAT250/ })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'No modules yet' })).toBeInTheDocument()
   })
 

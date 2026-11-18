@@ -24,6 +24,14 @@ export interface StaticPageRequest {
   visibleUntil: string | null
 }
 
+export interface QuizRequest {
+  title: string
+  position: number
+  maxAttempts: number
+  showHints: boolean
+  deadline: string | null
+}
+
 export interface AssignmentRequest {
   title: string
   position: number

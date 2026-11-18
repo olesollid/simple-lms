@@ -15,6 +15,8 @@ import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StaticPage;
 import com._gods.canvas2.repository.ContentRepository;
 import com._gods.canvas2.repository.ModuleRepository;
+import com._gods.canvas2.repository.StudentInteractionRepository;
+import com._gods.canvas2.repository.SubmissionRepository;
 
 @Service
 @Transactional
@@ -24,13 +26,19 @@ public class ContentService {
   private final ModuleRepository moduleRepository;
   private final EnrollmentService enrollmentService;
   private final ModuleService moduleService;
+  private final SubmissionRepository submissionRepository;
+  private final StudentInteractionRepository studentInteractionRepository;
 
   public ContentService(ContentRepository contentRepository, ModuleRepository moduleRepository,
-      EnrollmentService enrollmentService, ModuleService moduleService) {
+      EnrollmentService enrollmentService, ModuleService moduleService,
+      SubmissionRepository submissionRepository,
+      StudentInteractionRepository studentInteractionRepository) {
     this.contentRepository = contentRepository;
     this.moduleRepository = moduleRepository;
     this.enrollmentService = enrollmentService;
     this.moduleService = moduleService;
+    this.submissionRepository = submissionRepository;
+    this.studentInteractionRepository = studentInteractionRepository;
   }
 
   public StaticPage createStaticPage(Long moduleId, String title, int position, String body,
@@ -128,9 +136,13 @@ public class ContentService {
     return contentRepository.save(staticPage);
   }
 
+  /** Deleting content also removes submissions and interactions tied to it, which would
+   * otherwise block the delete with a foreign-key violation. */
   public void deleteContent(Long id, String requesterEmail) {
     Content content = getContentById(id);
     requireTeacher(content.getModule().getCourse().getId(), requesterEmail);
+    submissionRepository.deleteAll(submissionRepository.findByContent(content));
+    studentInteractionRepository.deleteAll(studentInteractionRepository.findByContent(content));
     contentRepository.delete(content);
   }
 

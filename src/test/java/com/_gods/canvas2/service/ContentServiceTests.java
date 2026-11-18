@@ -21,11 +21,15 @@ import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StaticPage;
+import com._gods.canvas2.model.StudentInteraction;
+import com._gods.canvas2.model.Submission;
 import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.EnrollmentRepository;
 import com._gods.canvas2.repository.ModuleRepository;
+import com._gods.canvas2.repository.StudentInteractionRepository;
+import com._gods.canvas2.repository.SubmissionRepository;
 import com._gods.canvas2.repository.UserRepository;
 
 @DataJpaTest
@@ -48,6 +52,12 @@ class ContentServiceTests {
   @Autowired
   private EnrollmentRepository enrollmentRepository;
 
+  @Autowired
+  private SubmissionRepository submissionRepository;
+
+  @Autowired
+  private StudentInteractionRepository studentInteractionRepository;
+
   private static int userCounter = 0;
   private String teacherEmail;
 
@@ -61,10 +71,14 @@ class ContentServiceTests {
   }
 
   private String studentOf(Module module) {
+    return studentUserOf(module).getEmail();
+  }
+
+  private User studentUserOf(Module module) {
     String email = "student" + (userCounter++) + "@example.com";
     User user = userRepository.save(new User(email, "Student"));
     enrollmentRepository.save(new Enrollment(user, module.getCourse(), Role.STUDENT));
-    return email;
+    return user;
   }
 
   @Test
@@ -294,6 +308,23 @@ class ContentServiceTests {
     assertTrue(contentService.getContentsByModule(module.getId(), teacherEmail).isEmpty());
     assertThrows(ContentNotFoundException.class,
         () -> contentService.getContentById(page.getId(), teacherEmail));
+  }
+
+  @Test
+  void deletingContentAlsoDeletesItsSubmissionsAndInteractions() {
+    Module module = module();
+    User student = studentUserOf(module);
+    Assignment assignment = contentService.createAssignment(module.getId(), "Essay", 0,
+        "Write something", null, false, false, teacherEmail);
+    submissionRepository.save(new Submission(student, assignment, "My essay"));
+    studentInteractionRepository.save(new StudentInteraction(student, assignment));
+
+    contentService.deleteContent(assignment.getId(), teacherEmail);
+
+    assertTrue(submissionRepository.findByContent(assignment).isEmpty());
+    assertTrue(studentInteractionRepository.findByContent(assignment).isEmpty());
+    assertThrows(ContentNotFoundException.class,
+        () -> contentService.getContentById(assignment.getId(), teacherEmail));
   }
 
   @Test

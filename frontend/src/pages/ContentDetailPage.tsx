@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import LoadingIndicator from '../components/ui/LoadingIndicator'
 import ErrorMessage from '../components/ui/ErrorMessage'
+import Button from '../components/ui/Button'
 import SubmissionForm from '../components/SubmissionForm'
 import { contents, enrollments, groups, modules, submissions, users } from '../services'
 import { ApiError } from '../services/apiClient'
@@ -9,11 +10,15 @@ import { contentDetailError } from './contentDetailState'
 import type { ContentDetailState } from './contentDetailState'
 
 export default function ContentDetailPage() {
-  const { contentId: contentIdParam } = useParams<{ contentId: string }>()
+  const { courseId: courseIdParam, contentId: contentIdParam } =
+    useParams<{ courseId: string; contentId: string }>()
+  const navigate = useNavigate()
   const contentId = Number(contentIdParam)
-  const isValidId = Number.isFinite(contentId)
+  const isValidId = Number.isFinite(contentId) && Number.isFinite(Number(courseIdParam))
   const [state, setState] = useState<ContentDetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isValidId) return
@@ -82,6 +87,19 @@ export default function ContentDetailPage() {
     setAttempt(previous => previous + 1)
   }
 
+  async function handleDelete() {
+    if (!window.confirm('Delete this content? This cannot be undone.')) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await contents.deleteContent(contentId, {})
+      navigate(`/courses/${courseIdParam}`)
+    } catch (error) {
+      setDeleteError(contentDetailError(error))
+      setDeleting(false)
+    }
+  }
+
   if (state.status === 'loading') {
     return (
       <div className="course-state">
@@ -102,8 +120,17 @@ export default function ContentDetailPage() {
 
   return (
     <article className="content-detail" aria-labelledby="content-title">
-      <p className="eyebrow">{content.type}</p>
-      <h1 id="content-title">{content.title}</h1>
+      <Link className="text-link back-link" to={`/courses/${courseIdParam}`}>← Back to course</Link>
+      <div className="content-detail-header">
+        <div>
+          <p className="eyebrow">{content.type}</p>
+          <h1 id="content-title">{content.title}</h1>
+        </div>
+        {isTeacher && (
+          <Button variant="danger" onClick={handleDelete} loading={deleting}>Delete content</Button>
+        )}
+      </div>
+      {deleteError && <ErrorMessage message={deleteError} />}
 
       {content.type === 'StaticPage' && (
         <div className="content-body">{content.body}</div>

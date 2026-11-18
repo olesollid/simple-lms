@@ -1,29 +1,46 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import ModuleList from '../components/ModuleList'
+import CreateModuleModal from '../components/CreateModuleModal'
+import ManageEnrollmentsModal from '../components/ManageEnrollmentsModal'
 import LoadingIndicator from '../components/ui/LoadingIndicator'
-import { courses, modules } from '../services'
+import ErrorMessage from '../components/ui/ErrorMessage'
+import Button from '../components/ui/Button'
+import { courses, enrollments, modules, users } from '../services'
 import { courseDetailError } from './courseDetailState'
 import type { CourseDetailState } from './courseDetailState'
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const courseId = Number(id)
   const isValidId = Number.isFinite(courseId)
   const [state, setState] = useState<CourseDetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const [createModuleOpen, setCreateModuleOpen] = useState(false)
+  const [manageStudentsOpen, setManageStudentsOpen] = useState(false)
+  const [deletingCourse, setDeletingCourse] = useState(false)
+  const [deleteCourseError, setDeleteCourseError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isValidId) return
 
     const controller = new AbortController()
+    const options = { signal: controller.signal }
 
-    Promise.all([
-      courses.getCourse(courseId, { signal: controller.signal }),
-      modules.getModules(courseId, { signal: controller.signal }),
-    ]).then(
-      ([course, moduleList]) => {
-        if (!controller.signal.aborted) setState({ status: 'success', course, modules: moduleList })
+    async function load() {
+      const [course, moduleList, me] = await Promise.all([
+        courses.getCourse(courseId, options),
+        modules.getModules(courseId, options),
+        users.getCurrentUser(options),
+      ])
+      const enrollment = await enrollments.getEnrollment(courseId, me.email, options)
+      return { course, modules: moduleList, isTeacher: enrollment.role === 'TEACHER' }
+    }
+
+    load().then(
+      result => {
+        if (!controller.signal.aborted) setState({ status: 'success', ...result })
       },
       error => {
         if (!controller.signal.aborted) setState({ status: 'error', message: courseDetailError(error) })
@@ -48,6 +65,19 @@ export default function CourseDetailPage() {
     setAttempt(previous => previous + 1)
   }
 
+  async function handleDeleteCourse() {
+    if (!window.confirm('Delete this course? This cannot be undone.')) return
+    setDeletingCourse(true)
+    setDeleteCourseError(null)
+    try {
+      await courses.deleteCourse(courseId, {})
+      navigate('/courses')
+    } catch (error) {
+      setDeleteCourseError(courseDetailError(error))
+      setDeletingCourse(false)
+    }
+  }
+
   if (state.status === 'loading') {
     return (
       <div className="course-state">
@@ -67,24 +97,55 @@ export default function CourseDetailPage() {
     )
   }
 
-  const { course, modules: courseModules } = state
+  const { course, modules: courseModules, isTeacher } = state
   const semester = `${course.term === 'AUTUMN' ? 'Autumn' : 'Spring'} ${course.year}`
 
   return (
     <>
+      <Link className="text-link back-link" to="/courses">← Back to courses</Link>
       <div className="page-heading">
         <div>
           <p className="eyebrow">{semester}</p>
-          <h1>{course.title}</h1>
+          <h1>
+            {course.title}
+            <span className={`role-badge ${isTeacher ? 'role-badge--teacher' : 'role-badge--student'}`}>
+              {isTeacher ? 'Teacher' : 'Student'}
+            </span>
+          </h1>
           <p className="page-description">{course.description.trim() || 'No description provided.'}</p>
         </div>
-        <button className="refresh-button" type="button" disabled title="Coming soon">
-          Manage course
-        </button>
+        {isTeacher && (
+          <div className="page-heading-actions">
+            <Button variant="secondary" onClick={() => setManageStudentsOpen(true)}>
+              Manage students
+            </Button>
+            <Button variant="secondary" className="refresh-button" onClick={() => setCreateModuleOpen(true)}>
+              Add module
+            </Button>
+            <Button variant="danger" onClick={handleDeleteCourse} loading={deletingCourse}>
+              Delete course
+            </Button>
+          </div>
+        )}
       </div>
+      {deleteCourseError && <ErrorMessage message={deleteCourseError} />}
       <section aria-label="Course modules">
-        <ModuleList modules={courseModules} />
+        <ModuleList modules={courseModules} isTeacher={isTeacher} onModuleDeleted={reload} />
       </section>
+      <CreateModuleModal
+        courseId={courseId}
+        open={createModuleOpen}
+        onClose={() => setCreateModuleOpen(false)}
+        onCreated={() => {
+          setCreateModuleOpen(false)
+          reload()
+        }}
+      />
+      <ManageEnrollmentsModal
+        courseId={courseId}
+        open={manageStudentsOpen}
+        onClose={() => setManageStudentsOpen(false)}
+      />
     </>
   )
 }
