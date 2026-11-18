@@ -7,7 +7,12 @@ import CourseDetailPage from './CourseDetailPage'
 
 const getCourse = vi.hoisted(() => vi.fn())
 const getModules = vi.hoisted(() => vi.fn())
-vi.mock('../services', () => ({ courses: { getCourse }, modules: { getModules } }))
+const getContentsByModule = vi.hoisted(() => vi.fn())
+vi.mock('../services', () => ({
+  courses: { getCourse },
+  modules: { getModules },
+  contents: { getContentsByModule },
+}))
 
 const course = { id: 1, title: 'DAT250', description: 'Software technology', term: 'AUTUMN', year: 2026 }
 const makeModule = (id: number) => ({ id, courseId: 1, title: `Module ${id}`, dependencyIds: [] })
@@ -26,6 +31,8 @@ describe('CourseDetailPage', () => {
   beforeEach(() => {
     getCourse.mockReset()
     getModules.mockReset()
+    getContentsByModule.mockReset()
+    getContentsByModule.mockResolvedValue([])
   })
 
   it('shows the course and its modules', async () => {

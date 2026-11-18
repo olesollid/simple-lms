@@ -1,5 +1,6 @@
 import CoursesPage from './pages/CoursesPage'
 import CourseDetailPage from './pages/CourseDetailPage'
+import ContentDetailPage from './pages/ContentDetailPage'
 import { Navigate, Route, Routes } from 'react-router'
 import AppLayout from './components/AppLayout'
 import PlaceholderPage from './pages/PlaceholderPage'
@@ -13,6 +14,7 @@ function App() {
         <Route path="dashboard" element={<PlaceholderPage title="Dashboard" description="Your learning, all in one place." message="Your course activity and upcoming deadlines will appear here." />} />
         <Route path="courses" element={<CoursesPage />} />
         <Route path="courses/:id" element={<CourseDetailPage />} />
+        <Route path="contents/:contentId" element={<ContentDetailPage />} />
         <Route path="profile" element={<PlaceholderPage title="Profile" description="Your personal learning space." message="Your account details and preferences will appear here." />} />
         <Route path="*" element={<PlaceholderPage title="Page not found" description="We couldn’t find that page." message="Use the navigation to return to your learning space." />} />
       </Route>
