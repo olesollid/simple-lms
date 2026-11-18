@@ -13,13 +13,14 @@ const getEnrollment = vi.hoisted(() => vi.fn())
 const getOwnSubmission = vi.hoisted(() => vi.fn())
 const submit = vi.hoisted(() => vi.fn())
 const getOwnGroup = vi.hoisted(() => vi.fn())
+const getSubmissionsByContent = vi.hoisted(() => vi.fn())
 
 vi.mock('../services', () => ({
   contents: { getContent, deleteContent },
   modules: { getModule },
   users: { getCurrentUser },
   enrollments: { getEnrollment },
-  submissions: { getOwnSubmission, submit },
+  submissions: { getOwnSubmission, submit, getSubmissionsByContent },
   groups: { getOwnGroup },
 }))
 
@@ -60,6 +61,8 @@ describe('ContentDetailPage', () => {
     getOwnSubmission.mockReset()
     submit.mockReset()
     getOwnGroup.mockReset()
+    getSubmissionsByContent.mockReset()
+    getSubmissionsByContent.mockResolvedValue([])
     getModule.mockResolvedValue(module1)
     getCurrentUser.mockResolvedValue({ email: 'student@example.com', name: 'Student' })
   })
@@ -83,14 +86,16 @@ describe('ContentDetailPage', () => {
     expect(screen.getByLabelText('Your submission')).toBeInTheDocument()
   })
 
-  it('does not show a submission form for a teacher', async () => {
+  it('shows the submissions review instead of a submission form for a teacher', async () => {
     getContent.mockResolvedValue(assignment)
     getEnrollment.mockResolvedValue({ role: 'TEACHER' })
+    getSubmissionsByContent.mockResolvedValue([])
     renderAt('/courses/1/modules/1/contents/2')
 
     expect(await screen.findByText('Write 500 words')).toBeInTheDocument()
     expect(screen.queryByLabelText('Your submission')).not.toBeInTheDocument()
     expect(getOwnSubmission).not.toHaveBeenCalled()
+    expect(await screen.findByText('No submissions yet.')).toBeInTheDocument()
   })
 
   it('shows an error for an invalid content id', async () => {
