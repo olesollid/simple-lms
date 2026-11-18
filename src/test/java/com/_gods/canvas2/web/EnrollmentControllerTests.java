@@ -36,6 +36,7 @@ import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.service.ConflictException;
 import com._gods.canvas2.service.EnrollmentService;
+import com._gods.canvas2.service.ForbiddenException;
 import com._gods.canvas2.service.NotFoundException;
 
 @WebMvcTest(EnrollmentController.class)
@@ -61,6 +62,13 @@ class EnrollmentControllerTests {
     RequestPostProcessor login = oauth2Login().oauth2User(new DefaultOAuth2User(
         Set.of(new SimpleGrantedAuthority("ROLE_USER")),
         Map.of("email", "teacher@example.com"), "email"));
+    return request -> csrf().postProcessRequest(login.postProcessRequest(request));
+  }
+
+  private RequestPostProcessor asStudent() {
+    RequestPostProcessor login = oauth2Login().oauth2User(new DefaultOAuth2User(
+        Set.of(new SimpleGrantedAuthority("ROLE_USER")),
+        Map.of("email", "student@example.com"), "email"));
     return request -> csrf().postProcessRequest(login.postProcessRequest(request));
   }
 
@@ -154,5 +162,51 @@ class EnrollmentControllerTests {
 
     mockMvc.perform(delete("/api/courses/1/enrollments/student@example.com").with(asTeacher()))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void enrollReturns403ForStudent() throws Exception {
+    when(enrollmentService.enroll(any(), any(), any(), anyString()))
+        .thenThrow(new ForbiddenException("not a teacher"));
+
+    mockMvc.perform(post("/api/courses/1/enrollments")
+            .with(asStudent())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(REQUEST_BODY))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void studentCannotPromoteThemselvesToTeacher() throws Exception {
+    when(enrollmentService.changeRole(eq(1L), eq("student@example.com"), eq(Role.TEACHER),
+        anyString())).thenThrow(new ForbiddenException("cannot self-promote to teacher"));
+
+    mockMvc.perform(put("/api/courses/1/enrollments/student@example.com")
+            .with(asStudent())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"role\":\"TEACHER\"}"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void studentCannotChangeAnotherStudentsRole() throws Exception {
+    when(enrollmentService.changeRole(eq(1L), eq("other-student@example.com"), eq(Role.STUDENT),
+        anyString())).thenThrow(new ForbiddenException("not a teacher"));
+
+    mockMvc.perform(put("/api/courses/1/enrollments/other-student@example.com")
+            .with(asStudent())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"role\":\"STUDENT\"}"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void studentCannotUnenrollAnotherStudent() throws Exception {
+    doThrow(new ForbiddenException("not a teacher"))
+        .when(enrollmentService).unenroll(eq(1L), eq("other-student@example.com"), anyString());
+
+    mockMvc.perform(delete("/api/courses/1/enrollments/other-student@example.com")
+            .with(asStudent()))
+        .andExpect(status().isForbidden());
   }
 }
