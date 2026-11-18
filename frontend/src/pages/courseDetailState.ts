@@ -4,7 +4,7 @@ import { ApiError, ApiResponseError } from '../services/apiClient.ts'
 
 export type CourseDetailState =
   | { status: 'loading' }
-  | { status: 'success'; course: CourseResponse; modules: ModuleResponse[] }
+  | { status: 'success'; course: CourseResponse; modules: ModuleResponse[]; isTeacher: boolean }
   | { status: 'error'; message: string }
 
 export function courseDetailError(error: unknown): string {

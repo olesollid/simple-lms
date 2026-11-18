@@ -11,23 +11,31 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
+import com._gods.canvas2.model.Assignment;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Enrollment;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Role;
+import com._gods.canvas2.model.StudentInteraction;
+import com._gods.canvas2.model.Submission;
 import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.EnrollmentRepository;
+import com._gods.canvas2.repository.StudentInteractionRepository;
+import com._gods.canvas2.repository.SubmissionRepository;
 import com._gods.canvas2.repository.UserRepository;
 
 @DataJpaTest
-@Import({ModuleService.class, EnrollmentService.class, UserService.class,
+@Import({ModuleService.class, ContentService.class, EnrollmentService.class, UserService.class,
     StudentInteractionService.class})
 class ModuleServiceTests {
 
   @Autowired
   private ModuleService moduleService;
+
+  @Autowired
+  private ContentService contentService;
 
   @Autowired
   private CourseRepository courseRepository;
@@ -37,6 +45,12 @@ class ModuleServiceTests {
 
   @Autowired
   private EnrollmentRepository enrollmentRepository;
+
+  @Autowired
+  private SubmissionRepository submissionRepository;
+
+  @Autowired
+  private StudentInteractionRepository studentInteractionRepository;
 
   private static int userCounter = 0;
 
@@ -52,10 +66,14 @@ class ModuleServiceTests {
   }
 
   private String studentOf(Course course) {
+    return studentUserOf(course).getEmail();
+  }
+
+  private User studentUserOf(Course course) {
     String email = "student" + (userCounter++) + "@example.com";
     User user = userRepository.save(new User(email, "Student"));
     enrollmentRepository.save(new Enrollment(user, course, Role.STUDENT));
-    return email;
+    return user;
   }
 
   @Test
@@ -210,6 +228,27 @@ class ModuleServiceTests {
     assertTrue(affected.isEmpty());
     assertThrows(ModuleNotFoundException.class,
         () -> moduleService.getModuleById(module.getId(), teacher));
+  }
+
+  @Test
+  void deletingModuleAlsoDeletesItsContentAndTheirSubmissionsAndInteractions() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    Module module = moduleService.createModule(course.getId(), "Week 1", teacher);
+    User student = studentUserOf(course);
+    Assignment assignment = contentService.createAssignment(module.getId(), "Essay", 0,
+        "Write something", null, false, false, teacher);
+    submissionRepository.save(new Submission(student, assignment, "My essay"));
+    studentInteractionRepository.save(new StudentInteraction(student, assignment));
+
+    moduleService.deleteModule(module.getId(), teacher);
+
+    assertThrows(ModuleNotFoundException.class,
+        () -> moduleService.getModuleById(module.getId(), teacher));
+    assertThrows(ContentNotFoundException.class,
+        () -> contentService.getContentById(assignment.getId(), teacher));
+    assertTrue(submissionRepository.findByContent(assignment).isEmpty());
+    assertTrue(studentInteractionRepository.findByContent(assignment).isEmpty());
   }
 
   @Test

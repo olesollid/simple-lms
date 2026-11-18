@@ -18,13 +18,13 @@ test('loading is announced without showing an empty result', () => {
 })
 
 test('an empty API result shows the empty state', () => {
-  const html = render({ status: 'success', courses: [] })
+  const html = render({ status: 'success', courses: [], roleByCourseId: {} })
   assert.match(html, /No courses yet/)
   assert.doesNotMatch(html, /course-card/)
 })
 
 test('course cards display API values, semesters and accessible headings', () => {
-  const html = render({ status: 'success', courses: [
+  const html = render({ status: 'success', roleByCourseId: {}, courses: [
     { id: 9, title: 'DAT250', description: 'Software technologies', term: 'AUTUMN', year: 2026 },
     { id: 10, title: 'INF100', description: 'Programming', term: 'SPRING', year: 2027 },
   ] })
@@ -37,12 +37,19 @@ test('course cards display API values, semesters and accessible headings', () =>
 })
 
 test('missing descriptions have a fallback and server content is escaped', () => {
-  const html = render({ status: 'success', courses: [
+  const html = render({ status: 'success', roleByCourseId: {}, courses: [
     { id: 1, title: '<script>alert(1)</script>', description: ' ', term: 'AUTUMN', year: 2026 },
   ] })
   assert.match(html, /1 course</)
   assert.match(html, /No description provided/)
   assert.doesNotMatch(html, /<script>/)
+})
+
+test('course cards show a role badge when a role is known', () => {
+  const html = render({ status: 'success', courses: [
+    { id: 9, title: 'DAT250', description: 'Software technologies', term: 'AUTUMN', year: 2026 },
+  ], roleByCourseId: { 9: 'TEACHER' } })
+  assert.match(html, /Teacher/)
 })
 
 test('errors are announced with an alert rather than an empty course list', () => {
