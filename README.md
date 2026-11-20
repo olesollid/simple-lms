@@ -52,6 +52,27 @@ For the default and dev profiles, `application.properties` defines the in-memory
 schema errors fail startup. All data is disposable and lost on restart.
 `open-in-view=false` keeps database work out of web response rendering.
 
+### Deployment (Docker)
+
+| Setting | Purpose | Default |
+| --- | --- | --- |
+| `FRONTEND_URL` | Public URL of the app, used for the post-login redirect and CORS | `http://localhost:8080` |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth credentials | `dummy` in compose |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth credentials | `dummy` in compose |
+| `RABBITMQ_HOST`, `REDIS_HOST` | Broker and cache hosts | set to the compose service names |
+
+For a real deployment, set `FRONTEND_URL` to the public address and register
+`<that address>/login/oauth2/code/github` and `.../google` as redirect URIs with each
+provider. Change the default RabbitMQ credentials in `compose.yaml`.
+
+Non-API paths (such as `/courses/1`) return the frontend so refreshes and deep links
+work; `/api/**` and `/actuator/**` still require login. On GitLab, the `docker-build`
+job builds this image and pushes it to the registry on the default branch.
+
+Local debugging is unchanged: `docker compose up rabbitmq redis`, `npm run dev` in
+`frontend/`, and the backend with the `dev` profile. Stop the prod `app` container
+first, since it also uses port 8080.
+
 ### Persistent H2 (prod profile)
 
 `application-prod.properties` uses `jdbc:h2:file:/data/canvas2;DB_CLOSE_ON_EXIT=FALSE`
@@ -59,18 +80,21 @@ and `ddl-auto=update`. Docker Compose mounts the named `canvas2-data` volume at
 `/data`, so the database survives application/container restarts and image rebuilds.
 The H2 console is disabled. Dev and tests continue to use disposable in-memory H2.
 
-Build the backend JAR before building the container (the Dockerfile copies it):
+The Dockerfile is a self-contained multi-stage build: it builds the frontend,
+bundles it into the Spring Boot jar, and produces one runtime image. No local Maven
+or Node build is needed first:
 
 ```powershell
-.\mvnw.cmd package "-Dsurefire.excludesFile=ci-excluded-tests.txt"
 docker compose --profile prod up -d --build
 ```
 
-Compose activates the Spring `prod` profile and connects the app to RabbitMQ
+Open http://localhost:8080. The app serves both the UI and the API from the same
+origin, so no separate Vite server is needed in prod. Compose activates the Spring
+`prod` profile (the image also defaults to it) and connects the app to RabbitMQ
 and Redis by their service names. It forwards OAuth credentials from the host
-environment or root `.env`; provide real credentials to sign in. The frontend
-still runs separately with Vite. `D250_REG` optionally sets the backend image
-namespace; without it the local image is `canvas2/app:latest`.
+environment or root `.env`; provide real credentials to sign in. `D250_REG`
+optionally sets the image namespace; without it the local image is
+`canvas2/app:latest`.
 
 To verify a container restart, create a course, module, content, and submission
 through the app, run `docker compose restart app`, sign in again if necessary,
