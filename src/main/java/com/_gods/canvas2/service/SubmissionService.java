@@ -14,6 +14,7 @@ import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Group;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.Submission;
+import com._gods.canvas2.model.SubmissionFile;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.ContentRepository;
 import com._gods.canvas2.repository.SubmissionRepository;
@@ -63,8 +64,15 @@ public class SubmissionService {
    * individually, same as for non-group content.
    */
   public Submission submit(Long contentId, String text, String requesterEmail) {
+    return submit(contentId, text, null, requesterEmail);
+  }
+
+  public Submission submit(Long contentId, String text, SubmissionFile file, String requesterEmail) {
     Content content = contentRepository.findById(contentId)
         .orElseThrow(() -> new ContentNotFoundException(contentId));
+    if (!(content instanceof Assignment) && !(content instanceof CodingExercise)) {
+      throw new IllegalArgumentException("Only assignments and coding exercises accept hand-ins");
+    }
     Long courseId = content.getModule().getCourse().getId();
     enrollmentService.requireEnrolled(courseId, requesterEmail);
     boolean isTeacher = enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER);
@@ -78,9 +86,9 @@ public class SubmissionService {
       Group group = groupService.getOwnGroup(courseId, requesterEmail);
       Submission saved;
       try {
-        saved = saveGroupSubmission(group, submittedBy, content, text);
+        saved = saveGroupSubmission(group, submittedBy, content, text, file);
       } catch (DataIntegrityViolationException raceLostToConcurrentInsert) {
-        saved = updateExistingGroupSubmission(group, submittedBy, content, text);
+        saved = updateExistingGroupSubmission(group, submittedBy, content, text, file);
       }
       studentInteractionService.markCompleted(contentId, requesterEmail);
       return saved;
@@ -88,9 +96,9 @@ public class SubmissionService {
 
     Submission saved;
     try {
-      saved = saveSubmission(submittedBy, content, text);
+      saved = saveSubmission(submittedBy, content, text, file);
     } catch (DataIntegrityViolationException raceLostToConcurrentInsert) {
-      saved = updateExistingSubmission(submittedBy, content, text);
+      saved = updateExistingSubmission(submittedBy, content, text, file);
     }
     studentInteractionService.markCompleted(contentId, requesterEmail);
     return saved;
@@ -111,7 +119,7 @@ public class SubmissionService {
    * {@link #updateExistingSubmission} still run cleanly in the caller's transaction afterward.
    */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  protected Submission saveSubmission(User submitter, Content content, String text) {
+  protected Submission saveSubmission(User submitter, Content content, String text, SubmissionFile file) {
     Submission existing = submissionRepository.findByContentAndSubmitter(content, submitter)
         .orElse(null);
     if (existing != null) {
@@ -119,13 +127,13 @@ public class SubmissionService {
         throw new ConflictException(
             "Cannot resubmit content " + content.getId() + ": it has already been graded");
       }
-      existing.resubmit(text, submitter);
+      existing.resubmit(text, submitter, file);
       return submissionRepository.save(existing);
     }
-    return submissionRepository.save(new Submission(submitter, content, text));
+    return submissionRepository.save(new Submission(submitter, content, text, file));
   }
 
-  private Submission updateExistingSubmission(User submitter, Content content, String text) {
+  private Submission updateExistingSubmission(User submitter, Content content, String text, SubmissionFile file) {
     Submission existing = submissionRepository.findByContentAndSubmitter(content, submitter)
         .orElseThrow(() -> new IllegalStateException(
             "Expected a concurrently-inserted Submission for user " + submitter.getEmail()
@@ -134,28 +142,28 @@ public class SubmissionService {
       throw new ConflictException(
           "Cannot resubmit content " + content.getId() + ": it has already been graded");
     }
-    existing.resubmit(text, submitter);
+    existing.resubmit(text, submitter, file);
     return submissionRepository.save(existing);
   }
 
   /** Same race-safety strategy as {@link #saveSubmission}, keyed by (group, content) instead. */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   protected Submission saveGroupSubmission(Group group, User submittedBy, Content content,
-      String text) {
+      String text, SubmissionFile file) {
     Submission existing = submissionRepository.findByContentAndGroup(content, group).orElse(null);
     if (existing != null) {
       if (existing.isGraded()) {
         throw new ConflictException(
             "Cannot resubmit content " + content.getId() + ": it has already been graded");
       }
-      existing.resubmit(text, submittedBy);
+      existing.resubmit(text, submittedBy, file);
       return submissionRepository.save(existing);
     }
-    return submissionRepository.save(new Submission(group, submittedBy, content, text));
+    return submissionRepository.save(new Submission(group, submittedBy, content, text, file));
   }
 
   private Submission updateExistingGroupSubmission(Group group, User submittedBy, Content content,
-      String text) {
+      String text, SubmissionFile file) {
     Submission existing = submissionRepository.findByContentAndGroup(content, group)
         .orElseThrow(() -> new IllegalStateException(
             "Expected a concurrently-inserted Submission for group " + group.getId()
@@ -164,7 +172,7 @@ public class SubmissionService {
       throw new ConflictException(
           "Cannot resubmit content " + content.getId() + ": it has already been graded");
     }
-    existing.resubmit(text, submittedBy);
+    existing.resubmit(text, submittedBy, file);
     return submissionRepository.save(existing);
   }
 
@@ -227,6 +235,22 @@ public class SubmissionService {
     content.publishGrades();
     contentRepository.save(content);
     return true;
+  }
+
+  @Transactional(readOnly = true)
+  public SubmissionFile downloadFile(Long submissionId, String requesterEmail) {
+    Submission submission = submissionRepository.findById(submissionId)
+        .orElseThrow(() -> new NotFoundException("Submission not found"));
+    Long courseId = submission.getContent().getModule().getCourse().getId();
+    enrollmentService.requireEnrolled(courseId, requesterEmail);
+    if (!enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER)) {
+      Submission own = getOwnSubmission(submission.getContent().getId(), requesterEmail);
+      if (!own.getId().equals(submissionId)) {
+        throw new ForbiddenException("You may only download your own or your group's file");
+      }
+    }
+    if (submission.getFile() == null) throw new NotFoundException("No file attached");
+    return submission.getFile();
   }
 
   private void requireTeacher(Long courseId, String requesterEmail) {

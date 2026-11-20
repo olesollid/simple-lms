@@ -15,6 +15,17 @@ import com._gods.canvas2.web.dto.ErrorResponse;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+  @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+  public ResponseEntity<ErrorResponse> handleUploadTooLarge(Exception exception) {
+    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+        .body(new ErrorResponse("File exceeds the 10 MB upload limit"));
+  }
+
+  @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+  public ResponseEntity<ErrorResponse> handleMissingUpload(Exception exception) {
+    return ResponseEntity.badRequest().body(new ErrorResponse("Select a file to upload"));
+  }
+
   @ExceptionHandler(NotFoundException.class)
   public ResponseEntity<ErrorResponse> handleNotFound(NotFoundException exception) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND)

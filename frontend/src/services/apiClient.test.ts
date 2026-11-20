@@ -7,6 +7,19 @@ afterEach(() => {
 })
 
 describe('createApiClient CSRF header', () => {
+  it('sends multipart bodies unchanged with credentials and CSRF, letting the browser set the boundary', async () => {
+    document.cookie = 'XSRF-TOKEN=upload-token'
+    const body = new FormData()
+    body.append('file', new File(['%PDF-1.4'], 'report.pdf'))
+    const request = createApiClient('/api', async (_url, options) => {
+      expect(options?.body).toBe(body)
+      expect(options?.credentials).toBe('include')
+      expect((options?.headers as Headers).has('Content-Type')).toBe(false)
+      expect((options?.headers as Headers).get('X-XSRF-TOKEN')).toBe('upload-token')
+      return Response.json({ id: 1 })
+    })
+    await request('/contents/1/submissions', { method: 'POST', body })
+  })
   it('sends the XSRF-TOKEN cookie as an X-XSRF-TOKEN header on writes', async () => {
     document.cookie = 'XSRF-TOKEN=abc123'
     let sentHeader: string | null = null

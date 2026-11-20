@@ -11,6 +11,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -43,6 +45,46 @@ import com._gods.canvas2.service.SubmissionService;
 @WebMvcTest(SubmissionController.class)
 @AutoConfigureMockMvc
 class SubmissionControllerTests {
+
+  @Test
+  void multipartUploadReturnsMetadataWithoutFileBytes() throws Exception {
+    var attachment = new com._gods.canvas2.model.SubmissionFile("report.pdf", "%PDF-1.4".getBytes());
+    Submission saved = submission(1L, "student@example.com", "Report");
+    saved.resubmit("Report", saved.getSubmitter(), attachment);
+    when(submissionService.submit(eq(1L), eq("Report"), any(com._gods.canvas2.model.SubmissionFile.class), anyString()))
+        .thenReturn(saved);
+    mockMvc.perform(multipart("/api/contents/1/submissions")
+        .file(new org.springframework.mock.web.MockMultipartFile("file", "report.pdf", "application/pdf", attachment.getData()))
+        .param("text", "Report").with(as("student@example.com")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.fileName").value("report.pdf"))
+        .andExpect(jsonPath("$.fileSize").value(8))
+        .andExpect(jsonPath("$.data").doesNotExist());
+  }
+
+  @Test
+  void downloadUsesAttachmentHeadersAndReturnsOriginalBytes() throws Exception {
+    var attachment = new com._gods.canvas2.model.SubmissionFile("report.pdf", "%PDF-1.4".getBytes());
+    when(submissionService.downloadFile(1L, "teacher@example.com")).thenReturn(attachment);
+    mockMvc.perform(get("/api/submissions/1/file").with(as("teacher@example.com")))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment;")))
+        .andExpect(header().string("Cache-Control", "no-store"))
+        .andExpect(content().contentType("application/pdf"))
+        .andExpect(content().bytes(attachment.getData()));
+  }
+
+  @Test
+  void rejectsOversizedAndUnsupportedUploads() throws Exception {
+    mockMvc.perform(multipart("/api/contents/1/submissions")
+        .file(new org.springframework.mock.web.MockMultipartFile("file", "large.pdf", "application/pdf", new byte[10 * 1024 * 1024 + 1]))
+        .with(as("student@example.com")))
+        .andExpect(status().isPayloadTooLarge());
+    mockMvc.perform(multipart("/api/contents/1/submissions")
+        .file(new org.springframework.mock.web.MockMultipartFile("file", "a.exe", "application/pdf", "%PDF-1.4".getBytes()))
+        .with(as("student@example.com")))
+        .andExpect(status().isBadRequest());
+  }
 
   @Autowired
   private MockMvc mockMvc;

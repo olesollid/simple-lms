@@ -5,7 +5,8 @@ import { ApiError } from '../services/apiClient'
 import SubmissionForm from './SubmissionForm'
 
 const submit = vi.hoisted(() => vi.fn())
-vi.mock('../services', () => ({ submissions: { submit } }))
+const upload = vi.hoisted(() => vi.fn())
+vi.mock('../services', () => ({ submissions: { submit, upload } }))
 
 describe('SubmissionForm', () => {
   it('shows a waiting message without grade or feedback while results are private', () => {
@@ -21,6 +22,7 @@ describe('SubmissionForm', () => {
   })
   beforeEach(() => {
     submit.mockReset()
+    upload.mockReset()
   })
 
   it('submits the entered text', async () => {
@@ -34,6 +36,29 @@ describe('SubmissionForm', () => {
 
     expect(submit).toHaveBeenCalledWith(1, { text: 'My essay' }, {})
     expect(onSubmitted).toHaveBeenCalledTimes(1)
+  })
+
+  it('uploads a document without requiring text', async () => {
+    const user = userEvent.setup()
+    const onSubmitted = vi.fn()
+    upload.mockResolvedValue({})
+    render(<SubmissionForm contentId={1} existingSubmission={null} onSubmitted={onSubmitted} />)
+    const file = new File(['%PDF-1.4'], 'essay.pdf', { type: 'application/pdf' })
+    await user.upload(screen.getByLabelText('Attach a document'), file)
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    expect(upload).toHaveBeenCalledWith(1, '', file, {})
+    expect(onSubmitted).toHaveBeenCalledOnce()
+    expect(submit).not.toHaveBeenCalled()
+  })
+
+  it('rejects an oversized document before sending it', async () => {
+    const user = userEvent.setup()
+    render(<SubmissionForm contentId={1} existingSubmission={null} onSubmitted={() => {}} />)
+    await user.upload(screen.getByLabelText('Attach a document'),
+      new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'large.pdf', { type: 'application/pdf' }))
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('up to 10 MB')
+    expect(upload).not.toHaveBeenCalled()
   })
 
   it('shows an error without calling onSubmitted when the submission fails', async () => {

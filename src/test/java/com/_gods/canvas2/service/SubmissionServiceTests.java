@@ -32,6 +32,68 @@ import com._gods.canvas2.repository.UserRepository;
     EnrollmentService.class, UserService.class, StudentInteractionService.class,
     GroupService.class})
 class SubmissionServiceTests {
+  @Autowired
+  private jakarta.persistence.EntityManager entityManager;
+
+  private com._gods.canvas2.model.SubmissionFile pdf(String name) {
+    return new com._gods.canvas2.model.SubmissionFile(name,
+        "%PDF-1.4 test document".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  }
+
+  @Test
+  void fileOnlyHandInPersistsBlobAndRestrictsDownloads() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    String other = studentOf(course);
+    Assignment assignment = assignmentIn(course, teacher);
+    Submission saved = submissionService.submit(assignment.getId(), "", pdf("essay.pdf"), student);
+    submissionService.submit(assignment.getId(), "Other student's work", other);
+    Long id = saved.getId();
+    entityManager.flush();
+    entityManager.clear();
+    var file = submissionService.downloadFile(id, teacher);
+    assertEquals("essay.pdf", file.getFilename());
+    org.junit.jupiter.api.Assertions.assertArrayEquals(pdf("essay.pdf").getData(), file.getData());
+    assertEquals("essay.pdf", submissionService.downloadFile(id, student).getFilename());
+    assertThrows(ForbiddenException.class, () -> submissionService.downloadFile(id, other));
+    assertThrows(ForbiddenException.class,
+        () -> submissionService.downloadFile(id, "stranger@example.com"));
+  }
+
+  @Test
+  void codingExercisesAcceptFilesAndTextOnlyReplacementRemovesAttachment() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Module module = moduleRepository.save(new Module(course, "Code"));
+    var coding = contentService.createCodingExercise(module.getId(), "Exercise", 0,
+        "https://example.com/repo", null, false, false, teacher);
+    Submission saved = submissionService.submit(coding.getId(), "Report", pdf("report.pdf"), student);
+    submissionService.submit(coding.getId(), "Text replacement", student);
+    assertThrows(NotFoundException.class, () -> submissionService.downloadFile(saved.getId(), teacher));
+  }
+
+  @Test
+  void groupFileIsSharedReplacedAndLockedAfterGrading() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String alice = studentOf(course);
+    String bob = studentOf(course);
+    Assignment assignment = groupAssignmentIn(course, teacher);
+    Group group = groupService.createGroup(course.getId(), "Team", teacher);
+    groupService.addMember(group.getId(), alice, teacher);
+    groupService.addMember(group.getId(), bob, teacher);
+    Submission saved = submissionService.submit(assignment.getId(), "", pdf("draft.pdf"), alice);
+    assertEquals("draft.pdf", submissionService.downloadFile(saved.getId(), bob).getFilename());
+    Submission replaced = submissionService.submit(assignment.getId(), "", pdf("final.pdf"), bob);
+    assertEquals(saved.getId(), replaced.getId());
+    assertEquals("final.pdf", submissionService.downloadFile(saved.getId(), alice).getFilename());
+    submissionService.grade(saved.getId(), 90, "Good", teacher);
+    assertThrows(ConflictException.class,
+        () -> submissionService.submit(assignment.getId(), "", pdf("new.pdf"), alice));
+    assertEquals("final.pdf", submissionService.downloadFile(saved.getId(), teacher).getFilename());
+  }
 
   @Autowired
   private SubmissionService submissionService;

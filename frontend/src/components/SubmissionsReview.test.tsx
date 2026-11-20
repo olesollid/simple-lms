@@ -52,6 +52,13 @@ describe('SubmissionsReview', () => {
     expect(screen.getByText(/by bob@example.com/)).toBeInTheDocument()
   })
 
+  it('offers an authenticated download link when grading a file submission', async () => {
+    getSubmissionsByContent.mockResolvedValue([{ ...groupSubmission, fileName: 'report.pdf', fileSize: 2048 }])
+    render(<SubmissionsReview contentId={1} />)
+    expect(await screen.findByRole('link', { name: 'Download report.pdf' }))
+      .toHaveAttribute('href', '/api/submissions/2/file')
+  })
+
   it('shows the grade and feedback for an already-graded submission instead of a form', async () => {
     getSubmissionsByContent.mockResolvedValue([graded])
     render(<SubmissionsReview contentId={1} />)

@@ -4,6 +4,7 @@ import { ApiError, ApiResponseError } from '../services/apiClient'
 import LoadingIndicator from './ui/LoadingIndicator'
 import ErrorMessage from './ui/ErrorMessage'
 import Button from './ui/Button'
+import SubmissionAttachment from './SubmissionAttachment'
 import type { SubmissionResponse } from '../types/submission'
 
 type ReviewState =
@@ -140,6 +141,7 @@ function SubmissionReviewItem({ submission, onGraded }: {
         </span>
       </div>
       <p className="content-body">{submission.text}</p>
+      <SubmissionAttachment submission={submission} />
 
       {isGraded ? (
         <div className="submission-grade">

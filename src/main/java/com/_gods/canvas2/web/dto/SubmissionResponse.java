@@ -6,7 +6,8 @@ import com._gods.canvas2.model.Submission;
 
 public record SubmissionResponse(Long id, Long contentId, String submitterEmail, Long groupId,
     String lastSubmittedByEmail, String text, LocalDateTime submittedAt, Double grade,
-    String feedback, LocalDateTime gradedAt, boolean gradingComplete) {
+    String feedback, LocalDateTime gradedAt, boolean gradingComplete,
+    String fileName, String fileContentType, Long fileSize) {
 
   public static SubmissionResponse from(Submission submission) {
     return from(submission, true);
@@ -24,6 +25,9 @@ public record SubmissionResponse(Long id, Long contentId, String submitterEmail,
         submitterEmail, groupId, submission.getLastSubmittedBy().getEmail(), submission.getText(),
         submission.getSubmittedAt(), revealGrade ? submission.getGrade() : null,
         revealGrade ? submission.getFeedback() : null,
-        revealGrade ? submission.getGradedAt() : null, submission.isGraded());
+        revealGrade ? submission.getGradedAt() : null, submission.isGraded(),
+        submission.getFile() == null ? null : submission.getFile().getFilename(),
+        submission.getFile() == null ? null : submission.getFile().getContentType(),
+        submission.getFile() == null ? null : submission.getFile().getSize());
   }
 }
