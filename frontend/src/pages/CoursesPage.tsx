@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Button from '../components/ui/Button'
+import SuccessMessage from '../components/ui/SuccessMessage'
 import CourseList from '../components/CourseList'
 import CreateCourseModal from '../components/CreateCourseModal'
 import { courses, enrollments, users } from '../services'
@@ -10,6 +11,7 @@ export default function CoursesPage() {
   const [state, setState] = useState<CourseListState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [createOpen, setCreateOpen] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -61,6 +63,7 @@ export default function CoursesPage() {
             </Button>
           </div>
         </div>
+        {successMessage && <SuccessMessage message={successMessage} />}
         <section aria-label="Course results" aria-busy={state.status === 'loading'}>
           <CourseList state={state} />
         </section>
@@ -69,6 +72,7 @@ export default function CoursesPage() {
           onClose={() => setCreateOpen(false)}
           onCreated={() => {
             setCreateOpen(false)
+            setSuccessMessage('Course created.')
             reload()
           }}
         />

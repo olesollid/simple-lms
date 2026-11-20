@@ -79,3 +79,14 @@ body:has(.ui-modal[open]) { overflow: hidden; }
 }
 .ui-error-title { font-weight: 700; }
 .ui-error-actions { margin-top: var(--space-3); }
+
+/* SuccessMessage */
+.ui-success {
+  display: flex; gap: var(--space-3); align-items: center; padding: var(--space-4);
+  background: #e8f6ec; border: 1px solid #b7e0c3;
+  border-left: 4px solid #2e9e55; border-radius: var(--radius-sm); color: #1c6b39;
+}
+.ui-success-icon {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0;
+  border-radius: 50%; background: #2e9e55; color: #fff; font-size: 14px; font-weight: 700;
+}

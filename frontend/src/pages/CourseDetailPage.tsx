@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import ModuleList from '../components/ModuleList'
+import EditCourseModal from '../components/EditCourseModal'
 import CreateModuleModal from '../components/CreateModuleModal'
 import ManageEnrollmentsModal from '../components/ManageEnrollmentsModal'
 import LoadingIndicator from '../components/ui/LoadingIndicator'
 import ErrorMessage from '../components/ui/ErrorMessage'
+import SuccessMessage from '../components/ui/SuccessMessage'
 import Button from '../components/ui/Button'
 import { courses, enrollments, modules, users } from '../services'
 import { courseDetailError } from './courseDetailState'
@@ -19,6 +21,8 @@ export default function CourseDetailPage() {
   const [attempt, setAttempt] = useState(0)
   const [createModuleOpen, setCreateModuleOpen] = useState(false)
   const [manageStudentsOpen, setManageStudentsOpen] = useState(false)
+  const [editCourseOpen, setEditCourseOpen] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [deletingCourse, setDeletingCourse] = useState(false)
   const [deleteCourseError, setDeleteCourseError] = useState<string | null>(null)
 
@@ -122,16 +126,30 @@ export default function CourseDetailPage() {
             <Button variant="secondary" className="refresh-button" onClick={() => setCreateModuleOpen(true)}>
               Add module
             </Button>
+            <Button variant="secondary" onClick={() => setEditCourseOpen(true)}>
+              Edit course
+            </Button>
             <Button variant="danger" onClick={handleDeleteCourse} loading={deletingCourse}>
               Delete course
             </Button>
           </div>
         )}
       </div>
+      {successMessage && <SuccessMessage message={successMessage} />}
       {deleteCourseError && <ErrorMessage message={deleteCourseError} />}
       <section aria-label="Course modules">
         <ModuleList modules={courseModules} isTeacher={isTeacher} onModuleDeleted={reload} />
       </section>
+      <EditCourseModal
+        course={course}
+        open={editCourseOpen}
+        onClose={() => setEditCourseOpen(false)}
+        onSaved={saved => {
+          setEditCourseOpen(false)
+          setState(previous => previous.status === 'success' ? { ...previous, course: saved } : previous)
+          setSuccessMessage('Course updated.')
+        }}
+      />
       <CreateModuleModal
         courseId={courseId}
         open={createModuleOpen}
