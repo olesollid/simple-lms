@@ -172,6 +172,36 @@ Quiz-related endpoints (all under `/api`, teacher-only writes unless noted):
 | `POST` | `/quizzes/{quizId}/submissions` | Submit answers for grading; returns 202, grading happens async (any enrolled member) |
 | `GET` | `/quizzes/{quizId}/grade` | Read the caller's own grade; 404 until grading completes (any enrolled member) |
 
+### File hand-ins
+
+Assignment and coding-exercise submissions accept one PDF, DOC or DOCX attachment,
+up to 10 MiB (10,485,760 bytes), with optional text. Text-only hand-ins still work.
+Students choose a document in the submission form; teachers can download it from
+the submissions review. An ungraded resubmission replaces the previous attachment;
+resubmitting text only removes it. Graded submissions cannot be changed. Group
+members share one attachment and submission, and course teachers can review it.
+
+File contents are stored as a JPA `@Lob` byte array (H2 BLOB) on the submission,
+alongside filename and content type. This keeps file replacement/deletion in the
+same relational transaction and avoids another storage service. The tradeoff is
+larger databases/backups and loading bounded file bytes when fetching submissions;
+object storage would be preferable for larger-scale use. JSON responses contain
+only file metadata, not bytes. The server enforces size, extension and basic file
+signature checks; these checks are not full document parsing or malware scanning.
+
+API: JSON `POST /api/contents/{id}/submissions` remains supported. File hand-ins
+use multipart POST to the same URL with fields `file` and optional `text`.
+`GET /api/submissions/{id}/file` returns an attachment download after checking
+course enrollment and submission ownership/group membership or teacher role.
+The multipart request limit is 11 MiB to allow envelope overhead; the file itself
+is limited to 10 MiB. Existing session/CSRF protection applies to uploads.
+
+BLOBs have the same lifetime as the relational database. In-memory H2 with
+`create-drop` loses attachments on restart. Merge the persistent-database work
+and use its file-based configuration/volume to retain them. The file persistence
+test explicitly opens the same temporary file database across two app starts.
+Mock mode remains read-only; test uploads against the real backend.
+
 ### Java Spring template project
 
 This project is based on a GitLab [Project Template](https://docs.gitlab.com/ee/gitlab-basics/create-project.html).

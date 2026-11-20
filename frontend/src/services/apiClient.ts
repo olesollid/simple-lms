@@ -44,9 +44,10 @@ export function createApiClient(baseUrl: string, fetchImplementation: typeof fet
 
   return async function request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
     const { body, headers: suppliedHeaders, ...requestOptions } = options
+    const isFormData = body instanceof FormData
     const headers = new Headers(suppliedHeaders)
     if (!headers.has('Accept')) headers.set('Accept', 'application/json')
-    if (body !== undefined && !headers.has('Content-Type')) {
+    if (body !== undefined && !isFormData && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json')
     }
 
@@ -60,7 +61,7 @@ export function createApiClient(baseUrl: string, fetchImplementation: typeof fet
       ...requestOptions,
       headers,
       credentials: 'include',
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: isFormData ? body : body === undefined ? undefined : JSON.stringify(body),
     })
 
     // Read once. Error responses may be empty, plain text, or an HTML login page.

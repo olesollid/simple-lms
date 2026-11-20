@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -66,15 +67,25 @@ public class Submission {
 
   private LocalDateTime gradedAt;
 
+  @Embedded
+  private SubmissionFile file;
+
+  public SubmissionFile getFile() { return file; }
+
   protected Submission() {
   }
 
   /** An individual submission, owned by the submitting student. */
   public Submission(User submitter, Content content, String text) {
+    this(submitter, content, text, null);
+  }
+
+  public Submission(User submitter, Content content, String text, SubmissionFile file) {
     if (submitter == null) {
       throw new IllegalArgumentException("Submitter must not be null");
     }
-    validateContentAndText(content, text);
+    validateContentAndText(content, text, file);
+    this.file = file;
     this.submitter = submitter;
     this.content = content;
     this.text = text.trim();
@@ -84,13 +95,18 @@ public class Submission {
 
   /** A group submission: owned by the group, submitted on its behalf by one of its members. */
   public Submission(Group group, User submittedBy, Content content, String text) {
+    this(group, submittedBy, content, text, null);
+  }
+
+  public Submission(Group group, User submittedBy, Content content, String text, SubmissionFile file) {
     if (group == null) {
       throw new IllegalArgumentException("Group must not be null");
     }
     if (submittedBy == null) {
       throw new IllegalArgumentException("Submitted-by user must not be null");
     }
-    validateContentAndText(content, text);
+    validateContentAndText(content, text, file);
+    this.file = file;
     this.group = group;
     this.content = content;
     this.text = text.trim();
@@ -98,12 +114,12 @@ public class Submission {
     this.lastSubmittedBy = submittedBy;
   }
 
-  private static void validateContentAndText(Content content, String text) {
+  private static void validateContentAndText(Content content, String text, SubmissionFile file) {
     if (content == null) {
       throw new IllegalArgumentException("Content must not be null");
     }
-    if (text == null || text.isBlank()) {
-      throw new IllegalArgumentException("Submission text must not be blank");
+    if (text == null || (text.isBlank() && file == null)) {
+      throw new IllegalArgumentException("Provide submission text or a file");
     }
   }
 
@@ -152,13 +168,16 @@ public class Submission {
   }
 
   public void resubmit(String text, User submittedBy) {
-    if (text == null || text.isBlank()) {
-      throw new IllegalArgumentException("Submission text must not be blank");
-    }
+    resubmit(text, submittedBy, null);
+  }
+
+  public void resubmit(String text, User submittedBy, SubmissionFile file) {
+    validateContentAndText(content, text, file);
     if (submittedBy == null) {
       throw new IllegalArgumentException("Submitted-by user must not be null");
     }
     this.text = text.trim();
+    this.file = file;
     this.submittedAt = LocalDateTime.now();
     this.lastSubmittedBy = submittedBy;
   }

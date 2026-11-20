@@ -3,6 +3,7 @@ import { submissions } from '../services'
 import { ApiError, ApiResponseError } from '../services/apiClient'
 import Button from './ui/Button'
 import ErrorMessage from './ui/ErrorMessage'
+import SubmissionAttachment from './SubmissionAttachment'
 import type { SubmissionResponse } from '../types/submission'
 
 function submitError(error: unknown): string {
@@ -21,6 +22,7 @@ export default function SubmissionForm({ contentId, existingSubmission, onSubmit
   onSubmitted: () => void
 }) {
   const [text, setText] = useState(existingSubmission?.text ?? '')
+  const [file, setFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,17 +36,26 @@ export default function SubmissionForm({ contentId, existingSubmission, onSubmit
   if (existingSubmission?.submittedAt !== lastSeenSubmittedAt) {
     setLastSeenSubmittedAt(existingSubmission?.submittedAt)
     setText(existingSubmission?.text ?? '')
+    setFile(null)
   }
 
   const isGraded = existingSubmission?.gradingComplete || existingSubmission?.gradedAt != null
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (!text.trim()) return
+    if (!text.trim() && !file) {
+      setError('Provide submission text or select a file.')
+      return
+    }
+    if (file && (file.size === 0 || file.size > 10 * 1024 * 1024 || !/\.(pdf|doc|docx)$/i.test(file.name))) {
+      setError('Select a non-empty PDF, DOC or DOCX file up to 10 MB.')
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
-      await submissions.submit(contentId, { text }, {})
+      if (file) await submissions.upload(contentId, text, file, {})
+      else await submissions.submit(contentId, { text }, {})
       onSubmitted()
     } catch (submitAttemptError) {
       setError(submitError(submitAttemptError))
@@ -58,6 +69,7 @@ export default function SubmissionForm({ contentId, existingSubmission, onSubmit
       {existingSubmission && (
         <div className="submission-status">
           <p>Submitted {new Date(existingSubmission.submittedAt).toLocaleString()}</p>
+          <SubmissionAttachment submission={existingSubmission} />
           {existingSubmission.grade != null && (
             <div className="submission-grade">
               <p><strong>Grade:</strong> {existingSubmission.grade}</p>
@@ -86,8 +98,16 @@ export default function SubmissionForm({ contentId, existingSubmission, onSubmit
               rows={8}
               value={text}
               onChange={event => setText(event.target.value)}
-              required
             />
+          </div>
+          <div className="ui-field">
+            <label className="ui-label" htmlFor="submission-file">Attach a document</label>
+            <input key={existingSubmission?.submittedAt ?? 'new'} id="submission-file" type="file"
+              accept=".pdf,.doc,.docx" disabled={submitting}
+              aria-describedby="submission-file-help"
+              onChange={event => setFile(event.target.files?.[0] ?? null)} />
+            <p id="submission-file-help">PDF, DOC or DOCX, up to 10 MB. Text is optional when attaching a file.
+              {existingSubmission?.fileName && ' Resubmitting replaces the previous file; submitting text only removes it.'}</p>
           </div>
           {error && <ErrorMessage message={error} />}
           <Button type="submit" loading={submitting}>
