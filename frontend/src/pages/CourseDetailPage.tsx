@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import ModuleList from '../components/ModuleList'
 import EditCourseModal from '../components/EditCourseModal'
+import ManageGroupsModal from '../components/ManageGroupsModal'
+import MyGroup from '../components/MyGroup'
 import CreateModuleModal from '../components/CreateModuleModal'
 import ManageEnrollmentsModal from '../components/ManageEnrollmentsModal'
 import LoadingIndicator from '../components/ui/LoadingIndicator'
@@ -21,6 +23,7 @@ export default function CourseDetailPage() {
   const [attempt, setAttempt] = useState(0)
   const [createModuleOpen, setCreateModuleOpen] = useState(false)
   const [manageStudentsOpen, setManageStudentsOpen] = useState(false)
+  const [manageGroupsOpen, setManageGroupsOpen] = useState(false)
   const [editCourseOpen, setEditCourseOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [deletingCourse, setDeletingCourse] = useState(false)
@@ -123,6 +126,9 @@ export default function CourseDetailPage() {
             <Button variant="secondary" onClick={() => setManageStudentsOpen(true)}>
               Manage students
             </Button>
+            <Button variant="secondary" onClick={() => setManageGroupsOpen(true)}>
+              Manage groups
+            </Button>
             <Button variant="secondary" className="refresh-button" onClick={() => setCreateModuleOpen(true)}>
               Add module
             </Button>
@@ -137,6 +143,7 @@ export default function CourseDetailPage() {
       </div>
       {successMessage && <SuccessMessage message={successMessage} />}
       {deleteCourseError && <ErrorMessage message={deleteCourseError} />}
+      {!isTeacher && <MyGroup courseId={courseId} />}
       <section aria-label="Course modules">
         <ModuleList modules={courseModules} isTeacher={isTeacher} onModuleDeleted={reload} />
       </section>
@@ -158,6 +165,11 @@ export default function CourseDetailPage() {
           setCreateModuleOpen(false)
           reload()
         }}
+      />
+      <ManageGroupsModal
+        courseId={courseId}
+        open={manageGroupsOpen}
+        onClose={() => setManageGroupsOpen(false)}
       />
       <ManageEnrollmentsModal
         courseId={courseId}

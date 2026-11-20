@@ -11,6 +11,8 @@ export function createGroupService(request: ApiRequest) {
       request<GroupResponse>(`/courses/${courseId}/groups`, {
         ...options, method: 'POST', body: { name },
       }),
+    deleteGroup: (groupId: number, options?: ApiCallOptions) =>
+      request<void>(`/groups/${groupId}`, { ...options, method: 'DELETE' }),
     getMembers: (groupId: number, options?: ApiCallOptions) =>
       request<GroupMembershipResponse[]>(`/groups/${groupId}/members`, options),
     addMember: (groupId: number, email: string, options?: ApiCallOptions) =>

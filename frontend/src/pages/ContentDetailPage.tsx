@@ -36,10 +36,11 @@ export default function ContentDetailPage() {
 
       let ownSubmission = null
       let needsGroup = false
+      let groupName: string | null = null
       const isSubmittable = content.type === 'Assignment' || content.type === 'CodingExercise'
       if (!isTeacher && isSubmittable && content.groupSubmission) {
         try {
-          await groups.getOwnGroup(module.courseId, options)
+          groupName = (await groups.getOwnGroup(module.courseId, options)).name
         } catch (error) {
           if (error instanceof ApiError && error.status === 404) {
             needsGroup = true
@@ -56,7 +57,7 @@ export default function ContentDetailPage() {
         }
       }
 
-      return { content, isTeacher, ownSubmission, needsGroup }
+      return { content, isTeacher, ownSubmission, needsGroup, groupName }
     }
 
     load().then(
@@ -117,7 +118,7 @@ export default function ContentDetailPage() {
     )
   }
 
-  const { content, isTeacher, ownSubmission, needsGroup } = state
+  const { content, isTeacher, ownSubmission, needsGroup, groupName } = state
 
   return (
     <article className="content-detail" aria-labelledby="content-title">
@@ -151,6 +152,12 @@ export default function ContentDetailPage() {
           {!isTeacher && needsGroup && (
             <p className="module-placeholder">
               This is a group assignment. Ask your teacher to add you to a group before you can submit.
+            </p>
+          )}
+          {!isTeacher && groupName && (
+            <p className="module-placeholder">
+              Group assignment: you are submitting as <strong>{groupName}</strong>. Everyone in
+              your group shares this submission and its grade.
             </p>
           )}
           {!isTeacher && !needsGroup && (

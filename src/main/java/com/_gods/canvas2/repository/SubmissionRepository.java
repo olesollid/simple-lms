@@ -16,4 +16,6 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
   Optional<Submission> findByContentAndGroup(Content content, Group group);
 
   List<Submission> findByContent(Content content);
+
+  boolean existsByGroup(Group group);
 }

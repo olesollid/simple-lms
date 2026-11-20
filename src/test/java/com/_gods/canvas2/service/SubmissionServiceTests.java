@@ -399,6 +399,20 @@ class SubmissionServiceTests {
   }
 
   @Test
+  void rejectsDeletingAGroupThatHasSubmissions() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String alice = studentOf(course);
+    Assignment assignment = groupAssignmentIn(course, teacher);
+    Group group = groupService.createGroup(course.getId(), "Team A", teacher);
+    groupService.addMember(group.getId(), alice, teacher);
+    submissionService.submit(assignment.getId(), "Shared draft", alice);
+
+    assertThrows(ConflictException.class, () -> groupService.deleteGroup(group.getId(), teacher));
+    assertEquals(1, groupService.getGroupsByCourse(course.getId(), teacher).size());
+  }
+
+  @Test
   void rejectsGroupSubmissionWhenStudentHasNoGroup() {
     Course course = course();
     String teacher = teacherOf(course);

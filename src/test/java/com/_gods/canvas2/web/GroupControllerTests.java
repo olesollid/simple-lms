@@ -171,4 +171,28 @@ class GroupControllerTests {
             .with(as("teacher@example.com")))
         .andExpect(status().isNoContent());
   }
+
+  @Test
+  void deleteGroupReturns204() throws Exception {
+    mockMvc.perform(delete("/api/groups/1").with(as("teacher@example.com")))
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  void deleteGroupReturns403ForStudent() throws Exception {
+    org.mockito.Mockito.doThrow(new ForbiddenException("teachers only"))
+        .when(groupService).deleteGroup(anyLong(), anyString());
+
+    mockMvc.perform(delete("/api/groups/1").with(as("student@example.com")))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void deleteGroupReturns409WhenItHasSubmissions() throws Exception {
+    org.mockito.Mockito.doThrow(new ConflictException("has submissions"))
+        .when(groupService).deleteGroup(anyLong(), anyString());
+
+    mockMvc.perform(delete("/api/groups/1").with(as("teacher@example.com")))
+        .andExpect(status().isConflict());
+  }
 }

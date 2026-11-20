@@ -11,6 +11,8 @@ export type ContentDetailState =
       ownSubmission: SubmissionResponse | null
       /** True only when the content is group-submittable and the student has no group yet. */
       needsGroup: boolean
+      /** Name of the student's group when the content is a group submission, otherwise null. */
+      groupName: string | null
     }
   | { status: 'error'; message: string }
 
