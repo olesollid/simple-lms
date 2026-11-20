@@ -13,7 +13,25 @@ services:
       - "6379:6379"
 
   app:
-    image: "${D250_REG:-}/app:latest"
+    image: "${D250_REG:-canvas2}/app:latest"
+    build: .
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      RABBITMQ_HOST: rabbitmq
+      REDIS_HOST: redis
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-dummy}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-dummy}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-dummy}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-dummy}
+    volumes:
+      - canvas2-data:/data
+    depends_on:
+      - rabbitmq
+      - redis
     ports:
       - "8080:8080"
     profiles: ["prod"]
+
+volumes:
+  canvas2-data:

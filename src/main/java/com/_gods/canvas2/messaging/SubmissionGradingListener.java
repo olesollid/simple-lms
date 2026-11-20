@@ -13,14 +13,14 @@ import com._gods.canvas2.service.QuizService;
 import com._gods.canvas2.service.StudentInteractionService;
 
 /**
- * Consumes submission events and writes a graded result to Redis. Profile-gated to "dev" (the
- * only profile with real {@code spring.rabbitmq.*} connection properties): a {@code @RabbitListener}
+ * Consumes submission events and writes a graded result to Redis. Enabled in dev and prod,
+ * which configure real {@code spring.rabbitmq.*} connections: a {@code @RabbitListener}
  * container connects to the broker eagerly at application startup, unlike the declarative
  * exchange/queue/binding beans in {@link RabbitConfig}, so registering this bean in every profile
  * would make tests and CI depend on a reachable broker.
  */
 @Component
-@Profile("dev")
+@Profile({"dev", "prod"})
 public class SubmissionGradingListener {
 
   private final QuizService quizService;
