@@ -13,6 +13,7 @@ import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.GroupMembershipRepository;
 import com._gods.canvas2.repository.GroupRepository;
+import com._gods.canvas2.repository.SubmissionRepository;
 
 /**
  * Groups a course's students into project teams for group-submittable
@@ -27,15 +28,17 @@ public class GroupService {
   private final GroupRepository groupRepository;
   private final GroupMembershipRepository groupMembershipRepository;
   private final CourseRepository courseRepository;
+  private final SubmissionRepository submissionRepository;
   private final UserService userService;
   private final EnrollmentService enrollmentService;
 
   public GroupService(GroupRepository groupRepository,
       GroupMembershipRepository groupMembershipRepository, CourseRepository courseRepository,
-      UserService userService, EnrollmentService enrollmentService) {
+      SubmissionRepository submissionRepository, UserService userService, EnrollmentService enrollmentService) {
     this.groupRepository = groupRepository;
     this.groupMembershipRepository = groupMembershipRepository;
     this.courseRepository = courseRepository;
+    this.submissionRepository = submissionRepository;
     this.userService = userService;
     this.enrollmentService = enrollmentService;
   }
@@ -44,6 +47,21 @@ public class GroupService {
     Course course = getCourse(courseId);
     requireTeacher(courseId, requesterEmail);
     return groupRepository.save(new Group(course, name));
+  }
+
+  /**
+   * Deletes a group and its memberships. A group that already has shared submissions cannot be
+   * deleted, since that would orphan (or silently destroy) graded work.
+   */
+  public void deleteGroup(Long groupId, String requesterEmail) {
+    Group group = getGroup(groupId);
+    requireTeacher(group.getCourse().getId(), requesterEmail);
+    if (submissionRepository.existsByGroup(group)) {
+      throw new ConflictException(
+          "Group " + groupId + " has submissions and cannot be deleted");
+    }
+    groupMembershipRepository.deleteAll(groupMembershipRepository.findByGroup(group));
+    groupRepository.delete(group);
   }
 
   public GroupMembership addMember(Long groupId, String email, String requesterEmail) {

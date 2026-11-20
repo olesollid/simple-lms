@@ -170,4 +170,38 @@ class GroupServiceTests {
 
     assertEquals(2, groups.size());
   }
+
+  @Test
+  void teacherDeletesAGroupAndItsMemberships() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Group group = groupService.createGroup(course.getId(), "Team A", teacher);
+    groupService.addMember(group.getId(), student, teacher);
+
+    groupService.deleteGroup(group.getId(), teacher);
+
+    assertTrue(groupService.getGroupsByCourse(course.getId(), teacher).isEmpty());
+    // The freed student can be placed in a new group.
+    Group other = groupService.createGroup(course.getId(), "Team B", teacher);
+    groupService.addMember(other.getId(), student, teacher);
+  }
+
+  @Test
+  void rejectsDeletingAGroupByStudent() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Group group = groupService.createGroup(course.getId(), "Team A", teacher);
+
+    assertThrows(ForbiddenException.class, () -> groupService.deleteGroup(group.getId(), student));
+  }
+
+  @Test
+  void rejectsDeletingAnUnknownGroup() {
+    Course course = course();
+    String teacher = teacherOf(course);
+
+    assertThrows(GroupNotFoundException.class, () -> groupService.deleteGroup(9999L, teacher));
+  }
 }

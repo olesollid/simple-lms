@@ -35,6 +35,13 @@ public class GroupController {
     return ResponseEntity.status(HttpStatus.CREATED).body(GroupResponse.from(group));
   }
 
+  @DeleteMapping("/api/groups/{groupId}")
+  public ResponseEntity<Void> deleteGroup(@PathVariable Long groupId,
+      Authentication authentication) {
+    groupService.deleteGroup(groupId, authentication.getName());
+    return ResponseEntity.noContent().build();
+  }
+
   @GetMapping("/api/courses/{courseId}/groups")
   public List<GroupResponse> getGroupsByCourse(@PathVariable Long courseId,
       Authentication authentication) {

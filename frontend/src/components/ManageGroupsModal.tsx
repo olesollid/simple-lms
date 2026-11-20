@@ -15,6 +15,13 @@ function requestError(error: unknown): string {
   return 'Check your connection and try again.'
 }
 
+function deleteError(error: unknown): string {
+  if (error instanceof ApiError && error.status === 409) {
+    return 'This group has submissions and cannot be deleted.'
+  }
+  return requestError(error)
+}
+
 interface GroupWithMembers {
   group: GroupResponse
   members: GroupMembershipResponse[]
@@ -139,6 +146,20 @@ export default function ManageGroupsModal({ courseId, open, onClose }: {
     }
   }
 
+  async function handleDelete(group: GroupResponse) {
+    if (!window.confirm(`Delete group "${group.name}"? Its members will be left without a group.`)) return
+    setBusyKey(`delete-${group.id}`)
+    setFormError(null)
+    try {
+      await groups.deleteGroup(group.id, {})
+      reload()
+    } catch (error) {
+      setFormError(deleteError(error))
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
   const nameByEmail = new Map<string, string>()
   if (state.status === 'success') {
     state.students.forEach(student => nameByEmail.set(student.email, student.name))
@@ -174,7 +195,16 @@ export default function ManageGroupsModal({ courseId, open, onClose }: {
           const available = state.students.filter(student => !assigned.has(student.email))
           return (
             <section key={group.id} className="group-card" aria-label={`Group ${group.name}`}>
-              <h3>{group.name}</h3>
+              <div className="group-card-header">
+                <h3>{group.name}</h3>
+                <Button
+                  variant="danger"
+                  onClick={() => handleDelete(group)}
+                  loading={busyKey === `delete-${group.id}`}
+                >
+                  Delete group
+                </Button>
+              </div>
               {members.length === 0 ? (
                 <p className="module-placeholder">No members yet.</p>
               ) : (

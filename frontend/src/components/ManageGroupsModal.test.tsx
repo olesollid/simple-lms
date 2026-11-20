@@ -10,9 +10,10 @@ const getMembers = vi.hoisted(() => vi.fn())
 const createGroup = vi.hoisted(() => vi.fn())
 const addMember = vi.hoisted(() => vi.fn())
 const removeMember = vi.hoisted(() => vi.fn())
+const deleteGroup = vi.hoisted(() => vi.fn())
 vi.mock('../services', () => ({
   enrollments: { getEnrollments },
-  groups: { getGroupsByCourse, getMembers, createGroup, addMember, removeMember },
+  groups: { getGroupsByCourse, getMembers, createGroup, addMember, removeMember, deleteGroup },
 }))
 
 const student = (id: number, name: string, email: string) => ({
@@ -25,7 +26,7 @@ const membership = (email: string) => ({ id: 1, groupId: 10, email, joinedAt: '2
 
 describe('ManageGroupsModal', () => {
   beforeEach(() => {
-    for (const mock of [getEnrollments, getGroupsByCourse, getMembers, createGroup, addMember, removeMember]) {
+    for (const mock of [getEnrollments, getGroupsByCourse, getMembers, createGroup, addMember, removeMember, deleteGroup]) {
       mock.mockReset()
     }
     getEnrollments.mockResolvedValue([bob, carol])
@@ -118,5 +119,44 @@ describe('ManageGroupsModal', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Server exploded')
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('deletes a group after confirmation and reloads the list', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    getGroupsByCourse.mockResolvedValueOnce([teamA]).mockResolvedValueOnce([])
+    deleteGroup.mockResolvedValue(undefined)
+    render(<ManageGroupsModal courseId={1} open={true} onClose={vi.fn()} />)
+
+    await screen.findByRole('heading', { name: 'Team A' })
+    await user.click(screen.getByRole('button', { name: 'Delete group' }))
+
+    expect(deleteGroup).toHaveBeenCalledWith(10, {})
+    expect(await screen.findByText(/No groups yet/)).toBeInTheDocument()
+  })
+
+  it('does not delete a group when the confirmation is declined', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    getGroupsByCourse.mockResolvedValue([teamA])
+    render(<ManageGroupsModal courseId={1} open={true} onClose={vi.fn()} />)
+
+    await screen.findByRole('heading', { name: 'Team A' })
+    await user.click(screen.getByRole('button', { name: 'Delete group' }))
+
+    expect(deleteGroup).not.toHaveBeenCalled()
+  })
+
+  it('explains why a group with submissions cannot be deleted', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    getGroupsByCourse.mockResolvedValue([teamA])
+    deleteGroup.mockRejectedValue(new ApiError(409, 'Group 10 has submissions', null))
+    render(<ManageGroupsModal courseId={1} open={true} onClose={vi.fn()} />)
+
+    await screen.findByRole('heading', { name: 'Team A' })
+    await user.click(screen.getByRole('button', { name: 'Delete group' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('has submissions and cannot be deleted')
   })
 })
