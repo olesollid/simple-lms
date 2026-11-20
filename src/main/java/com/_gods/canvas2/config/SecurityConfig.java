@@ -36,7 +36,11 @@ public class SecurityConfig {
     return http
         .authorizeHttpRequests(requests -> requests
             .requestMatchers("/error").permitAll()
-            .anyRequest().authenticated())
+            // Data and operational endpoints require login. Everything else is the bundled
+            // frontend (static files and client-side routes), which must load before login so
+            // it can show the sign-in links. OAuth2 login/logout endpoints are filters.
+            .requestMatchers("/api/**", "/actuator/**").authenticated()
+            .anyRequest().permitAll())
         .oauth2Login(oauth2 -> oauth2
             .defaultSuccessUrl(frontendUrl, true)
             .userInfoEndpoint(info -> info
