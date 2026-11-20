@@ -13,6 +13,7 @@ FROM eclipse-temurin:25-jdk AS backend
 WORKDIR /build
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 RUN ./mvnw -q dependency:go-offline
 COPY src/ src/
 COPY --from=frontend /frontend/dist/ src/main/resources/static/
