@@ -20,7 +20,7 @@ vi.mock('../services', () => ({
   modules: { getModule },
   users: { getCurrentUser },
   enrollments: { getEnrollment },
-  submissions: { getOwnSubmission, submit, getSubmissionsByContent },
+  submissions: { getOwnSubmission, submit, getSubmissionsByContent, gradesPublished: () => Promise.resolve(false) },
   groups: { getOwnGroup },
 }))
 

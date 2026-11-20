@@ -8,7 +8,7 @@ import type { SubmissionResponse } from '../types/submission'
 
 type ReviewState =
   | { status: 'loading' }
-  | { status: 'success'; submissions: SubmissionResponse[] }
+  | { status: 'success'; submissions: SubmissionResponse[]; published: boolean }
   | { status: 'error'; message: string }
 
 function loadError(error: unknown): string {
@@ -28,12 +28,17 @@ function submitterLabel(submission: SubmissionResponse): string {
 export default function SubmissionsReview({ contentId }: { contentId: number }) {
   const [state, setState] = useState<ReviewState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
-    submissions.getSubmissionsByContent(contentId, { signal: controller.signal }).then(
-      result => {
-        if (!controller.signal.aborted) setState({ status: 'success', submissions: result })
+    Promise.all([
+      submissions.getSubmissionsByContent(contentId, { signal: controller.signal }),
+      submissions.gradesPublished(contentId, { signal: controller.signal }),
+    ]).then(
+      ([result, published]) => {
+        if (!controller.signal.aborted) setState({ status: 'success', submissions: result, published })
       },
       error => {
         if (!controller.signal.aborted) setState({ status: 'error', message: loadError(error) })
@@ -45,6 +50,19 @@ export default function SubmissionsReview({ contentId }: { contentId: number }) 
   function reload() {
     setState({ status: 'loading' })
     setAttempt(previous => previous + 1)
+  }
+
+  async function publish() {
+    setPublishing(true)
+    setPublishError(null)
+    try {
+      await submissions.publishGrades(contentId)
+      setState(previous => previous.status === 'success' ? { ...previous, published: true } : previous)
+    } catch (error) {
+      setPublishError(loadError(error))
+    } finally {
+      setPublishing(false)
+    }
   }
 
   if (state.status === 'loading') {
@@ -66,6 +84,12 @@ export default function SubmissionsReview({ contentId }: { contentId: number }) 
   return (
     <section className="submissions-review" aria-label="Submissions">
       <h2>Submissions ({state.submissions.length})</h2>
+      <p role="status">{state.published ? 'Grades are published and visible to students.' : 'Grades and feedback are hidden from students.'}</p>
+      <p>Publishing applies to this content item, including grades saved later. Published grade changes remain visible.</p>
+      <Button onClick={publish} loading={publishing} disabled={state.published || !state.submissions.some(item => item.gradedAt != null)}>
+        {state.published ? 'Grades published' : 'Publish grades'}
+      </Button>
+      {publishError && <ErrorMessage message={publishError} />}
       <ul className="submission-list">
         {state.submissions.map(submission => (
           <li key={submission.id} className="submission-review-card">

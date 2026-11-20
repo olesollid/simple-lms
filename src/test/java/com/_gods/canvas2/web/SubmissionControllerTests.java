@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 import java.util.List;
 import java.util.Map;
@@ -176,6 +177,48 @@ class SubmissionControllerTests {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.grade").value(85.5))
         .andExpect(jsonPath("$.feedback").value("Well done"));
+  }
+
+  @Test
+  void ownSubmissionHidesGradeAndFeedbackUntilContentIsPublished() throws Exception {
+    Submission submission = submission(1L, "student@example.com", "My essay");
+    submission.grade(85, "Private feedback");
+    when(submissionService.getOwnSubmission(eq(1L), anyString())).thenReturn(submission);
+
+    mockMvc.perform(get("/api/contents/1/submissions/mine").with(as("student@example.com")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.grade").isEmpty())
+        .andExpect(jsonPath("$.feedback").isEmpty())
+        .andExpect(jsonPath("$.gradedAt").isEmpty())
+        .andExpect(jsonPath("$.gradingComplete").value(true));
+
+    submission.getContent().publishGrades();
+    mockMvc.perform(get("/api/contents/1/submissions/mine").with(as("student@example.com")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.grade").value(85))
+        .andExpect(jsonPath("$.feedback").value("Private feedback"));
+  }
+
+  @Test
+  void teacherListIncludesUnpublishedGrades() throws Exception {
+    Submission submission = submission(1L, "student@example.com", "My essay");
+    submission.grade(85, "Private feedback");
+    when(submissionService.getSubmissionsByContent(eq(1L), anyString())).thenReturn(List.of(submission));
+    mockMvc.perform(get("/api/contents/1/submissions").with(as("teacher@example.com")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].grade").value(85))
+        .andExpect(jsonPath("$[0].feedback").value("Private feedback"));
+  }
+
+  @Test
+  void publicationReturnsSuccessAndRejectsStudents() throws Exception {
+    when(submissionService.publishGrades(1L, "teacher@example.com")).thenReturn(true);
+    when(submissionService.publishGrades(1L, "student@example.com"))
+        .thenThrow(new ForbiddenException("not a teacher"));
+    mockMvc.perform(put("/api/contents/1/grades/publication").with(as("teacher@example.com")))
+        .andExpect(status().isOk()).andExpect(content().string("true"));
+    mockMvc.perform(put("/api/contents/1/grades/publication").with(as("student@example.com")))
+        .andExpect(status().isForbidden());
   }
 
   @Test

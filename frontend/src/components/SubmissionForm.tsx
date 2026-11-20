@@ -36,7 +36,7 @@ export default function SubmissionForm({ contentId, existingSubmission, onSubmit
     setText(existingSubmission?.text ?? '')
   }
 
-  const isGraded = existingSubmission?.gradedAt != null
+  const isGraded = existingSubmission?.gradingComplete || existingSubmission?.gradedAt != null
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -58,7 +58,7 @@ export default function SubmissionForm({ contentId, existingSubmission, onSubmit
       {existingSubmission && (
         <div className="submission-status">
           <p>Submitted {new Date(existingSubmission.submittedAt).toLocaleString()}</p>
-          {isGraded && (
+          {existingSubmission.grade != null && (
             <div className="submission-grade">
               <p><strong>Grade:</strong> {existingSubmission.grade}</p>
               {existingSubmission.feedback && (
@@ -70,7 +70,9 @@ export default function SubmissionForm({ contentId, existingSubmission, onSubmit
       )}
 
       {isGraded ? (
-        <p className="module-placeholder">This submission has been graded and can no longer be changed.</p>
+        <p className="module-placeholder">{existingSubmission?.grade == null
+          ? 'Your submission has been graded. Results will appear when your teacher publishes them.'
+          : 'This submission has been graded and can no longer be changed.'}</p>
       ) : (
         <form onSubmit={handleSubmit}>
           <div className="ui-field">

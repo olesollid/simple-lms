@@ -8,6 +8,17 @@ const submit = vi.hoisted(() => vi.fn())
 vi.mock('../services', () => ({ submissions: { submit } }))
 
 describe('SubmissionForm', () => {
+  it('shows a waiting message without grade or feedback while results are private', () => {
+    render(<SubmissionForm contentId={1} onSubmitted={() => {}} existingSubmission={{
+      id: 1, contentId: 1, submitterEmail: 'student@example.com', groupId: null,
+      lastSubmittedByEmail: 'student@example.com', text: 'My essay',
+      submittedAt: '2026-01-01T10:00:00', grade: null, feedback: null,
+      gradedAt: null, gradingComplete: true,
+    }} />)
+    expect(screen.getByText(/Results will appear when your teacher publishes them/)).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByText('Grade:')).not.toBeInTheDocument()
+  })
   beforeEach(() => {
     submit.mockReset()
   })

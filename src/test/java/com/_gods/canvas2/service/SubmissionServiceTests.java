@@ -87,6 +87,45 @@ class SubmissionServiceTests {
   }
 
   @Test
+  void publicationIsTeacherOnlyIdempotentAndScopedToContent() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Assignment first = assignmentIn(course, teacher);
+    Assignment second = assignmentIn(course, teacher);
+    assertFalse(submissionService.gradesPublished(first.getId(), teacher));
+    assertThrows(ForbiddenException.class,
+        () -> submissionService.publishGrades(first.getId(), student));
+    String otherTeacher = teacherOf(course());
+    assertThrows(ForbiddenException.class,
+        () -> submissionService.publishGrades(first.getId(), otherTeacher));
+    assertTrue(submissionService.publishGrades(first.getId(), teacher));
+    assertTrue(submissionService.publishGrades(first.getId(), teacher));
+    assertTrue(submissionService.gradesPublished(first.getId(), teacher));
+    assertFalse(submissionService.gradesPublished(second.getId(), teacher));
+  }
+
+  @Test
+  void groupMembersSeeResultsOnlyAfterPublication() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Assignment assignment = groupAssignmentIn(course, teacher);
+    Group group = groupService.createGroup(course.getId(), "Team", teacher);
+    groupService.addMember(group.getId(), student, teacher);
+    Submission submission = submissionService.submit(assignment.getId(), "Team answer", student);
+    submissionService.grade(submission.getId(), 90, "Team feedback", teacher);
+    var privateResponse = com._gods.canvas2.web.dto.SubmissionResponse.forStudent(
+        submissionService.getOwnSubmission(assignment.getId(), student));
+    assertEquals(null, privateResponse.grade());
+    assertEquals(null, privateResponse.feedback());
+    submissionService.publishGrades(assignment.getId(), teacher);
+    var publishedResponse = com._gods.canvas2.web.dto.SubmissionResponse.forStudent(
+        submissionService.getOwnSubmission(assignment.getId(), student));
+    assertEquals(90.0, publishedResponse.grade());
+  }
+
+  @Test
   void submitsAssignment() {
     Course course = course();
     String teacher = teacherOf(course);

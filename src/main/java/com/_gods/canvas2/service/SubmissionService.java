@@ -212,6 +212,23 @@ public class SubmissionService {
     return submissionRepository.save(submission);
   }
 
+  @Transactional(readOnly = true)
+  public boolean gradesPublished(Long contentId, String requesterEmail) {
+    Content content = contentRepository.findById(contentId)
+        .orElseThrow(() -> new ContentNotFoundException(contentId));
+    requireTeacher(content.getModule().getCourse().getId(), requesterEmail);
+    return content.isGradesPublished();
+  }
+
+  public boolean publishGrades(Long contentId, String requesterEmail) {
+    Content content = contentRepository.findById(contentId)
+        .orElseThrow(() -> new ContentNotFoundException(contentId));
+    requireTeacher(content.getModule().getCourse().getId(), requesterEmail);
+    content.publishGrades();
+    contentRepository.save(content);
+    return true;
+  }
+
   private void requireTeacher(Long courseId, String requesterEmail) {
     if (!enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER)) {
       throw new ForbiddenException(
