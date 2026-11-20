@@ -47,10 +47,66 @@ Its security exception applies only to console requests; application endpoints
 still require authentication. Spring Boot prints the generated development login
 password at startup (username `user`).
 
-`application.properties` defines the in-memory datasource. Hibernate's
+For the default and dev profiles, `application.properties` defines the in-memory datasource. Hibernate's
 `ddl-auto=create-drop` creates tables at startup and drops them at shutdown;
 schema errors fail startup. All data is disposable and lost on restart.
 `open-in-view=false` keeps database work out of web response rendering.
+
+### Persistent H2 (prod profile)
+
+`application-prod.properties` uses `jdbc:h2:file:/data/canvas2;DB_CLOSE_ON_EXIT=FALSE`
+and `ddl-auto=update`. Docker Compose mounts the named `canvas2-data` volume at
+`/data`, so the database survives application/container restarts and image rebuilds.
+The H2 console is disabled. Dev and tests continue to use disposable in-memory H2.
+
+Build the backend JAR before building the container (the Dockerfile copies it):
+
+```powershell
+.\mvnw.cmd package "-Dsurefire.excludesFile=ci-excluded-tests.txt"
+docker compose --profile prod up -d --build
+```
+
+Compose activates the Spring `prod` profile and connects the app to RabbitMQ
+and Redis by their service names. It forwards OAuth credentials from the host
+environment or root `.env`; provide real credentials to sign in. The frontend
+still runs separately with Vite. `D250_REG` optionally sets the backend image
+namespace; without it the local image is `canvas2/app:latest`.
+
+To verify a container restart, create a course, module, content, and submission
+through the app, run `docker compose restart app`, sign in again if necessary,
+and confirm those records and grades remain. Run
+`docker compose --profile prod up -d --build --force-recreate app` to check
+container replacement while keeping the same volume.
+
+To try persistence directly on Windows without a container for the backend:
+
+```powershell
+$env:DATABASE_URL="jdbc:h2:file:./data/canvas2;DB_CLOSE_ON_EXIT=FALSE"
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=prod"
+```
+
+Start RabbitMQ and Redis first as described below. Local database files are
+under the ignored `data/` directory. Remove the `DATABASE_URL` environment
+override before returning to the usual dev setup. `DATABASE_USERNAME`,
+`DATABASE_PASSWORD`, and `FRONTEND_URL` can also override prod defaults.
+
+Normal prod restarts retain quiz IDs, preventing a new quiz from reusing an old
+quiz's Redis grade key. Deliberately deleting/restoring an older database, or
+using disposable dev H2 with an existing Redis instance, can still leave stale
+grades: reset the associated Redis quiz grades and pending RabbitMQ grading
+events when resetting the database. Keep separate infrastructure for dev and prod.
+
+To deliberately erase the Compose database, stop the stack with
+`docker compose --profile prod down`, identify the project's volume using
+`docker volume ls` (normally `<project>_canvas2-data`), then remove that specific
+volume with `docker volume rm <volume-name>`. This deletes all relational data.
+Ordinary `down` preserves the volume; do not use `down -v` unless a data reset
+is intended. Clear the associated grading data/events as described above.
+
+`ddl-auto=update` handles basic development schema evolution, but not every
+change (such as renamed columns). A real deployment should use reviewed Flyway
+migrations and backups. The restart regression test uses a temporary file
+database across two application contexts; it does not require Docker.
 
 Content uses JOINED inheritance: shared fields live in `contents`, while
 subtype fields live in separate tables. This avoids conflicting subtype
@@ -76,18 +132,16 @@ runner doesn't expose a usable Docker daemon, so this one test is excluded there
 `./mvnw test -Dtest=QuizGradingPipelineIntegrationTests` whenever you touch the
 grading pipeline.
 
-These defaults are for development, not deployment. To retain data across restarts,
-configure a file URL such as `jdbc:h2:file:./data/canvas2;DB_CLOSE_ON_EXIT=FALSE`
-and change `ddl-auto` to `update` for local development; changing the URL alone
-does not prevent create-drop from deleting data. For deployment, configure an
-appropriate datasource and managed schema migrations, and leave the dev profile off.
+Use the prod profile described above to retain data across restarts. Changing
+the datasource URL alone in dev does not prevent create-drop from deleting data.
+For deployment, leave the dev profile off.
 
 ### Quiz submission grading
 
 Quiz submissions are graded asynchronously: a student's answers are published
 as an event to RabbitMQ, a listener consumes it, grades it, and stores the
-result in Redis. This only runs under the `dev` profile -- `SubmissionGradingListener`
-is `@Profile("dev")`-gated specifically so the rest of the test suite, CI, and
+result in Redis. This runs under the `dev` and `prod` profiles -- `SubmissionGradingListener`
+is profile-gated so the rest of the test suite, CI, and
 a no-profile run never need a reachable broker.
 
 To run the app with quiz grading working, start RabbitMQ and Redis first:
@@ -102,9 +156,10 @@ Then start the app with the `dev` profile as above. Connection details
 `POST /api/quizzes/{quizId}/submissions` will fail since the RabbitMQ listener
 can't connect.
 
-Two separate profiles exist for a reason: `dev` is the full app (H2 console +
-quiz grading, needs a broker); `h2console` is H2-console-only, used by
-`H2DatabaseTests` so that test doesn't need RabbitMQ or Redis at all.
+The profiles serve different purposes: `dev` enables the H2 console and quiz
+grading with disposable data; `prod` enables quiz grading with persistent data
+and no H2 console. `h2console` is console-only, used by `H2DatabaseTests` so that
+test doesn't need RabbitMQ or Redis at all.
 
 Quiz-related endpoints (all under `/api`, teacher-only writes unless noted):
 
