@@ -11,10 +11,10 @@ vi.mock('../services/auth', () => ({ logout }))
 
 function renderLayout() {
   return render(
-    <MemoryRouter initialEntries={['/dashboard']}>
+    <MemoryRouter initialEntries={['/courses']}>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route path="dashboard" element={<h1>Dashboard</h1>} />
+          <Route path="courses" element={<h1>Courses</h1>} />
         </Route>
       </Routes>
     </MemoryRouter>,

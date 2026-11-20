@@ -10,8 +10,8 @@ function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<PlaceholderPage title="Dashboard" description="Your learning, all in one place." message="Your course activity and upcoming deadlines will appear here." />} />
+        <Route index element={<Navigate to="/courses" replace />} />
+        <Route path="dashboard" element={<Navigate to="/courses" replace />} />
         <Route path="courses" element={<CoursesPage />} />
         <Route path="courses/:id" element={<CourseDetailPage />} />
         <Route path="courses/:courseId/modules/:moduleId/contents/:contentId" element={<ContentDetailPage />} />
