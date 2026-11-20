@@ -5,11 +5,13 @@ import java.time.LocalDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Lob;
 
 @Entity
 @DiscriminatorValue("ASSIGNMENT")
 public class Assignment extends Content {
 
+  @Lob
   @Column(nullable = false)
   private String instructions;
 

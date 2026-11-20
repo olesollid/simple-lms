@@ -22,7 +22,7 @@ vi.mock('../services', () => ({
 }))
 
 const course = { id: 1, title: 'DAT250', description: 'Software technology', term: 'AUTUMN', year: 2026 }
-const makeModule = (id: number) => ({ id, courseId: 1, title: `Module ${id}`, dependencyIds: [] })
+const makeModule = (id: number) => ({ id, courseId: 1, title: `Module ${id}`, dependencyIds: [], locked: false })
 
 function renderAt(path: string) {
   return render(

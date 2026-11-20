@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -47,6 +48,7 @@ public class Submission {
   @JoinColumn(name = "content_id", nullable = false)
   private Content content;
 
+  @Lob
   @Column(nullable = false)
   private String text;
 
@@ -59,6 +61,7 @@ public class Submission {
 
   private Double grade;
 
+  @Lob
   private String feedback;
 
   private LocalDateTime gradedAt;

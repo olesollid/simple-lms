@@ -89,6 +89,17 @@ class QuizServiceTests {
   }
 
   @Test
+  void acceptsLongQuestionText() {
+    Quiz quiz = quiz();
+    String longText = "q".repeat(5_000);
+
+    Question question = quizService.addQuestion(quiz.getId(),
+        new QuestionRequest(longText, twoOptionQuestion().options()), teacherEmail);
+
+    assertEquals(longText, question.getText());
+  }
+
+  @Test
   void addedQuestionAndOptionsHaveIdsAssignedImmediately() {
     Quiz quiz = quiz();
 

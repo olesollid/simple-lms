@@ -64,6 +64,9 @@ h1 { font-size: clamp(32px, 5vw, 42px); line-height: 1.2; letter-spacing: -0.04e
 .module-card { padding: 22px 26px; background: #fff; border: 1px solid #dfe3e8; border-radius: 10px; }
 .module-card h3 { font-size: 18px; margin-bottom: 6px; }
 .module-card-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.module-card-title { display: flex; align-items: center; gap: 10px; }
+.module-card-title h3 { margin-bottom: 0; }
+.lock-badge { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; padding: 3px 10px; border-radius: 999px; background: #eceef2; color: #596273; }
 .page-heading-actions { display: flex; gap: 12px; flex-shrink: 0; }
 .create-course-form { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; width: 100%; }
 .create-course-form .ui-field { width: 100%; }
