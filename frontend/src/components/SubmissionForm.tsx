@@ -78,6 +78,7 @@ export default function SubmissionForm({ contentId, existingSubmission, onSubmit
           <div className="ui-field">
             <label className="ui-label" htmlFor="submission-text">
               {existingSubmission ? 'Update your submission' : 'Your submission'}
+              <span className="ui-required" aria-hidden="true"> *</span>
             </label>
             <textarea
               id="submission-text"

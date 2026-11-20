@@ -164,8 +164,8 @@ public class Submission {
   }
 
   public void grade(double grade, String feedback) {
-    if (grade < 0) {
-      throw new IllegalArgumentException("Grade must not be negative");
+    if (grade < 0 || grade > 100) {
+      throw new IllegalArgumentException("Grade must be between 0 and 100");
     }
     this.grade = grade;
     this.feedback = feedback;

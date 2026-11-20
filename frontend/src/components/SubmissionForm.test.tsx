@@ -29,7 +29,7 @@ describe('SubmissionForm', () => {
     submit.mockResolvedValue({})
     render(<SubmissionForm contentId={1} existingSubmission={null} onSubmitted={onSubmitted} />)
 
-    await user.type(screen.getByLabelText('Your submission'), 'My essay')
+    await user.type(screen.getByLabelText(/Your submission/), 'My essay')
     await user.click(screen.getByRole('button', { name: 'Submit' }))
 
     expect(submit).toHaveBeenCalledWith(1, { text: 'My essay' }, {})
@@ -42,7 +42,7 @@ describe('SubmissionForm', () => {
     submit.mockRejectedValue(new ApiError(409, 'Already graded', null))
     render(<SubmissionForm contentId={1} existingSubmission={null} onSubmitted={onSubmitted} />)
 
-    await user.type(screen.getByLabelText('Your submission'), 'My essay')
+    await user.type(screen.getByLabelText(/Your submission/), 'My essay')
     await user.click(screen.getByRole('button', { name: 'Submit' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/already been graded/i)
@@ -60,7 +60,7 @@ describe('SubmissionForm', () => {
 
     expect(screen.getByText(/85.5/)).toBeInTheDocument()
     expect(screen.getByText(/Well done/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('Your submission')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Your submission/)).not.toBeInTheDocument()
   })
 
   it('shows an update form for an ungraded existing submission', () => {
@@ -71,7 +71,7 @@ describe('SubmissionForm', () => {
     }
     render(<SubmissionForm contentId={1} existingSubmission={existing} onSubmitted={vi.fn()} />)
 
-    expect(screen.getByLabelText('Update your submission')).toHaveValue('Draft')
+    expect(screen.getByLabelText(/Update your submission/)).toHaveValue('Draft')
     expect(screen.getByRole('button', { name: 'Resubmit' })).toBeInTheDocument()
   })
 
@@ -84,12 +84,12 @@ describe('SubmissionForm', () => {
     const { rerender } = render(
       <SubmissionForm contentId={1} existingSubmission={first} onSubmitted={vi.fn()} />,
     )
-    expect(screen.getByLabelText('Update your submission')).toHaveValue("Alice's draft")
+    expect(screen.getByLabelText(/Update your submission/)).toHaveValue("Alice's draft")
 
     const second = { ...first, text: "Bob's newer version", submittedAt: '2026-01-02T10:00:00' }
     rerender(<SubmissionForm contentId={1} existingSubmission={second} onSubmitted={vi.fn()} />)
 
-    expect(screen.getByLabelText('Update your submission')).toHaveValue("Bob's newer version")
+    expect(screen.getByLabelText(/Update your submission/)).toHaveValue("Bob's newer version")
   })
 
   it('does not clobber in-progress typing on an unrelated re-render', async () => {
@@ -102,12 +102,12 @@ describe('SubmissionForm', () => {
     const { rerender } = render(
       <SubmissionForm contentId={1} existingSubmission={existing} onSubmitted={vi.fn()} />,
     )
-    await user.type(screen.getByLabelText('Update your submission'), ' plus more')
+    await user.type(screen.getByLabelText(/Update your submission/), ' plus more')
 
     // A new object with the SAME submittedAt (e.g. a re-render caused by an unrelated parent
     // state change, not a genuinely new submission) must not overwrite the edit in progress.
     rerender(<SubmissionForm contentId={1} existingSubmission={{ ...existing }} onSubmitted={vi.fn()} />)
 
-    expect(screen.getByLabelText('Update your submission')).toHaveValue("Alice's draft plus more")
+    expect(screen.getByLabelText(/Update your submission/)).toHaveValue("Alice's draft plus more")
   })
 })

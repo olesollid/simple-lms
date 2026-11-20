@@ -83,7 +83,7 @@ describe('ContentDetailPage', () => {
     renderAt('/courses/1/modules/1/contents/2')
 
     expect(await screen.findByText('Write 500 words')).toBeInTheDocument()
-    expect(screen.getByLabelText('Your submission')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Your submission/)).toBeInTheDocument()
   })
 
   it('shows the submissions review instead of a submission form for a teacher', async () => {
@@ -93,7 +93,7 @@ describe('ContentDetailPage', () => {
     renderAt('/courses/1/modules/1/contents/2')
 
     expect(await screen.findByText('Write 500 words')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Your submission')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Your submission/)).not.toBeInTheDocument()
     expect(getOwnSubmission).not.toHaveBeenCalled()
     expect(await screen.findByText('No submissions yet.')).toBeInTheDocument()
   })
@@ -112,7 +112,7 @@ describe('ContentDetailPage', () => {
     renderAt('/courses/1/modules/1/contents/3')
 
     expect(await screen.findByText(/ask your teacher to add you to a group/i)).toBeInTheDocument()
-    expect(screen.queryByLabelText('Your submission')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Your submission/)).not.toBeInTheDocument()
     expect(getOwnSubmission).not.toHaveBeenCalled()
   })
 
@@ -123,7 +123,7 @@ describe('ContentDetailPage', () => {
     getOwnSubmission.mockRejectedValue(new ApiError(404, 'not found', null))
     renderAt('/courses/1/modules/1/contents/3')
 
-    expect(await screen.findByLabelText('Your submission')).toBeInTheDocument()
+    expect(await screen.findByLabelText(/Your submission/)).toBeInTheDocument()
   })
 
   it('does not show a "Delete content" button for a student', async () => {

@@ -231,6 +231,36 @@ class SubmissionServiceTests {
   }
 
   @Test
+  void rejectsGradesOutsideZeroToHundred() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Assignment assignment = assignmentIn(course, teacher);
+    Submission submission = submissionService.submit(assignment.getId(), "My essay", student);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> submissionService.grade(submission.getId(), 100.5, "Too high", teacher));
+    assertThrows(IllegalArgumentException.class,
+        () -> submissionService.grade(submission.getId(), -1, "Too low", teacher));
+    assertFalse(submission.isGraded());
+  }
+
+  @Test
+  void acceptsBoundaryGradesAndRegrading() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Assignment assignment = assignmentIn(course, teacher);
+    Submission submission = submissionService.submit(assignment.getId(), "My essay", student);
+
+    assertEquals(0.0, submissionService.grade(submission.getId(), 0, "First", teacher).getGrade());
+    Submission regraded = submissionService.grade(submission.getId(), 100, "Regraded", teacher);
+
+    assertEquals(100.0, regraded.getGrade());
+    assertEquals("Regraded", regraded.getFeedback());
+  }
+
+  @Test
   void rejectsGradingByStudent() {
     Course course = course();
     String teacher = teacherOf(course);

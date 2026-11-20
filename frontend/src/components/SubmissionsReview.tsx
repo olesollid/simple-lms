@@ -106,22 +106,31 @@ function SubmissionReviewItem({ submission, onGraded }: {
   onGraded: () => void
 }) {
   const isGraded = submission.gradedAt != null
+  const [editing, setEditing] = useState(false)
   const [grade, setGrade] = useState(submission.grade?.toString() ?? '')
   const [feedback, setFeedback] = useState(submission.feedback ?? '')
   const [grading, setGrading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  function cancelEditing() {
+    setGrade(submission.grade?.toString() ?? '')
+    setFeedback(submission.feedback ?? '')
+    setError(null)
+    setEditing(false)
+  }
+
   async function handleGrade(event: React.FormEvent) {
     event.preventDefault()
     const gradeValue = Number(grade)
-    if (!Number.isFinite(gradeValue) || gradeValue < 0) {
-      setError('Enter a valid, non-negative grade.')
+    if (!Number.isFinite(gradeValue) || gradeValue < 0 || gradeValue > 100) {
+      setError('Enter a valid number between 0 and 100')
       return
     }
     setGrading(true)
     setError(null)
     try {
       await submissions.grade(submission.id, { grade: gradeValue, feedback: feedback || null }, {})
+      setEditing(false)
       onGraded()
     } catch (gradeAttemptError) {
       setError(loadError(gradeAttemptError))
@@ -141,15 +150,18 @@ function SubmissionReviewItem({ submission, onGraded }: {
       </div>
       <p className="content-body">{submission.text}</p>
 
-      {isGraded ? (
+      {isGraded && !editing ? (
         <div className="submission-grade">
           <p><strong>Grade:</strong> {submission.grade}</p>
           {submission.feedback && <p><strong>Feedback:</strong> {submission.feedback}</p>}
+          <Button variant="secondary" onClick={() => setEditing(true)}>Change grade</Button>
         </div>
       ) : (
         <form onSubmit={handleGrade} className="grade-form">
           <div className="ui-field">
-            <label className="ui-label" htmlFor={`grade-${submission.id}`}>Grade</label>
+            <label className="ui-label" htmlFor={`grade-${submission.id}`}>
+              Grade<span className="ui-required" aria-hidden="true"> *</span>
+            </label>
             <input
               id={`grade-${submission.id}`}
               className="ui-input"
@@ -172,7 +184,12 @@ function SubmissionReviewItem({ submission, onGraded }: {
             />
           </div>
           {error && <ErrorMessage message={error} />}
-          <Button type="submit" loading={grading}>Submit grade</Button>
+          <div className="page-heading-actions">
+            <Button type="submit" loading={grading}>{isGraded ? 'Update grade' : 'Submit grade'}</Button>
+            {isGraded && (
+              <Button variant="secondary" onClick={cancelEditing} disabled={grading}>Cancel</Button>
+            )}
+          </div>
         </form>
       )}
     </div>

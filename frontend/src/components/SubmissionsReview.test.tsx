@@ -58,7 +58,7 @@ describe('SubmissionsReview', () => {
 
     expect(await screen.findByText(/90/)).toBeInTheDocument()
     expect(screen.getByText(/Great job/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('Grade')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/^Grade/)).not.toBeInTheDocument()
   })
 
   it('submits a grade and feedback for an ungraded submission', async () => {
@@ -67,11 +67,57 @@ describe('SubmissionsReview', () => {
     grade.mockResolvedValue({})
     render(<SubmissionsReview contentId={1} />)
 
-    await user.type(await screen.findByLabelText('Grade'), '85')
+    await user.type(await screen.findByLabelText(/^Grade/), '85')
     await user.type(screen.getByLabelText('Feedback'), 'Well done')
     await user.click(screen.getByRole('button', { name: 'Submit grade' }))
 
     expect(grade).toHaveBeenCalledWith(1, { grade: 85, feedback: 'Well done' }, {})
+  })
+
+  it('lets a teacher change an existing grade, starting from the current values', async () => {
+    const user = userEvent.setup()
+    getSubmissionsByContent.mockResolvedValue([graded])
+    grade.mockResolvedValue({})
+    render(<SubmissionsReview contentId={1} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Change grade' }))
+
+    const gradeInput = screen.getByLabelText(/^Grade/)
+    expect(gradeInput).toHaveValue(90)
+    expect(screen.getByLabelText('Feedback')).toHaveValue('Great job')
+
+    await user.clear(gradeInput)
+    await user.type(gradeInput, '75')
+    await user.click(screen.getByRole('button', { name: 'Update grade' }))
+
+    expect(grade).toHaveBeenCalledWith(3, { grade: 75, feedback: 'Great job' }, {})
+  })
+
+  it('cancelling a grade change keeps the original grade', async () => {
+    const user = userEvent.setup()
+    getSubmissionsByContent.mockResolvedValue([graded])
+    render(<SubmissionsReview contentId={1} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Change grade' }))
+    await user.clear(screen.getByLabelText(/^Grade/))
+    await user.type(screen.getByLabelText(/^Grade/), '10')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(grade).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText(/^Grade/)).not.toBeInTheDocument()
+    expect(screen.getByText(/90/)).toBeInTheDocument()
+  })
+
+  it('rejects a grade above 100 without calling the API', async () => {
+    const user = userEvent.setup()
+    getSubmissionsByContent.mockResolvedValue([individual])
+    render(<SubmissionsReview contentId={1} />)
+
+    await user.type(await screen.findByLabelText(/^Grade/), '150')
+    await user.click(screen.getByRole('button', { name: 'Submit grade' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('between 0 and 100')
+    expect(grade).not.toHaveBeenCalled()
   })
 
   it('shows an error when loading submissions fails', async () => {
