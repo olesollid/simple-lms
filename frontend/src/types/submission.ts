@@ -5,7 +5,12 @@ export interface SubmissionRequest {
 export interface SubmissionResponse {
   id: number
   contentId: number
-  submitterEmail: string
+  /** Set for an individual submission, null for a group submission (see groupId instead). */
+  submitterEmail: string | null
+  /** Set for a group submission, null for an individual submission. */
+  groupId: number | null
+  /** Whoever most recently submitted -- the only field always set, individual or group. */
+  lastSubmittedByEmail: string
   text: string
   submittedAt: string
   grade: number | null

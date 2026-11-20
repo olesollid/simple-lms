@@ -4,6 +4,7 @@ import LoadingIndicator from '../components/ui/LoadingIndicator'
 import ErrorMessage from '../components/ui/ErrorMessage'
 import Button from '../components/ui/Button'
 import SubmissionForm from '../components/SubmissionForm'
+import SubmissionsReview from '../components/SubmissionsReview'
 import { contents, enrollments, groups, modules, submissions, users } from '../services'
 import { ApiError } from '../services/apiClient'
 import { contentDetailError } from './contentDetailState'
@@ -159,6 +160,7 @@ export default function ContentDetailPage() {
               onSubmitted={reload}
             />
           )}
+          {isTeacher && <SubmissionsReview contentId={content.id} />}
         </>
       )}
 

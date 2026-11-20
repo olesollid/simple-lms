@@ -86,6 +86,12 @@ h1 { font-size: clamp(32px, 5vw, 42px); line-height: 1.2; letter-spacing: -0.04e
 .submission-form form { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
 .submission-status { color: #596273; font-size: 14px; margin-bottom: 16px; }
 .submission-grade { margin-top: 10px; padding: 14px 16px; background: #f7e9ed; border-radius: 8px; color: #303947; }
+.submissions-review { margin-top: 32px; padding-top: 32px; border-top: 1px solid #e1e4e9; }
+.submission-list { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 20px; }
+.submission-review-card { padding: 22px 26px; background: #fff; border: 1px solid #dfe3e8; border-radius: 10px; }
+.submission-review-header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.grade-form { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; margin-top: 14px; }
+.grade-form .ui-field { width: 100%; max-width: 320px; }
 .skip-link { position: absolute; left: 16px; top: -100px; padding: 10px 16px; background: #fff; color: #8a2940; z-index: 1; }
 .skip-link:focus { top: 12px; }
 @media (max-width: 600px) {

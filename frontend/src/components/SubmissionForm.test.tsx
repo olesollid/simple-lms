@@ -40,7 +40,8 @@ describe('SubmissionForm', () => {
 
   it('shows the grade and feedback for a graded submission instead of a form', () => {
     const existing = {
-      id: 1, contentId: 1, submitterEmail: 'student@example.com', text: 'My essay',
+      id: 1, contentId: 1, submitterEmail: 'student@example.com', groupId: null,
+      lastSubmittedByEmail: 'student@example.com', text: 'My essay',
       submittedAt: '2026-01-01T10:00:00', grade: 85.5, feedback: 'Well done',
       gradedAt: '2026-01-02T10:00:00',
     }
@@ -53,7 +54,8 @@ describe('SubmissionForm', () => {
 
   it('shows an update form for an ungraded existing submission', () => {
     const existing = {
-      id: 1, contentId: 1, submitterEmail: 'student@example.com', text: 'Draft',
+      id: 1, contentId: 1, submitterEmail: 'student@example.com', groupId: null,
+      lastSubmittedByEmail: 'student@example.com', text: 'Draft',
       submittedAt: '2026-01-01T10:00:00', grade: null, feedback: null, gradedAt: null,
     }
     render(<SubmissionForm contentId={1} existingSubmission={existing} onSubmitted={vi.fn()} />)
@@ -64,7 +66,8 @@ describe('SubmissionForm', () => {
 
   it("re-seeds the textarea when a teammate's newer submission arrives", () => {
     const first = {
-      id: 1, contentId: 1, submitterEmail: 'alice@example.com', text: "Alice's draft",
+      id: 1, contentId: 1, submitterEmail: 'alice@example.com', groupId: null,
+      lastSubmittedByEmail: 'alice@example.com', text: "Alice's draft",
       submittedAt: '2026-01-01T10:00:00', grade: null, feedback: null, gradedAt: null,
     }
     const { rerender } = render(
@@ -81,7 +84,8 @@ describe('SubmissionForm', () => {
   it('does not clobber in-progress typing on an unrelated re-render', async () => {
     const user = userEvent.setup()
     const existing = {
-      id: 1, contentId: 1, submitterEmail: 'alice@example.com', text: "Alice's draft",
+      id: 1, contentId: 1, submitterEmail: 'alice@example.com', groupId: null,
+      lastSubmittedByEmail: 'alice@example.com', text: "Alice's draft",
       submittedAt: '2026-01-01T10:00:00', grade: null, feedback: null, gradedAt: null,
     }
     const { rerender } = render(
