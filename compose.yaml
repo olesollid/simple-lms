@@ -19,7 +19,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       RABBITMQ_HOST: rabbitmq
       REDIS_HOST: redis
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-dummy}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-dummy}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-dummy}
