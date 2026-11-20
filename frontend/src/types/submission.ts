@@ -16,6 +16,7 @@ export interface SubmissionResponse {
   grade: number | null
   feedback: string | null
   gradedAt: string | null
+  gradingComplete?: boolean
 }
 
 export interface GradeRequest {

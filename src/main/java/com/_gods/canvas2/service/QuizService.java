@@ -108,6 +108,17 @@ public class QuizService {
     return quiz;
   }
 
+  @Transactional(readOnly = true)
+  public void requirePublishedGrade(Long quizId, String requesterEmail) {
+    Quiz quiz = getQuiz(quizId);
+    Long courseId = quiz.getModule().getCourse().getId();
+    enrollmentService.requireEnrolled(courseId, requesterEmail);
+    if (!quiz.isGradesPublished()
+        && !enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER)) {
+      throw new QuizGradeNotFoundException(quizId, requesterEmail);
+    }
+  }
+
   private void requireTeacher(Long courseId, String requesterEmail) {
     if (!enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER)) {
       throw new ForbiddenException(

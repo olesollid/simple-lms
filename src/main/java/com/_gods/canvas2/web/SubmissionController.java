@@ -34,7 +34,7 @@ public class SubmissionController {
       @RequestBody SubmissionRequest request, Authentication authentication) {
     Submission submission = submissionService.submit(contentId, request.text(),
         authentication.getName());
-    return ResponseEntity.status(HttpStatus.CREATED).body(SubmissionResponse.from(submission));
+    return ResponseEntity.status(HttpStatus.CREATED).body(SubmissionResponse.forStudent(submission));
   }
 
   @GetMapping("/contents/{contentId}/submissions")
@@ -48,8 +48,18 @@ public class SubmissionController {
   @GetMapping("/contents/{contentId}/submissions/mine")
   public SubmissionResponse getOwnSubmission(@PathVariable Long contentId,
       Authentication authentication) {
-    return SubmissionResponse.from(
+    return SubmissionResponse.forStudent(
         submissionService.getOwnSubmission(contentId, authentication.getName()));
+  }
+
+  @GetMapping("/contents/{contentId}/grades/publication")
+  public boolean gradesPublished(@PathVariable Long contentId, Authentication authentication) {
+    return submissionService.gradesPublished(contentId, authentication.getName());
+  }
+
+  @PutMapping("/contents/{contentId}/grades/publication")
+  public boolean publishGrades(@PathVariable Long contentId, Authentication authentication) {
+    return submissionService.publishGrades(contentId, authentication.getName());
   }
 
   @PutMapping("/submissions/{submissionId}/grade")

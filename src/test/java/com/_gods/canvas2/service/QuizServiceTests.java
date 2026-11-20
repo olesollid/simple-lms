@@ -65,6 +65,20 @@ class QuizServiceTests {
     return contentRepository.save(new Quiz(module, "Week 1 Quiz", 0, 1, false));
   }
 
+  @Test
+  void quizGradesArePrivateUntilPublishedAndStillRequireEnrollment() {
+    Quiz quiz = quiz();
+    String student = studentOf(quiz);
+    assertThrows(QuizGradeNotFoundException.class,
+        () -> quizService.requirePublishedGrade(quiz.getId(), student));
+    quizService.requirePublishedGrade(quiz.getId(), teacherEmail);
+    quiz.publishGrades();
+    contentRepository.saveAndFlush(quiz);
+    quizService.requirePublishedGrade(quiz.getId(), student);
+    assertThrows(ForbiddenException.class,
+        () -> quizService.requirePublishedGrade(quiz.getId(), "stranger@example.com"));
+  }
+
   private String studentOf(Quiz quiz) {
     String email = "student" + (userCounter++) + "@example.com";
     User user = userRepository.save(new User(email, "Student"));

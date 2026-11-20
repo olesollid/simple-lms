@@ -37,6 +37,17 @@ public abstract class Content {
 
   private LocalDateTime visibleUntil;
 
+  @Column(nullable = false)
+  private boolean gradesPublished;
+
+  public boolean isGradesPublished() {
+    return gradesPublished;
+  }
+
+  public void publishGrades() {
+    gradesPublished = true;
+  }
+
   protected Content() {
   }
 

@@ -6,7 +6,9 @@ import SubmissionsReview from './SubmissionsReview'
 
 const getSubmissionsByContent = vi.hoisted(() => vi.fn())
 const grade = vi.hoisted(() => vi.fn())
-vi.mock('../services', () => ({ submissions: { getSubmissionsByContent, grade } }))
+const gradesPublished = vi.hoisted(() => vi.fn())
+const publishGrades = vi.hoisted(() => vi.fn())
+vi.mock('../services', () => ({ submissions: { getSubmissionsByContent, grade, gradesPublished, publishGrades } }))
 
 const individual = {
   id: 1, contentId: 1, submitterEmail: 'student@example.com', groupId: null,
@@ -30,6 +32,8 @@ describe('SubmissionsReview', () => {
   beforeEach(() => {
     getSubmissionsByContent.mockReset()
     grade.mockReset()
+    gradesPublished.mockReset().mockResolvedValue(false)
+    publishGrades.mockReset().mockResolvedValue(true)
   })
 
   it('shows a message when there are no submissions', async () => {
@@ -75,5 +79,33 @@ describe('SubmissionsReview', () => {
     render(<SubmissionsReview contentId={1} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/permission/i)
+  })
+
+  it('publishes grades for the content and shows the published state', async () => {
+    const user = userEvent.setup()
+    getSubmissionsByContent.mockResolvedValue([graded])
+    render(<SubmissionsReview contentId={1} />)
+    await user.click(await screen.findByRole('button', { name: 'Publish grades' }))
+    expect(publishGrades).toHaveBeenCalledWith(1)
+    expect(await screen.findByRole('button', { name: 'Grades published' })).toBeDisabled()
+  })
+
+  it('loads the saved publication state and prevents duplicate publication', async () => {
+    getSubmissionsByContent.mockResolvedValue([graded])
+    gradesPublished.mockResolvedValue(true)
+    render(<SubmissionsReview contentId={1} />)
+    expect(await screen.findByRole('button', { name: 'Grades published' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('Grades are published')
+  })
+
+  it('keeps grades private when publishing fails and allows retry', async () => {
+    const user = userEvent.setup()
+    getSubmissionsByContent.mockResolvedValue([graded])
+    publishGrades.mockRejectedValueOnce(new Error('offline'))
+    render(<SubmissionsReview contentId={1} />)
+    await user.click(await screen.findByRole('button', { name: 'Publish grades' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Check your connection')
+    await user.click(screen.getByRole('button', { name: 'Publish grades' }))
+    expect(await screen.findByRole('button', { name: 'Grades published' })).toBeDisabled()
   })
 })
