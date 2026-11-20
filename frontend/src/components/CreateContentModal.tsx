@@ -99,7 +99,9 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
 
         {type === 'StaticPage' && (
           <div className="ui-field">
-            <label className="ui-label" htmlFor="content-body">Body</label>
+            <label className="ui-label" htmlFor="content-body">
+              Body<span className="ui-required" aria-hidden="true"> *</span>
+            </label>
             <textarea
               id="content-body"
               className="ui-input"
@@ -136,7 +138,9 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
           <>
             {type === 'Assignment' ? (
               <div className="ui-field">
-                <label className="ui-label" htmlFor="content-instructions">Instructions</label>
+                <label className="ui-label" htmlFor="content-instructions">
+                  Instructions<span className="ui-required" aria-hidden="true"> *</span>
+                </label>
                 <textarea
                   id="content-instructions"
                   className="ui-input"
