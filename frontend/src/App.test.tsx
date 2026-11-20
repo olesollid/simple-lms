@@ -18,14 +18,13 @@ vi.mock('./services', () => ({
 }))
 
 describe('App', () => {
-  it('opens the dashboard by default and navigates through the shared layout', async () => {
+  it('opens courses by default and navigates through the shared layout', async () => {
     const user = userEvent.setup()
     render(<MemoryRouter><App /></MemoryRouter>)
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument()
-    await user.click(screen.getByRole('link', { name: 'Courses' }))
-
     expect(screen.getByRole('heading', { level: 1, name: 'Courses' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Canvas 2.0' })).toHaveAttribute('href', '/courses')
     expect(await screen.findByRole('heading', { name: /DAT250/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Courses' })).toHaveAttribute('aria-current', 'page')
     await user.click(screen.getByRole('link', { name: 'Profile' }))
@@ -50,7 +49,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Profile' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Open menu' }))
     expect(screen.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true')
-    await user.click(screen.getByRole('link', { name: 'Dashboard' }))
+    await user.click(screen.getByRole('link', { name: 'Courses' }))
     expect(screen.getByRole('button', { name: 'Open menu' })).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByRole('main')).toHaveFocus()
   })
@@ -58,5 +57,12 @@ describe('App', () => {
   it('shows a fallback for unknown routes', () => {
     render(<MemoryRouter initialEntries={['/missing']}><App /></MemoryRouter>)
     expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+  })
+
+  it('redirects old dashboard links to courses', async () => {
+    render(<MemoryRouter initialEntries={['/dashboard']}><App /></MemoryRouter>)
+    expect(screen.getByRole('heading', { level: 1, name: 'Courses' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'DAT250' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Courses' })).toHaveAttribute('aria-current', 'page')
   })
 })

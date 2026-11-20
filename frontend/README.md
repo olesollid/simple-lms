@@ -28,8 +28,7 @@ npm run dev
 
 `npm.cmd` avoids PowerShell execution-policy errors involving `npm.ps1`.
 Open the URL printed by Vite, normally http://localhost:5173/.
-The home page opens the Dashboard placeholder. Open Courses in the navigation
-to list courses through the feature service. Enable mock mode
+The home page opens Courses, listing courses through the feature service. Enable mock mode
 as described below to view sample courses without the backend.
 
 `npm ci` installs the versions in `package-lock.json`. Keep this file in version
@@ -88,9 +87,11 @@ component-specific types with their component.
 
 ## Navigation and layout
 
-React Router provides `/dashboard`, `/courses`, and `/profile`. The root URL
-redirects to `/dashboard`; unknown URLs show a page-not-found view. Dashboard
-and Profile are placeholders. Courses retains its existing API integration.
+React Router provides `/courses` and `/profile`, along with course and content
+detail routes. The root URL redirects to `/courses`, which serves as the home
+page. Old `/dashboard` links also redirect to `/courses`. Profile is a placeholder;
+unknown URLs show a page-not-found view. The sidebar lists Courses and Profile,
+and the header brand links back to Courses.
 
 `AppLayout` shares a header, navigation sidebar, skip link, and main content
 area across routes. Below 760px, the sidebar is controlled by the header's

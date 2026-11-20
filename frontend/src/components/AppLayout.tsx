@@ -25,7 +25,7 @@ export function AppHeader({ menuOpen, onToggle }: { menuOpen: boolean; onToggle:
   return (
     <header className="app-header">
       <div className="app-header-inner">
-        <Link className="brand" to="/dashboard"><span className="brand-mark" aria-hidden="true">C</span>Canvas 2.0</Link>
+        <Link className="brand" to="/courses"><span className="brand-mark" aria-hidden="true">C</span>Canvas 2.0</Link>
         {userEmail ? (
           <div className="header-account">
             <span className="header-label">{userEmail}</span>
@@ -52,7 +52,7 @@ export function AppSidebar({ open, onNavigate }: { open: boolean; onNavigate: ()
     <aside id="app-sidebar" className={`app-sidebar${open ? ' is-open' : ''}`}>
       <p className="sidebar-label">Workspace</p>
       <nav aria-label="Main navigation">
-        {['Dashboard', 'Profile', 'Courses'].map(label => (
+        {['Courses', 'Profile'].map(label => (
           <NavLink key={label} to={`/${label.toLowerCase()}`} onClick={onNavigate}>{label}</NavLink>
         ))}
       </nav>
@@ -67,7 +67,7 @@ export default function AppLayout() {
 
   useEffect(() => {
     content.current?.focus()
-    document.title = `${pathname.split('/')[1] || 'Dashboard'} | Canvas 2.0`
+    document.title = `${pathname.split('/')[1] || 'Courses'} | Canvas 2.0`
   }, [pathname])
 
   return (
