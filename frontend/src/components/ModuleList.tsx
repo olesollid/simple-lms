@@ -64,7 +64,10 @@ function ModuleCard({ module, isTeacher, onModuleDeleted }: {
   return (
     <>
       <div className="module-card-header">
-        <h3>{module.title}</h3>
+        <div className="module-card-title">
+          <h3>{module.title}</h3>
+          {module.locked && <span className="lock-badge">Locked</span>}
+        </div>
         {isTeacher && (
           <div className="page-heading-actions">
             <Button variant="secondary" onClick={() => setAddContentOpen(true)}>Add content</Button>
@@ -75,12 +78,18 @@ function ModuleCard({ module, isTeacher, onModuleDeleted }: {
         )}
       </div>
       {error && <ErrorMessage message={error} />}
-      <ModuleContents
-        courseId={module.courseId}
-        moduleId={module.id}
-        isTeacher={isTeacher}
-        key={refreshKey}
-      />
+      {module.locked ? (
+        <p className="module-placeholder">
+          Complete the prerequisite modules to unlock this module.
+        </p>
+      ) : (
+        <ModuleContents
+          courseId={module.courseId}
+          moduleId={module.id}
+          isTeacher={isTeacher}
+          key={refreshKey}
+        />
+      )}
       {isTeacher && (
         <CreateContentModal
           moduleId={module.id}

@@ -15,7 +15,7 @@ describe('CreateModuleModal', () => {
   it('creates a module with the entered title', async () => {
     const user = userEvent.setup()
     const onCreated = vi.fn()
-    const created = { id: 1, courseId: 1, title: 'Week 1', dependencyIds: [] }
+    const created = { id: 1, courseId: 1, title: 'Week 1', dependencyIds: [], locked: false }
     createModule.mockResolvedValue(created)
 
     render(<CreateModuleModal courseId={1} open={true} onClose={vi.fn()} onCreated={onCreated} />)

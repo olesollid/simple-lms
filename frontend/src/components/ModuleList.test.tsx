@@ -9,7 +9,7 @@ const getContentsByModule = vi.hoisted(() => vi.fn())
 const deleteModule = vi.hoisted(() => vi.fn())
 vi.mock('../services', () => ({ contents: { getContentsByModule }, modules: { deleteModule } }))
 
-const make = (id: number) => ({ id, courseId: 1, title: `Module ${id}`, dependencyIds: [] })
+const make = (id: number) => ({ id, courseId: 1, title: `Module ${id}`, dependencyIds: [], locked: false })
 
 function renderWithRouter(ui: React.ReactElement) {
   return render(<MemoryRouter>{ui}</MemoryRouter>)
@@ -54,6 +54,25 @@ describe('ModuleList', () => {
     renderWithRouter(<ModuleList modules={[make(1)]} isTeacher={false} onModuleDeleted={vi.fn()} />)
 
     expect(screen.queryByRole('button', { name: 'Delete module' })).not.toBeInTheDocument()
+  })
+
+  it('shows a locked module as locked instead of loading its content', () => {
+    renderWithRouter(
+      <ModuleList modules={[{ ...make(1), locked: true }]} isTeacher={false} onModuleDeleted={vi.fn()} />,
+    )
+
+    expect(screen.getByText('Locked')).toBeInTheDocument()
+    expect(screen.getByText(/complete the prerequisite modules/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Module 1' })).toBeInTheDocument()
+    expect(getContentsByModule).not.toHaveBeenCalled()
+  })
+
+  it('loads content and shows no lock badge for an unlocked module', async () => {
+    renderWithRouter(<ModuleList modules={[make(1)]} isTeacher={false} onModuleDeleted={vi.fn()} />)
+
+    expect(await screen.findByText('No content yet.')).toBeInTheDocument()
+    expect(screen.queryByText('Locked')).not.toBeInTheDocument()
+    expect(getContentsByModule).toHaveBeenCalledWith(1, expect.anything())
   })
 
   describe('as a teacher', () => {

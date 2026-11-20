@@ -100,6 +100,22 @@ class SubmissionServiceTests {
   }
 
   @Test
+  void acceptsLongSubmissionTextAndFeedback() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Assignment assignment = assignmentIn(course, teacher);
+    String essay = "x".repeat(10_000);
+    String feedback = "y".repeat(5_000);
+
+    Submission submission = submissionService.submit(assignment.getId(), essay, student);
+    Submission graded = submissionService.grade(submission.getId(), 90, feedback, teacher);
+
+    assertEquals(essay, submission.getText());
+    assertEquals(feedback, graded.getFeedback());
+  }
+
+  @Test
   void submittingMarksContentCompleted() {
     Course course = course();
     String teacher = teacherOf(course);

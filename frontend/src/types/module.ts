@@ -7,6 +7,7 @@ export interface ModuleResponse {
   courseId: number
   title: string
   dependencyIds: number[]
+  locked: boolean
 }
 
 export interface ModuleDeleteResponse {

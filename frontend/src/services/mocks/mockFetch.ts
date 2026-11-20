@@ -13,8 +13,8 @@ const users: UserResponse[] = [
   { email: 'teacher@example.com', name: 'Example Teacher' },
 ]
 const modules: ModuleResponse[] = [
-  { id: 1, courseId: 1, title: 'Introduction', dependencyIds: [] },
-  { id: 2, courseId: 1, title: 'Persistence', dependencyIds: [1] },
+  { id: 1, courseId: 1, title: 'Introduction', dependencyIds: [], locked: false },
+  { id: 2, courseId: 1, title: 'Persistence', dependencyIds: [1], locked: false },
 ]
 const enrollments: EnrollmentResponse[] = [
   { id: 1, courseId: 1, courseTitle: 'DAT250', email: 'student@example.com',

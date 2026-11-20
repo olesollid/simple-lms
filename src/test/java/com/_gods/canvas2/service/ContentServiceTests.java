@@ -152,6 +152,17 @@ class ContentServiceTests {
   }
 
   @Test
+  void acceptsLongAssignmentInstructions() {
+    Module module = module();
+    String instructions = "i".repeat(5_000);
+
+    Assignment assignment = contentService.createAssignment(module.getId(), "Essay", 0,
+        instructions, null, false, false, teacherEmail);
+
+    assertEquals(instructions, assignment.getInstructions());
+  }
+
+  @Test
   void rejectsCreatingAssignmentByStudent() {
     Module module = module();
     String student = studentOf(module);

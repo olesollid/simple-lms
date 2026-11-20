@@ -38,7 +38,7 @@ const assignment = {
 
 const groupAssignment = { ...assignment, id: 3, title: 'Group Essay', groupSubmission: true }
 
-const module1 = { id: 1, courseId: 1, title: 'Week 1', dependencyIds: [] }
+const module1 = { id: 1, courseId: 1, title: 'Week 1', dependencyIds: [], locked: false }
 
 function renderAt(path: string) {
   return render(
