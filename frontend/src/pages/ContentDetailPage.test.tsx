@@ -124,6 +124,7 @@ describe('ContentDetailPage', () => {
     renderAt('/courses/1/modules/1/contents/3')
 
     expect(await screen.findByLabelText(/Your submission/)).toBeInTheDocument()
+    expect(screen.getByText('Team A')).toBeInTheDocument()
   })
 
   it('does not show a "Delete content" button for a student', async () => {

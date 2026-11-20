@@ -13,12 +13,16 @@ const getContentsByModule = vi.hoisted(() => vi.fn())
 const getCurrentUser = vi.hoisted(() => vi.fn())
 const getEnrollment = vi.hoisted(() => vi.fn())
 const getEnrollments = vi.hoisted(() => vi.fn())
+const getOwnGroup = vi.hoisted(() => vi.fn())
+const getMembers = vi.hoisted(() => vi.fn())
+const getGroupsByCourse = vi.hoisted(() => vi.fn())
 vi.mock('../services', () => ({
   courses: { getCourse, deleteCourse },
   modules: { getModules, deleteModule },
   contents: { getContentsByModule },
   users: { getCurrentUser },
   enrollments: { getEnrollment, getEnrollments },
+  groups: { getOwnGroup, getMembers, getGroupsByCourse },
 }))
 
 const course = { id: 1, title: 'DAT250', description: 'Software technology', term: 'AUTUMN', year: 2026 }
@@ -48,6 +52,12 @@ describe('CourseDetailPage', () => {
     getEnrollment.mockResolvedValue({ role: 'STUDENT' })
     getEnrollments.mockReset()
     getEnrollments.mockResolvedValue([])
+    getOwnGroup.mockReset()
+    getOwnGroup.mockRejectedValue(new ApiError(404, 'not found', null))
+    getMembers.mockReset()
+    getMembers.mockResolvedValue([])
+    getGroupsByCourse.mockReset()
+    getGroupsByCourse.mockResolvedValue([])
   })
 
   it('shows the course and its modules', async () => {
@@ -178,5 +188,29 @@ describe('CourseDetailPage', () => {
 
       expect(await screen.findByRole('alert')).toHaveTextContent('has modules or enrollments')
     })
+  })
+
+  it('shows a student which group they are in', async () => {
+    getCourse.mockResolvedValue(course)
+    getModules.mockResolvedValue([])
+    getOwnGroup.mockResolvedValue({ id: 5, courseId: 1, name: 'Team A' })
+    getMembers.mockResolvedValue([
+      { id: 1, groupId: 5, email: 'student@example.com', joinedAt: '2026-01-01T00:00:00' },
+      { id: 2, groupId: 5, email: 'friend@example.com', joinedAt: '2026-01-01T00:00:00' },
+    ])
+    renderAt('/courses/1')
+
+    expect(await screen.findByRole('heading', { name: 'Team A' })).toBeInTheDocument()
+    expect(screen.getByText('friend@example.com')).toBeInTheDocument()
+  })
+
+  it('shows "Manage groups" only for a teacher', async () => {
+    getCourse.mockResolvedValue(course)
+    getModules.mockResolvedValue([])
+    getEnrollment.mockResolvedValue({ role: 'TEACHER' })
+    renderAt('/courses/1')
+
+    expect(await screen.findByRole('button', { name: 'Manage groups' })).toBeInTheDocument()
+    expect(getOwnGroup).not.toHaveBeenCalled()
   })
 })
