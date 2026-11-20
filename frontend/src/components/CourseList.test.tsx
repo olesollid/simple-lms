@@ -19,21 +19,35 @@ describe('CourseList', () => {
   })
 
   it('shows an empty state', () => {
-    render(<MemoryRouter><CourseList state={{ status: 'success', courses: [] }} /></MemoryRouter>)
+    render(<MemoryRouter><CourseList state={{ status: 'success', courses: [], roleByCourseId: {} }} /></MemoryRouter>)
 
     expect(screen.getByRole('heading', { name: 'No courses yet' })).toBeInTheDocument()
   })
 
   it('lists courses with a count', () => {
-    render(<MemoryRouter><CourseList state={{ status: 'success', courses: [make(1), make(2)] }} /></MemoryRouter>)
+    render(<MemoryRouter><CourseList state={{ status: 'success', courses: [make(1), make(2)], roleByCourseId: {} }} /></MemoryRouter>)
 
     expect(screen.getByText('2 courses')).toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 
   it('uses the singular for one course', () => {
-    render(<MemoryRouter><CourseList state={{ status: 'success', courses: [make(1)] }} /></MemoryRouter>)
+    render(<MemoryRouter><CourseList state={{ status: 'success', courses: [make(1)], roleByCourseId: {} }} /></MemoryRouter>)
 
     expect(screen.getByText('1 course')).toBeInTheDocument()
+  })
+
+  it('passes each course its role', () => {
+    render(
+      <MemoryRouter>
+        <CourseList state={{
+          status: 'success', courses: [make(1), make(2)],
+          roleByCourseId: { 1: 'TEACHER', 2: 'STUDENT' },
+        }} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Teacher')).toBeInTheDocument()
+    expect(screen.getByText('Student')).toBeInTheDocument()
   })
 })

@@ -19,6 +19,7 @@
 .placeholder-panel h2 { font-size: 24px; margin: 12px 0; }
 .placeholder-panel p { color: #596273; margin-bottom: 24px; }
 .text-link { color: #8a2940; font-weight: 600; text-underline-offset: 4px; }
+.back-link { display: inline-block; margin-bottom: 20px; }
 @media (max-width: 760px) {
   .menu-toggle { display: block; }
   .header-label { display: none; }
@@ -32,10 +33,16 @@
   border-radius: 9px; background: #a32d44; color: #fff; font-size: 22px;
 }
 .header-label { font-size: 13px; color: #596273; }
+.header-account { display: flex; align-items: center; gap: 14px; margin-left: auto; margin-right: 16px; }
+.header-logout { font-size: 13px; background: none; border: none; cursor: pointer; padding: 0; }
+.header-logout:disabled { color: #596273; cursor: not-allowed; }
 .courses-page { max-width: 1160px; margin: auto; padding: 60px 32px 80px; }
 .page-heading { display: flex; justify-content: space-between; align-items: center; gap: 28px; margin-bottom: 40px; }
 .eyebrow { color: #8a2940; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 h1 { font-size: clamp(32px, 5vw, 42px); line-height: 1.2; letter-spacing: -0.04em; margin: 8px 0 12px; }
+.role-badge { display: inline-block; vertical-align: middle; margin-left: 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; padding: 4px 12px; border-radius: 999px; }
+.role-badge--teacher { background: #f7e9ed; color: #8a2940; }
+.role-badge--student { background: #e9edf5; color: #37455c; }
 .page-description { color: #596273; max-width: 540px; }
 .refresh-button { flex-shrink: 0; }
 .course-count { color: #596273; font-size: 14px; margin-bottom: 16px; }
@@ -56,7 +63,38 @@ h1 { font-size: clamp(32px, 5vw, 42px); line-height: 1.2; letter-spacing: -0.04e
 .module-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
 .module-card { padding: 22px 26px; background: #fff; border: 1px solid #dfe3e8; border-radius: 10px; }
 .module-card h3 { font-size: 18px; margin-bottom: 6px; }
+.module-card-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.module-card-title { display: flex; align-items: center; gap: 10px; }
+.module-card-title h3 { margin-bottom: 0; }
+.lock-badge { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; padding: 3px 10px; border-radius: 999px; background: #eceef2; color: #596273; }
+.page-heading-actions { display: flex; gap: 12px; flex-shrink: 0; }
+.create-course-form { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; width: 100%; }
+.create-course-form .ui-field { width: 100%; }
+.ui-checkbox-field { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #303947; }
+.enrollment-roster { margin-top: 28px; padding-top: 24px; border-top: 1px solid #e1e4e9; }
+.roster-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.roster-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #f8f9fb; border-radius: 8px; }
+.roster-item .roster-email { color: #596273; font-size: 13px; flex: 1; }
 .module-placeholder { color: #596273; font-size: 14px; }
+.content-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.content-item { display: flex; align-items: center; gap: 10px; }
+.content-item a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 7px; color: inherit; text-decoration: none; flex: 1; }
+.content-item a:hover { background: #f5f6f8; }
+.content-type { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #8a2940; background: #f7e9ed; padding: 3px 8px; border-radius: 5px; flex-shrink: 0; }
+.content-detail { max-width: 760px; margin: auto; padding: 60px 32px 80px; }
+.content-detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.content-body { color: #303947; line-height: 1.6; white-space: pre-line; margin: 20px 0; }
+.content-deadline { color: #596273; font-size: 14px; }
+.submission-form { margin-top: 32px; padding-top: 32px; border-top: 1px solid #e1e4e9; }
+.submission-form form { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
+.submission-status { color: #596273; font-size: 14px; margin-bottom: 16px; }
+.submission-grade { margin-top: 10px; padding: 14px 16px; background: #f7e9ed; border-radius: 8px; color: #303947; }
+.submissions-review { margin-top: 32px; padding-top: 32px; border-top: 1px solid #e1e4e9; }
+.submission-list { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 20px; }
+.submission-review-card { padding: 22px 26px; background: #fff; border: 1px solid #dfe3e8; border-radius: 10px; }
+.submission-review-header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.grade-form { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; margin-top: 14px; }
+.grade-form .ui-field { width: 100%; max-width: 320px; }
 .skip-link { position: absolute; left: 16px; top: -100px; padding: 10px 16px; background: #fff; color: #8a2940; z-index: 1; }
 .skip-link:focus { top: 12px; }
 @media (max-width: 600px) {

@@ -14,12 +14,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com._gods.canvas2.model.Assignment;
+import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.StaticPage;
 import com._gods.canvas2.model.StudentInteraction;
 import com._gods.canvas2.service.ContentService;
 import com._gods.canvas2.service.StudentInteractionService;
+import com._gods.canvas2.web.dto.AssignmentRequest;
+import com._gods.canvas2.web.dto.CodingExerciseRequest;
 import com._gods.canvas2.web.dto.ContentMetadataRequest;
 import com._gods.canvas2.web.dto.ContentResponse;
 import com._gods.canvas2.web.dto.QuizRequest;
@@ -56,6 +60,24 @@ public class ContentController {
         request.maxAttempts(), request.showHints(), request.deadline(),
         authentication.getName());
     return ResponseEntity.status(HttpStatus.CREATED).body(ContentResponse.from(quiz));
+  }
+
+  @PostMapping("/modules/{moduleId}/assignments")
+  public ResponseEntity<ContentResponse> createAssignment(@PathVariable Long moduleId,
+      @RequestBody AssignmentRequest request, Authentication authentication) {
+    Assignment assignment = contentService.createAssignment(moduleId, request.title(),
+        request.position(), request.instructions(), request.deadline(),
+        request.lateSubmissionsAccepted(), request.groupSubmission(), authentication.getName());
+    return ResponseEntity.status(HttpStatus.CREATED).body(ContentResponse.from(assignment));
+  }
+
+  @PostMapping("/modules/{moduleId}/coding-exercises")
+  public ResponseEntity<ContentResponse> createCodingExercise(@PathVariable Long moduleId,
+      @RequestBody CodingExerciseRequest request, Authentication authentication) {
+    CodingExercise codingExercise = contentService.createCodingExercise(moduleId, request.title(),
+        request.position(), request.repositoryUrl(), request.deadline(),
+        request.lateSubmissionsAccepted(), request.groupSubmission(), authentication.getName());
+    return ResponseEntity.status(HttpStatus.CREATED).body(ContentResponse.from(codingExercise));
   }
 
   @GetMapping("/modules/{moduleId}/contents")

@@ -9,5 +9,5 @@ const request = USE_MOCK_API
   ? createApiClient('/api', createMockFetch())
   : apiRequest
 
-export const { courses, users, enrollments, modules } = createServices(request)
+export const { courses, users, enrollments, modules, contents, submissions, groups } = createServices(request)
 export { ApiError, ApiResponseError } from './apiClient.ts'

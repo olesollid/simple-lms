@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
+import com._gods.canvas2.model.Assignment;
+import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Enrollment;
@@ -19,11 +21,15 @@ import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StaticPage;
+import com._gods.canvas2.model.StudentInteraction;
+import com._gods.canvas2.model.Submission;
 import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.EnrollmentRepository;
 import com._gods.canvas2.repository.ModuleRepository;
+import com._gods.canvas2.repository.StudentInteractionRepository;
+import com._gods.canvas2.repository.SubmissionRepository;
 import com._gods.canvas2.repository.UserRepository;
 
 @DataJpaTest
@@ -46,6 +52,12 @@ class ContentServiceTests {
   @Autowired
   private EnrollmentRepository enrollmentRepository;
 
+  @Autowired
+  private SubmissionRepository submissionRepository;
+
+  @Autowired
+  private StudentInteractionRepository studentInteractionRepository;
+
   private static int userCounter = 0;
   private String teacherEmail;
 
@@ -59,10 +71,14 @@ class ContentServiceTests {
   }
 
   private String studentOf(Module module) {
+    return studentUserOf(module).getEmail();
+  }
+
+  private User studentUserOf(Module module) {
     String email = "student" + (userCounter++) + "@example.com";
     User user = userRepository.save(new User(email, "Student"));
     enrollmentRepository.save(new Enrollment(user, module.getCourse(), Role.STUDENT));
-    return email;
+    return user;
   }
 
   @Test
@@ -121,6 +137,75 @@ class ContentServiceTests {
     assertThrows(ModuleNotFoundException.class,
         () -> contentService.createQuiz(999L, "Week 1 Quiz", 0, 1, false, null,
             "nobody@example.com"));
+  }
+
+  @Test
+  void createsAssignment() {
+    Module module = module();
+
+    Assignment assignment = contentService.createAssignment(module.getId(), "Essay", 0,
+        "Write 500 words", null, false, false, teacherEmail);
+
+    assertEquals("Essay", assignment.getTitle());
+    assertEquals("Write 500 words", assignment.getInstructions());
+    assertEquals(module.getId(), assignment.getModule().getId());
+  }
+
+  @Test
+  void acceptsLongAssignmentInstructions() {
+    Module module = module();
+    String instructions = "i".repeat(5_000);
+
+    Assignment assignment = contentService.createAssignment(module.getId(), "Essay", 0,
+        instructions, null, false, false, teacherEmail);
+
+    assertEquals(instructions, assignment.getInstructions());
+  }
+
+  @Test
+  void rejectsCreatingAssignmentByStudent() {
+    Module module = module();
+    String student = studentOf(module);
+
+    assertThrows(ForbiddenException.class,
+        () -> contentService.createAssignment(module.getId(), "Essay", 0, "Write 500 words",
+            null, false, false, student));
+  }
+
+  @Test
+  void throwsWhenCreatingAssignmentForMissingModule() {
+    assertThrows(ModuleNotFoundException.class,
+        () -> contentService.createAssignment(999L, "Essay", 0, "Write 500 words", null, false,
+            false, "nobody@example.com"));
+  }
+
+  @Test
+  void createsCodingExercise() {
+    Module module = module();
+
+    CodingExercise codingExercise = contentService.createCodingExercise(module.getId(),
+        "Fix the bug", 0, "https://example.com/repo", null, false, false, teacherEmail);
+
+    assertEquals("Fix the bug", codingExercise.getTitle());
+    assertEquals("https://example.com/repo", codingExercise.getRepositoryUrl());
+    assertEquals(module.getId(), codingExercise.getModule().getId());
+  }
+
+  @Test
+  void rejectsCreatingCodingExerciseByStudent() {
+    Module module = module();
+    String student = studentOf(module);
+
+    assertThrows(ForbiddenException.class,
+        () -> contentService.createCodingExercise(module.getId(), "Fix the bug", 0,
+            "https://example.com/repo", null, false, false, student));
+  }
+
+  @Test
+  void throwsWhenCreatingCodingExerciseForMissingModule() {
+    assertThrows(ModuleNotFoundException.class,
+        () -> contentService.createCodingExercise(999L, "Fix the bug", 0,
+            "https://example.com/repo", null, false, false, "nobody@example.com"));
   }
 
   @Test
@@ -234,6 +319,23 @@ class ContentServiceTests {
     assertTrue(contentService.getContentsByModule(module.getId(), teacherEmail).isEmpty());
     assertThrows(ContentNotFoundException.class,
         () -> contentService.getContentById(page.getId(), teacherEmail));
+  }
+
+  @Test
+  void deletingContentAlsoDeletesItsSubmissionsAndInteractions() {
+    Module module = module();
+    User student = studentUserOf(module);
+    Assignment assignment = contentService.createAssignment(module.getId(), "Essay", 0,
+        "Write something", null, false, false, teacherEmail);
+    submissionRepository.save(new Submission(student, assignment, "My essay"));
+    studentInteractionRepository.save(new StudentInteraction(student, assignment));
+
+    contentService.deleteContent(assignment.getId(), teacherEmail);
+
+    assertTrue(submissionRepository.findByContent(assignment).isEmpty());
+    assertTrue(studentInteractionRepository.findByContent(assignment).isEmpty());
+    assertThrows(ContentNotFoundException.class,
+        () -> contentService.getContentById(assignment.getId(), teacherEmail));
   }
 
   @Test

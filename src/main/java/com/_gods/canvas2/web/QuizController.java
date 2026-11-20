@@ -71,6 +71,7 @@ public class QuizController {
 
   @GetMapping("/grade")
   public QuizGrade getGrade(@PathVariable Long quizId, Authentication authentication) {
+    quizService.requirePublishedGrade(quizId, authentication.getName());
     return quizGradeStore.find(quizId, authentication.getName())
         .orElseThrow(() -> new QuizGradeNotFoundException(quizId, authentication.getName()));
   }

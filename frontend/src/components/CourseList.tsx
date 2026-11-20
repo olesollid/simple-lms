@@ -32,7 +32,9 @@ export default function CourseList({ state }: { state: CourseListState }) {
       </p>
       <ul className="course-grid" aria-label="Courses">
         {state.courses.map(course => (
-          <li key={course.id}><CourseCard course={course} /></li>
+          <li key={course.id}>
+            <CourseCard course={course} role={state.roleByCourseId[course.id]} />
+          </li>
         ))}
       </ul>
     </>

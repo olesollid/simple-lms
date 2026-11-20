@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com._gods.canvas2.model.Assignment;
+import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Quiz;
@@ -13,6 +15,8 @@ import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StaticPage;
 import com._gods.canvas2.repository.ContentRepository;
 import com._gods.canvas2.repository.ModuleRepository;
+import com._gods.canvas2.repository.StudentInteractionRepository;
+import com._gods.canvas2.repository.SubmissionRepository;
 
 @Service
 @Transactional
@@ -22,13 +26,19 @@ public class ContentService {
   private final ModuleRepository moduleRepository;
   private final EnrollmentService enrollmentService;
   private final ModuleService moduleService;
+  private final SubmissionRepository submissionRepository;
+  private final StudentInteractionRepository studentInteractionRepository;
 
   public ContentService(ContentRepository contentRepository, ModuleRepository moduleRepository,
-      EnrollmentService enrollmentService, ModuleService moduleService) {
+      EnrollmentService enrollmentService, ModuleService moduleService,
+      SubmissionRepository submissionRepository,
+      StudentInteractionRepository studentInteractionRepository) {
     this.contentRepository = contentRepository;
     this.moduleRepository = moduleRepository;
     this.enrollmentService = enrollmentService;
     this.moduleService = moduleService;
+    this.submissionRepository = submissionRepository;
+    this.studentInteractionRepository = studentInteractionRepository;
   }
 
   public StaticPage createStaticPage(Long moduleId, String title, int position, String body,
@@ -46,6 +56,26 @@ public class ContentService {
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
     requireTeacher(module.getCourse().getId(), requesterEmail);
     return (Quiz) contentRepository.save(new Quiz(module, title, position, maxAttempts, showHints, deadline));
+  }
+
+  public Assignment createAssignment(Long moduleId, String title, int position,
+      String instructions, LocalDateTime deadline, boolean lateSubmissionsAccepted,
+      boolean groupSubmission, String requesterEmail) {
+    Module module = moduleRepository.findById(moduleId)
+        .orElseThrow(() -> new ModuleNotFoundException(moduleId));
+    requireTeacher(module.getCourse().getId(), requesterEmail);
+    return (Assignment) contentRepository.save(new Assignment(module, title, position,
+        instructions, deadline, lateSubmissionsAccepted, groupSubmission));
+  }
+
+  public CodingExercise createCodingExercise(Long moduleId, String title, int position,
+      String repositoryUrl, LocalDateTime deadline, boolean lateSubmissionsAccepted,
+      boolean groupSubmission, String requesterEmail) {
+    Module module = moduleRepository.findById(moduleId)
+        .orElseThrow(() -> new ModuleNotFoundException(moduleId));
+    requireTeacher(module.getCourse().getId(), requesterEmail);
+    return (CodingExercise) contentRepository.save(new CodingExercise(module, title, position,
+        repositoryUrl, deadline, lateSubmissionsAccepted, groupSubmission));
   }
 
   @Transactional(readOnly = true)
@@ -106,9 +136,13 @@ public class ContentService {
     return contentRepository.save(staticPage);
   }
 
+  /** Deleting content also removes submissions and interactions tied to it, which would
+   * otherwise block the delete with a foreign-key violation. */
   public void deleteContent(Long id, String requesterEmail) {
     Content content = getContentById(id);
     requireTeacher(content.getModule().getCourse().getId(), requesterEmail);
+    submissionRepository.deleteAll(submissionRepository.findByContent(content));
+    studentInteractionRepository.deleteAll(studentInteractionRepository.findByContent(content));
     contentRepository.delete(content);
   }
 

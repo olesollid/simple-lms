@@ -76,12 +76,16 @@ public class CourseService {
     boolean hasModules = !moduleRepository.findByCourse(course).isEmpty();
     // Creating a course auto-enrolls the creator as TEACHER, so their own enrollment doesn't
     // count as a dependent -- otherwise a course could never be deleted by anyone.
-    boolean hasOtherEnrollments = enrollmentRepository.findByCourse(course).stream()
+    List<Enrollment> enrollments = enrollmentRepository.findByCourse(course);
+    boolean hasOtherEnrollments = enrollments.stream()
         .anyMatch(enrollment -> !enrollment.getUser().getEmail()
             .equals(User.normalizeEmail(requesterEmail)));
     if (hasModules || hasOtherEnrollments) {
       throw new CourseHasDependentsException(id);
     }
+    // The only enrollment left at this point is the requester's own, which must be removed
+    // before the course itself, since nothing cascades that delete.
+    enrollmentRepository.deleteAll(enrollments);
     courseRepository.delete(course);
   }
 

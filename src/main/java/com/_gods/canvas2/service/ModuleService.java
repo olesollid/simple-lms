@@ -11,11 +11,15 @@ import java.util.Queue;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Role;
+import com._gods.canvas2.repository.ContentRepository;
 import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.ModuleRepository;
+import com._gods.canvas2.repository.StudentInteractionRepository;
+import com._gods.canvas2.repository.SubmissionRepository;
 
 @Service
 @Transactional
@@ -25,13 +29,21 @@ public class ModuleService {
   private final CourseRepository courseRepository;
   private final EnrollmentService enrollmentService;
   private final StudentInteractionService studentInteractionService;
+  private final ContentRepository contentRepository;
+  private final SubmissionRepository submissionRepository;
+  private final StudentInteractionRepository studentInteractionRepository;
 
   public ModuleService(ModuleRepository moduleRepository, CourseRepository courseRepository,
-      EnrollmentService enrollmentService, StudentInteractionService studentInteractionService) {
+      EnrollmentService enrollmentService, StudentInteractionService studentInteractionService,
+      ContentRepository contentRepository, SubmissionRepository submissionRepository,
+      StudentInteractionRepository studentInteractionRepository) {
     this.moduleRepository = moduleRepository;
     this.courseRepository = courseRepository;
     this.enrollmentService = enrollmentService;
     this.studentInteractionService = studentInteractionService;
+    this.contentRepository = contentRepository;
+    this.submissionRepository = submissionRepository;
+    this.studentInteractionRepository = studentInteractionRepository;
   }
 
   public Module createModule(Long courseId, String title, String requesterEmail) {
@@ -74,6 +86,8 @@ public class ModuleService {
 
   /**
    * Deletes a module, removing it from any other module's dependency list first.
+   * Also deletes the module's own content, and each content's submissions and student
+   * interactions, which would otherwise block the delete with a foreign-key violation.
    * Returns the modules that had the dependency removed, so callers can surface
    * what changed.
    */
@@ -85,6 +99,11 @@ public class ModuleService {
         .toList();
     affected.forEach(other -> other.removeDependency(module));
     moduleRepository.saveAll(affected);
+    for (Content content : contentRepository.findByModuleOrderByPosition(module)) {
+      submissionRepository.deleteAll(submissionRepository.findByContent(content));
+      studentInteractionRepository.deleteAll(studentInteractionRepository.findByContent(content));
+      contentRepository.delete(content);
+    }
     moduleRepository.delete(module);
     return affected;
   }

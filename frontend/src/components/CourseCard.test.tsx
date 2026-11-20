@@ -31,4 +31,23 @@ describe('CourseCard', () => {
 
     expect(screen.getByRole('link', { name: 'DAT250' })).toHaveAttribute('href', '/courses/1')
   })
+
+  it('shows no role badge when role is not provided', () => {
+    render(<MemoryRouter><CourseCard course={course} /></MemoryRouter>)
+
+    expect(screen.queryByText('Teacher')).not.toBeInTheDocument()
+    expect(screen.queryByText('Student')).not.toBeInTheDocument()
+  })
+
+  it('shows a teacher badge', () => {
+    render(<MemoryRouter><CourseCard course={course} role="TEACHER" /></MemoryRouter>)
+
+    expect(screen.getByText('Teacher')).toBeInTheDocument()
+  })
+
+  it('shows a student badge', () => {
+    render(<MemoryRouter><CourseCard course={course} role="STUDENT" /></MemoryRouter>)
+
+    expect(screen.getByText('Student')).toBeInTheDocument()
+  })
 })
