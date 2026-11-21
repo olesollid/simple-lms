@@ -50,7 +50,48 @@ public class ModuleService {
     requireTeacher(courseId, requesterEmail);
     Course course = courseRepository.findById(courseId)
         .orElseThrow(() -> new CourseNotFoundException(courseId));
-    return moduleRepository.save(new Module(course, title));
+    Module module = new Module(course, title);
+    // New modules go at the end of the course.
+    module.moveTo(moduleRepository.findByCourse(course).stream()
+        .mapToInt(existing -> existing.getPosition() + 1).max().orElse(0));
+    return moduleRepository.save(module);
+  }
+
+  /**
+   * Teacher-only: puts the course's modules in the given order. The list must contain each of the
+   * course's modules exactly once, and a module can never come before one of its prerequisites --
+   * students work through modules top to bottom, so that order is rejected with a reason.
+   */
+  public List<Module> reorderModules(Long courseId, List<Long> moduleIds, String requesterEmail) {
+    requireTeacher(courseId, requesterEmail);
+    Course course = courseRepository.findById(courseId)
+        .orElseThrow(() -> new CourseNotFoundException(courseId));
+    List<Module> current = moduleRepository.findByCourse(course);
+    requireSameIds(current.stream().map(Module::getId).toList(), moduleIds, "modules");
+    Map<Long, Module> byId = new HashMap<>();
+    current.forEach(module -> byId.put(module.getId(), module));
+    for (Module module : current) {
+      for (Module prerequisite : module.getDependencies()) {
+        if (moduleIds.indexOf(prerequisite.getId()) > moduleIds.indexOf(module.getId())) {
+          throw new IllegalArgumentException(module.getTitle() + " must stay below "
+              + prerequisite.getTitle() + ", because " + prerequisite.getTitle()
+              + " is a prerequisite of " + module.getTitle() + ".");
+        }
+      }
+    }
+    for (int i = 0; i < moduleIds.size(); i++) {
+      byId.get(moduleIds.get(i)).moveTo(i);
+    }
+    moduleRepository.saveAll(current);
+    return topologicalSort(moduleRepository.findByCourseOrderByPositionAscIdAsc(course));
+  }
+
+  /** The new order must name every existing item exactly once, and nothing else. */
+  static void requireSameIds(List<Long> existing, List<Long> requested, String what) {
+    if (requested == null || requested.size() != existing.size()
+        || !new java.util.HashSet<>(requested).equals(new java.util.HashSet<>(existing))) {
+      throw new IllegalArgumentException("The new order must list each of the " + what + " exactly once");
+    }
   }
 
   @Transactional(readOnly = true)
@@ -58,7 +99,7 @@ public class ModuleService {
     enrollmentService.requireEnrolled(courseId, requesterEmail);
     Course course = courseRepository.findById(courseId)
         .orElseThrow(() -> new CourseNotFoundException(courseId));
-    return topologicalSort(moduleRepository.findByCourse(course));
+    return topologicalSort(moduleRepository.findByCourseOrderByPositionAscIdAsc(course));
   }
 
   @Transactional(readOnly = true)
@@ -148,6 +189,9 @@ public class ModuleService {
    * Orders modules so every module appears after its dependencies (Kahn's algorithm),
    * breaking ties by id so the order is deterministic across calls.
    */
+  private static final Comparator<Module> TEACHER_ORDER =
+      Comparator.comparingInt(Module::getPosition).thenComparing(Module::getId);
+
   private List<Module> topologicalSort(List<Module> modules) {
     Map<Long, Integer> remainingDependencies = new HashMap<>();
     Map<Long, List<Module>> dependents = new HashMap<>();
@@ -162,14 +206,14 @@ public class ModuleService {
     Queue<Module> ready = new ArrayDeque<>();
     modules.stream()
         .filter(module -> remainingDependencies.get(module.getId()) == 0)
-        .sorted(Comparator.comparing(Module::getId))
+        .sorted(TEACHER_ORDER)
         .forEach(ready::add);
 
     List<Module> ordered = new ArrayList<>();
     while (!ready.isEmpty()) {
       List<Module> batch = new ArrayList<>(ready);
       ready.clear();
-      batch.sort(Comparator.comparing(Module::getId));
+      batch.sort(TEACHER_ORDER);
 
       for (Module module : batch) {
         ordered.add(module);

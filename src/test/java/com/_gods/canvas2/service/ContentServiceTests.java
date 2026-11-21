@@ -236,14 +236,92 @@ class ContentServiceTests {
   }
 
   @Test
-  void retrievesContentsByModuleInPositionOrder() {
+  void newContentGoesAtTheEndOfItsModuleWhateverPositionWasRequested() {
     Module module = module();
-    contentService.createStaticPage(module.getId(), "Second", 1, "B", null, null, teacherEmail);
     contentService.createStaticPage(module.getId(), "First", 0, "A", null, null, teacherEmail);
+    contentService.createQuiz(module.getId(), "Second", 0, 1, false, null, teacherEmail);
+    contentService.createAssignment(module.getId(), "Third", 0, "Do it", null, false, false,
+        teacherEmail);
 
     List<Content> contents = contentService.getContentsByModule(module.getId(), teacherEmail);
 
-    assertEquals(List.of("First", "Second"), contents.stream().map(Content::getTitle).toList());
+    assertEquals(List.of("First", "Second", "Third"), contents.stream().map(Content::getTitle).toList());
+    assertEquals(List.of(0, 1, 2), contents.stream().map(Content::getPosition).toList());
+  }
+
+  @Test
+  void teacherReordersAModulesContent() {
+    Module module = module();
+    StaticPage a = contentService.createStaticPage(module.getId(), "A", 0, "A", null, null, teacherEmail);
+    StaticPage b = contentService.createStaticPage(module.getId(), "B", 0, "B", null, null, teacherEmail);
+    StaticPage c = contentService.createStaticPage(module.getId(), "C", 0, "C", null, null, teacherEmail);
+
+    contentService.reorderContents(module.getId(), List.of(c.getId(), a.getId(), b.getId()), teacherEmail);
+
+    assertEquals(List.of("C", "A", "B"), contentService.getContentsByModule(module.getId(), teacherEmail)
+        .stream().map(Content::getTitle).toList());
+  }
+
+  @Test
+  void rejectsAReorderThatDoesNotListEveryItemExactlyOnce() {
+    Module module = module();
+    StaticPage a = contentService.createStaticPage(module.getId(), "A", 0, "A", null, null, teacherEmail);
+    StaticPage b = contentService.createStaticPage(module.getId(), "B", 0, "B", null, null, teacherEmail);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> contentService.reorderContents(module.getId(), List.of(a.getId()), teacherEmail));
+    assertThrows(IllegalArgumentException.class,
+        () -> contentService.reorderContents(module.getId(), List.of(a.getId(), a.getId()), teacherEmail));
+    assertThrows(IllegalArgumentException.class, () -> contentService.reorderContents(module.getId(),
+        List.of(a.getId(), b.getId(), 999L), teacherEmail));
+  }
+
+  @Test
+  void studentCannotReorderContent() {
+    Module module = module();
+    StaticPage a = contentService.createStaticPage(module.getId(), "A", 0, "A", null, null, teacherEmail);
+    String student = studentOf(module);
+
+    assertThrows(ForbiddenException.class,
+        () -> contentService.reorderContents(module.getId(), List.of(a.getId()), student));
+  }
+
+  @Test
+  void teacherEditsTheTextOfEachContentType() {
+    Module module = module();
+    StaticPage page = contentService.createStaticPage(module.getId(), "Page", 0, "Old", null, null, teacherEmail);
+    Assignment assignment = contentService.createAssignment(module.getId(), "Essay", 0, "Old",
+        null, false, false, teacherEmail);
+    CodingExercise exercise = contentService.createCodingExercise(module.getId(), "Code", 0,
+        "https://example.com/old", null, false, false, teacherEmail);
+
+    assertEquals("New body", ((StaticPage) contentService.updateText(page.getId(), "New body", teacherEmail)).getBody());
+    assertEquals("New instructions",
+        ((Assignment) contentService.updateText(assignment.getId(), "New instructions", teacherEmail)).getInstructions());
+    assertEquals("https://example.com/new",
+        ((CodingExercise) contentService.updateText(exercise.getId(), " https://example.com/new ", teacherEmail)).getRepositoryUrl());
+  }
+
+  @Test
+  void rejectsBlankInstructionsAndTextForQuizzes() {
+    Module module = module();
+    Assignment assignment = contentService.createAssignment(module.getId(), "Essay", 0, "Old",
+        null, false, false, teacherEmail);
+    Quiz quiz = contentService.createQuiz(module.getId(), "Quiz", 0, 1, false, null, teacherEmail);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> contentService.updateText(assignment.getId(), "  ", teacherEmail));
+    assertThrows(IllegalArgumentException.class,
+        () -> contentService.updateText(quiz.getId(), "text", teacherEmail));
+  }
+
+  @Test
+  void studentCannotEditContentText() {
+    Module module = module();
+    StaticPage page = contentService.createStaticPage(module.getId(), "Page", 0, "Old", null, null, teacherEmail);
+    String student = studentOf(module);
+
+    assertThrows(ForbiddenException.class, () -> contentService.updateText(page.getId(), "Hacked", student));
   }
 
   @Test

@@ -49,6 +49,8 @@ export function createMockFetch(): typeof fetch {
       if (relation === 'modules' && !member) {
         return result(modules.filter(item => item.courseId === course.id))
       }
+      // Mock mode does not track progress, so the sample student has completed nothing yet.
+      if (relation === 'interactions' && member === 'mine') return result([])
       if (relation === 'enrollments') {
         const items = enrollments.filter(item => item.courseId === course.id)
         if (member) return result(items.find(item => item.email === decodeURIComponent(member).toLowerCase()))

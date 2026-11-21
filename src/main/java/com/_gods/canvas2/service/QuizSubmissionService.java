@@ -132,7 +132,7 @@ public class QuizSubmissionService {
     Long courseId = quiz.getModule().getCourse().getId();
     enrollmentService.requireEnrolled(courseId, requesterEmail);
     boolean isTeacher = enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER);
-    if (!isTeacher && (!quiz.isVisibleAt(LocalDateTime.now())
+    if (!isTeacher && (!quiz.isVisibleAt(LocalDateTime.now(HandInPolicy.ZONE))
         || moduleService.isLocked(quiz.getModule(), requesterEmail))) {
       throw new QuizNotFoundException(quizId);
     }

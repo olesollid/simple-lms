@@ -78,7 +78,7 @@ public class SubmissionService {
     enrollmentService.requireEnrolled(courseId, requesterEmail);
     boolean isTeacher = enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER);
     if (!isTeacher && (moduleService.isLocked(content.getModule(), requesterEmail)
-        || !content.isVisibleAt(LocalDateTime.now()))) {
+        || !content.isVisibleAt(LocalDateTime.now(HandInPolicy.ZONE)))) {
       throw new ContentNotFoundException(contentId);
     }
     LocalDateTime submittedAt = LocalDateTime.now(HandInPolicy.ZONE);
@@ -96,7 +96,7 @@ public class SubmissionService {
         saved = updateExistingGroupSubmission(group, submittedBy, content, text, file);
       }
       saved.recordSubmissionTime(submittedAt);
-      studentInteractionService.markCompleted(contentId, requesterEmail);
+      studentInteractionService.markCompletedForGroup(content, group);
       return saved;
     }
 

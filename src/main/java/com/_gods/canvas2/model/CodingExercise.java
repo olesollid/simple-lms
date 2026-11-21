@@ -46,6 +46,13 @@ public class CodingExercise extends Content {
     return repositoryUrl;
   }
 
+  public void updateRepositoryUrl(String repositoryUrl) {
+    if (repositoryUrl == null || repositoryUrl.isBlank()) {
+      throw new IllegalArgumentException("repositoryUrl must not be blank");
+    }
+    this.repositoryUrl = repositoryUrl.trim();
+  }
+
   public LocalDateTime getDeadline() {
     return deadline;
   }

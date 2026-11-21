@@ -10,7 +10,7 @@ import LoadingIndicator from '../components/ui/LoadingIndicator'
 import ErrorMessage from '../components/ui/ErrorMessage'
 import SuccessMessage from '../components/ui/SuccessMessage'
 import Button from '../components/ui/Button'
-import { courses, enrollments, modules, users } from '../services'
+import { contents, courses, enrollments, modules, users } from '../services'
 import { courseDetailError } from './courseDetailState'
 import type { CourseDetailState } from './courseDetailState'
 
@@ -42,7 +42,11 @@ export default function CourseDetailPage() {
         users.getCurrentUser(options),
       ])
       const enrollment = await enrollments.getEnrollment(courseId, me.email, options)
-      return { course, modules: moduleList, isTeacher: enrollment.role === 'TEACHER' }
+      const isTeacher = enrollment.role === 'TEACHER'
+      const completedContentIds = isTeacher ? [] : (await contents.getOwnCompletions(courseId, options))
+        .filter(item => item.completedAt != null)
+        .map(item => item.contentId)
+      return { course, modules: moduleList, isTeacher, completedContentIds }
     }
 
     load().then(
@@ -70,6 +74,20 @@ export default function CourseDetailPage() {
   function reload() {
     setState({ status: 'loading' })
     setAttempt(previous => previous + 1)
+  }
+
+  /**
+   * After a module change (reorder, prerequisites, add, delete) only the module list is fetched
+   * again and swapped in place. A full reload would replace the page with a spinner for a moment,
+   * which flashes white and jumps back to the top of the page.
+   */
+  async function refreshModules() {
+    try {
+      const moduleList = await modules.getModules(courseId, {})
+      setState(previous => previous.status === 'success' ? { ...previous, modules: moduleList } : previous)
+    } catch {
+      reload()
+    }
   }
 
   async function handleDeleteCourse() {
@@ -104,7 +122,7 @@ export default function CourseDetailPage() {
     )
   }
 
-  const { course, modules: courseModules, isTeacher } = state
+  const { course, modules: courseModules, isTeacher, completedContentIds } = state
   const semester = `${course.term === 'AUTUMN' ? 'Autumn' : 'Spring'} ${course.year}`
 
   return (
@@ -144,8 +162,24 @@ export default function CourseDetailPage() {
       {successMessage && <SuccessMessage message={successMessage} />}
       {deleteCourseError && <ErrorMessage message={deleteCourseError} />}
       {!isTeacher && <MyGroup courseId={courseId} />}
+      {!isTeacher && courseModules.some(module => module.dependencyIds.length > 0) && (
+        <div className="completion-rules" role="note">
+          <strong>How modules unlock</strong>
+          <span>
+            Some modules unlock only when every item in the modules before them is completed. Pages:
+            press <em>Mark as complete</em>. Assignments and coding exercises: complete when you (or your
+            group) hand in. Quizzes: complete once an attempt is graded, whatever the score.
+          </span>
+        </div>
+      )}
       <section aria-label="Course modules">
-        <ModuleList modules={courseModules} isTeacher={isTeacher} onModuleDeleted={reload} />
+        <ModuleList
+          modules={courseModules}
+          isTeacher={isTeacher}
+          completedContentIds={completedContentIds}
+          onModuleDeleted={refreshModules}
+          onModulesChanged={refreshModules}
+        />
       </section>
       <EditCourseModal
         course={course}
@@ -163,7 +197,7 @@ export default function CourseDetailPage() {
         onClose={() => setCreateModuleOpen(false)}
         onCreated={() => {
           setCreateModuleOpen(false)
-          reload()
+          refreshModules()
         }}
       />
       <ManageGroupsModal

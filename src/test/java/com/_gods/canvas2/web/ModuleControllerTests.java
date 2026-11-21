@@ -96,6 +96,23 @@ class ModuleControllerTests {
   }
 
   @Test
+  void reorderModulesSendsTheNewOrderAndReturnsTheModules() throws Exception {
+    Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
+    Module second = module(2L, course, "Week 2");
+    Module first = module(1L, course, "Week 1");
+    when(moduleService.reorderModules(1L, List.of(2L, 1L), "teacher@example.com"))
+        .thenReturn(List.of(second, first));
+
+    mockMvc.perform(put("/api/courses/1/modules/order")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"ids\":[2,1]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].title").value("Week 2"))
+        .andExpect(jsonPath("$[0].position").exists());
+  }
+
+  @Test
   void getModulesByCourseReturnsExistingModules() throws Exception {
     Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
     Module module = module(1L, course, "Week 1");

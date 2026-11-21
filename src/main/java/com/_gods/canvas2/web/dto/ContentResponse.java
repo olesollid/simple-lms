@@ -12,7 +12,8 @@ import com._gods.canvas2.model.StaticPage;
 public record ContentResponse(Long id, Long moduleId, String type, String title, int position,
     LocalDateTime visibleFrom, LocalDateTime visibleUntil, String body, String instructions,
     String repositoryUrl, LocalDateTime deadline, Boolean lateSubmissionsAccepted,
-    Boolean groupSubmission, Integer maxAttempts, Boolean published, Boolean closed) {
+    Boolean groupSubmission, Integer maxAttempts, Boolean published, Boolean closed,
+    boolean visibleToStudents) {
 
   public static ContentResponse from(Content content) {
     String body = content instanceof StaticPage staticPage ? staticPage.getBody() : null;
@@ -42,6 +43,7 @@ public record ContentResponse(Long id, Long moduleId, String type, String title,
         deadline, lateSubmissionsAccepted, groupSubmission,
         content instanceof Quiz quiz ? quiz.getMaxAttempts() : null,
         content instanceof Quiz quiz ? quiz.isPublished() : null,
-        content instanceof Quiz quiz ? quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE)) : null);
+        content instanceof Quiz quiz ? quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE)) : null,
+        content.isVisibleAt(LocalDateTime.now(HandInPolicy.ZONE)));
   }
 }

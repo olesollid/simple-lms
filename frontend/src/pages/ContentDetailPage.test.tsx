@@ -6,8 +6,11 @@ import { ApiError } from '../services/apiClient'
 import ContentDetailPage from './ContentDetailPage'
 
 const getContent = vi.hoisted(() => vi.fn())
+const getOwnCompletions = vi.hoisted(() => vi.fn())
+const markCompleted = vi.hoisted(() => vi.fn())
 const deleteContent = vi.hoisted(() => vi.fn())
 const getModule = vi.hoisted(() => vi.fn())
+const getModules = vi.hoisted(() => vi.fn())
 const getCurrentUser = vi.hoisted(() => vi.fn())
 const getEnrollment = vi.hoisted(() => vi.fn())
 const getOwnSubmission = vi.hoisted(() => vi.fn())
@@ -19,8 +22,8 @@ const getQuestionsWithAnswers = vi.hoisted(() => vi.fn())
 const getOwnAttempts = vi.hoisted(() => vi.fn())
 
 vi.mock('../services', () => ({
-  contents: { getContent, deleteContent },
-  modules: { getModule },
+  contents: { getContent, deleteContent, getOwnCompletions, markCompleted },
+  modules: { getModule, getModules },
   users: { getCurrentUser },
   enrollments: { getEnrollment },
   submissions: { getOwnSubmission, submit, getSubmissionsByContent, gradesPublished: () => Promise.resolve(false) },
@@ -59,6 +62,8 @@ function renderAt(path: string) {
 
 describe('ContentDetailPage', () => {
   beforeEach(() => {
+    getOwnCompletions.mockReset().mockResolvedValue([])
+    markCompleted.mockReset().mockResolvedValue(undefined)
     getContent.mockReset()
     deleteContent.mockReset()
     getModule.mockReset()
@@ -70,6 +75,7 @@ describe('ContentDetailPage', () => {
     getSubmissionsByContent.mockReset()
     getSubmissionsByContent.mockResolvedValue([])
     getModule.mockResolvedValue(module1)
+    getModules.mockReset().mockResolvedValue([module1, { ...module1, id: 2, title: 'Week 2', dependencyIds: [1] }])
     getCurrentUser.mockResolvedValue({ email: 'student@example.com', name: 'Student' })
   })
 
@@ -80,6 +86,34 @@ describe('ContentDetailPage', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Syllabus' })).toBeInTheDocument()
     expect(screen.getByText('Welcome to the course!')).toBeInTheDocument()
+  })
+
+  it('lets a teacher open the edit form and see when students can see the item', async () => {
+    getContent.mockResolvedValue({ ...staticPage, visibleFrom: '2026-12-01T08:00:00', visibleToStudents: false })
+    getEnrollment.mockResolvedValue({ role: 'TEACHER' })
+    const user = userEvent.setup()
+    renderAt('/courses/1/modules/1/contents/1')
+
+    expect(await screen.findByText(
+      'Visible to students from 2026-12-01 08:00 (Europe/Oslo). Hidden from students right now.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit content' }))
+    expect(screen.getByRole('form', { name: 'Edit content' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('form', { name: 'Edit content' })).not.toBeInTheDocument()
+  })
+
+  it('lets a student mark a page as complete, but not a teacher', async () => {
+    getContent.mockResolvedValue(staticPage)
+    getEnrollment.mockResolvedValue({ role: 'STUDENT' })
+    const { unmount } = renderAt('/courses/1/modules/1/contents/1')
+
+    expect(await screen.findByRole('button', { name: 'Mark as complete' })).toBeInTheDocument()
+    unmount()
+
+    getEnrollment.mockResolvedValue({ role: 'TEACHER' })
+    renderAt('/courses/1/modules/1/contents/1')
+    expect(await screen.findByText('Welcome to the course!')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mark as complete' })).not.toBeInTheDocument()
   })
 
   it('shows the quiz editor for a teacher', async () => {

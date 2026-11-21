@@ -25,6 +25,8 @@ import com._gods.canvas2.service.StudentInteractionService;
 import com._gods.canvas2.web.dto.AssignmentRequest;
 import com._gods.canvas2.web.dto.CodingExerciseRequest;
 import com._gods.canvas2.web.dto.ContentMetadataRequest;
+import com._gods.canvas2.web.dto.ContentTextRequest;
+import com._gods.canvas2.web.dto.OrderRequest;
 import com._gods.canvas2.web.dto.ContentResponse;
 import com._gods.canvas2.web.dto.QuizRequest;
 import com._gods.canvas2.web.dto.StaticPageBodyRequest;
@@ -111,6 +113,23 @@ public class ContentController {
     return ContentResponse.from(content);
   }
 
+  /** Teacher-only: a page body, assignment instructions or coding exercise repository URL. */
+  @PutMapping("/contents/{contentId}/text")
+  public ContentResponse updateText(@PathVariable Long contentId,
+      @RequestBody ContentTextRequest request, Authentication authentication) {
+    return ContentResponse.from(
+        contentService.updateText(contentId, request.text(), authentication.getName()));
+  }
+
+  /** Teacher-only: new order for a module's content. */
+  @PutMapping("/modules/{moduleId}/contents/order")
+  public List<ContentResponse> reorderContents(@PathVariable Long moduleId,
+      @RequestBody OrderRequest request, Authentication authentication) {
+    return contentService.reorderContents(moduleId, request.ids(), authentication.getName()).stream()
+        .map(ContentResponse::from)
+        .toList();
+  }
+
   @PutMapping("/contents/{contentId}/body")
   public ContentResponse updateStaticPageBody(@PathVariable Long contentId,
       @RequestBody StaticPageBodyRequest request, Authentication authentication) {
@@ -124,6 +143,15 @@ public class ContentController {
       Authentication authentication) {
     contentService.deleteContent(contentId, authentication.getName());
     return ResponseEntity.noContent().build();
+  }
+
+  /** The requester's own completed content in a course (for progress checkmarks). */
+  @GetMapping("/courses/{courseId}/interactions/mine")
+  public List<StudentInteractionResponse> getOwnCompletions(@PathVariable Long courseId,
+      Authentication authentication) {
+    return studentInteractionService.getOwnCompletions(courseId, authentication.getName()).stream()
+        .map(StudentInteractionResponse::from)
+        .toList();
   }
 
   @PostMapping("/contents/{contentId}/interactions")

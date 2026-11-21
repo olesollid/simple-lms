@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com._gods.canvas2.model.Assignment;
 import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Content;
+import com._gods.canvas2.model.HandInPolicy;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Role;
@@ -41,13 +42,22 @@ public class ContentService {
     this.studentInteractionRepository = studentInteractionRepository;
   }
 
+  /**
+   * New content goes at the end of its module, so items appear in the order they were added. The
+   * {@code position} in create requests is ignored; teachers reorder with {@link #reorderContents}.
+   */
+  private int nextPosition(Module module) {
+    return contentRepository.findByModuleOrderByPosition(module).stream()
+        .mapToInt(content -> content.getPosition() + 1).max().orElse(0);
+  }
+
   public StaticPage createStaticPage(Long moduleId, String title, int position, String body,
       LocalDateTime visibleFrom, LocalDateTime visibleUntil, String requesterEmail) {
     Module module = moduleRepository.findById(moduleId)
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
     requireTeacher(module.getCourse().getId(), requesterEmail);
     return contentRepository.save(
-        new StaticPage(module, title, position, body, visibleFrom, visibleUntil));
+        new StaticPage(module, title, nextPosition(module), body, visibleFrom, visibleUntil));
   }
 
   public Quiz createQuiz(Long moduleId, String title, int position, int maxAttempts,
@@ -55,7 +65,7 @@ public class ContentService {
     Module module = moduleRepository.findById(moduleId)
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
     requireTeacher(module.getCourse().getId(), requesterEmail);
-    return (Quiz) contentRepository.save(new Quiz(module, title, position, maxAttempts, showHints, deadline));
+    return (Quiz) contentRepository.save(new Quiz(module, title, nextPosition(module), maxAttempts, showHints, deadline));
   }
 
   public Assignment createAssignment(Long moduleId, String title, int position,
@@ -64,7 +74,7 @@ public class ContentService {
     Module module = moduleRepository.findById(moduleId)
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
     requireTeacher(module.getCourse().getId(), requesterEmail);
-    return (Assignment) contentRepository.save(new Assignment(module, title, position,
+    return (Assignment) contentRepository.save(new Assignment(module, title, nextPosition(module),
         instructions, deadline, lateSubmissionsAccepted, groupSubmission));
   }
 
@@ -74,7 +84,7 @@ public class ContentService {
     Module module = moduleRepository.findById(moduleId)
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
     requireTeacher(module.getCourse().getId(), requesterEmail);
-    return (CodingExercise) contentRepository.save(new CodingExercise(module, title, position,
+    return (CodingExercise) contentRepository.save(new CodingExercise(module, title, nextPosition(module),
         repositoryUrl, deadline, lateSubmissionsAccepted, groupSubmission));
   }
 
@@ -90,7 +100,7 @@ public class ContentService {
     if (moduleService.isLocked(module, requesterEmail)) {
       return List.of();
     }
-    LocalDateTime now = LocalDateTime.now();
+    LocalDateTime now = LocalDateTime.now(HandInPolicy.ZONE);
     return contents.stream().filter(content -> content.isVisibleAt(now)).toList();
   }
 
@@ -103,7 +113,7 @@ public class ContentService {
       return content;
     }
     if (moduleService.isLocked(content.getModule(), requesterEmail)
-        || !content.isVisibleAt(LocalDateTime.now())) {
+        || !content.isVisibleAt(LocalDateTime.now(HandInPolicy.ZONE))) {
       throw new ContentNotFoundException(id);
     }
     return content;
@@ -116,6 +126,39 @@ public class ContentService {
   private Content getContentById(Long id) {
     return contentRepository.findById(id)
         .orElseThrow(() -> new ContentNotFoundException(id));
+  }
+
+  /**
+   * Teacher-only: puts a module's content in the given order. The list must contain each of the
+   * module's content items exactly once.
+   */
+  public List<Content> reorderContents(Long moduleId, List<Long> contentIds, String requesterEmail) {
+    Module module = moduleRepository.findById(moduleId)
+        .orElseThrow(() -> new ModuleNotFoundException(moduleId));
+    requireTeacher(module.getCourse().getId(), requesterEmail);
+    List<Content> current = contentRepository.findByModuleOrderByPosition(module);
+    ModuleService.requireSameIds(current.stream().map(Content::getId).toList(), contentIds, "content items");
+    for (Content content : current) {
+      content.moveTo(contentIds.indexOf(content.getId()));
+    }
+    contentRepository.saveAll(current);
+    return contentRepository.findByModuleOrderByPosition(module);
+  }
+
+  /**
+   * Teacher-only: changes the main text of a content item -- a page's body, an assignment's
+   * instructions or a coding exercise's repository URL. Quizzes are edited question by question.
+   */
+  public Content updateText(Long id, String text, String requesterEmail) {
+    Content content = getContentById(id);
+    requireTeacher(content.getModule().getCourse().getId(), requesterEmail);
+    switch (content) {
+      case StaticPage page -> page.setBody(text);
+      case Assignment assignment -> assignment.updateInstructions(text);
+      case CodingExercise exercise -> exercise.updateRepositoryUrl(text);
+      default -> throw new IllegalArgumentException("This content has no text to edit");
+    }
+    return contentRepository.save(content);
   }
 
   public Content updateContentMetadata(Long id, String title, int position,

@@ -20,6 +20,16 @@ export interface ContentResponse {
   published?: boolean | null
   /** Quizzes only: true once the Europe/Oslo deadline has passed (decided by the server). */
   closed?: boolean | null
+  /** False while students can't see it: outside its visibility window, or a draft quiz. */
+  visibleToStudents?: boolean
+}
+
+/** Title and visibility window (Europe/Oslo wall-clock times, or null for no limit). */
+export interface ContentMetadataRequest {
+  title: string
+  position: number
+  visibleFrom: string | null
+  visibleUntil: string | null
 }
 
 export interface StaticPageRequest {
