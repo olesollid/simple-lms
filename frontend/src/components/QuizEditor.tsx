@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { quizzes } from '../services'
+import { quizzes, submissions } from '../services'
 import { ApiError, ApiResponseError } from '../services/apiClient'
 import Button from './ui/Button'
 import ErrorMessage from './ui/ErrorMessage'
@@ -37,6 +37,9 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
   const [attempt, setAttempt] = useState(0)
   const [published, setPublished] = useState(quiz.published === true)
   const closed = quiz.closed === true
+  const [showImmediately, setShowImmediately] = useState(quiz.showResultsImmediately !== false)
+  const [resultsPublished, setResultsPublished] = useState(quiz.resultsPublished === true)
+  const [savingVisibility, setSavingVisibility] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -102,6 +105,32 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
     }
   }
 
+  async function changeResultVisibility(immediately: boolean) {
+    setSavingVisibility(true)
+    setActionError(null)
+    try {
+      await quizzes.setResultVisibility(quiz.id, immediately, {})
+      setShowImmediately(immediately)
+    } catch (error) {
+      setActionError(errorMessage(error))
+    } finally {
+      setSavingVisibility(false)
+    }
+  }
+
+  async function publishResults() {
+    setSavingVisibility(true)
+    setActionError(null)
+    try {
+      await submissions.publishGrades(quiz.id)
+      setResultsPublished(true)
+    } catch (error) {
+      setActionError(errorMessage(error))
+    } finally {
+      setSavingVisibility(false)
+    }
+  }
+
   if (state.status === 'loading') return <LoadingIndicator message="Loading questions…" />
 
   if (state.status === 'error') {
@@ -125,7 +154,29 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
               ? 'The deadline has passed. Students can no longer submit attempts.'
               : 'Students can take this quiz. The questions are locked so every attempt is graded the same way.'}
         </span>
-        <span>{attemptsLabel(quiz.maxAttempts)} per student. Results are shown as soon as an attempt is graded.</span>
+        <span>{attemptsLabel(quiz.maxAttempts)} per student.</span>
+        <label className="ui-checkbox-field">
+          <input
+            type="checkbox"
+            checked={showImmediately}
+            disabled={savingVisibility}
+            onChange={event => changeResultVisibility(event.target.checked)}
+          />
+          Show results to students immediately
+        </label>
+        {!showImmediately && !published && (
+          <span>Students won't see their scores until you publish the results, which you can do once the quiz is published.</span>
+        )}
+        {!showImmediately && published && (resultsPublished ? (
+          <span>Results are published: students can see their scores and hints.</span>
+        ) : (
+          <span className="quiz-results-hidden">
+            Students can't see their scores yet.{' '}
+            <Button variant="secondary" onClick={publishResults} loading={savingVisibility}>
+              Publish results
+            </Button>
+          </span>
+        ))}
         <span>
           Each question is worth 1 point, given only when the student selects every correct option
           and no wrong ones. Partly correct answers give 0 points.

@@ -23,7 +23,7 @@ function grade(attemptNumber: number, correct: number, incorrectQuestionIds: num
   }
 }
 
-const noAttempts = { attemptsUsed: 0, maxAttempts: 3, deadline: null, closed: false, best: null, latest: null, hints: {} }
+const noAttempts = { attemptsUsed: 0, maxAttempts: 3, deadline: null, closed: false, resultsVisible: true, best: null, latest: null, hints: {} }
 
 describe('QuizTaker', () => {
   beforeEach(() => {
@@ -188,6 +188,30 @@ describe('QuizTaker', () => {
     await user.click(await screen.findByRole('button', { name: 'Submit quiz' }))
 
     expect(await screen.findByText('Only enrolled students may take this quiz')).toBeInTheDocument()
+  })
+
+  it('tells the student their results come later when the teacher keeps them hidden', async () => {
+    getOwnAttempts.mockResolvedValue({ ...noAttempts, attemptsUsed: 1, resultsVisible: false })
+    render(<QuizTaker quizId={5} />)
+
+    expect(await screen.findByText('Your answers are submitted. Your teacher will publish the results later.'))
+      .toBeInTheDocument()
+    expect(screen.queryByText(/Grading attempt/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Your grade')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('does not wait for grading after a submit while results are hidden', async () => {
+    getOwnAttempts.mockResolvedValue({ ...noAttempts, resultsVisible: false })
+    const user = userEvent.setup()
+    render(<QuizTaker quizId={5} />)
+
+    await user.click(await screen.findByLabelText('4'))
+    await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+
+    expect(await screen.findByText('Your answers are submitted. Your teacher will publish the results later.'))
+      .toBeInTheDocument()
+    expect(screen.queryByText(/Grading attempt/)).not.toBeInTheDocument()
   })
 
   it('shows a message when the quiz has no questions', async () => {

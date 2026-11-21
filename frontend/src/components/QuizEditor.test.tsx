@@ -10,8 +10,11 @@ const updateQuestion = vi.hoisted(() => vi.fn())
 const deleteQuestion = vi.hoisted(() => vi.fn())
 const publish = vi.hoisted(() => vi.fn())
 const getResults = vi.hoisted(() => vi.fn())
+const setResultVisibility = vi.hoisted(() => vi.fn())
+const publishGrades = vi.hoisted(() => vi.fn())
 vi.mock('../services', () => ({
-  quizzes: { getQuestionsWithAnswers, addQuestion, updateQuestion, deleteQuestion, publish, getResults },
+  quizzes: { getQuestionsWithAnswers, addQuestion, updateQuestion, deleteQuestion, publish, getResults, setResultVisibility },
+  submissions: { publishGrades },
 }))
 
 const draftQuiz = {
@@ -43,6 +46,8 @@ describe('QuizEditor', () => {
     deleteQuestion.mockReset().mockResolvedValue(undefined)
     publish.mockReset().mockResolvedValue({ ...publishedQuiz })
     getResults.mockReset().mockResolvedValue([])
+    setResultVisibility.mockReset().mockResolvedValue({})
+    publishGrades.mockReset().mockResolvedValue(true)
     vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
 
@@ -203,6 +208,38 @@ describe('QuizEditor', () => {
     expect(await screen.findByText('Closed')).toBeInTheDocument()
     expect(screen.getByText('The deadline has passed. Students can no longer submit attempts.')).toBeInTheDocument()
     expect(screen.queryByText(/Students can take this quiz/)).not.toBeInTheDocument()
+  })
+
+  it('lets the teacher hide results until they are published, then publish them', async () => {
+    getQuestionsWithAnswers.mockResolvedValue([existing])
+    const user = userEvent.setup()
+    render(<QuizEditor quiz={publishedQuiz} />)
+
+    const toggle = await screen.findByLabelText('Show results to students immediately')
+    expect(toggle).toBeChecked()
+    await user.click(toggle)
+
+    expect(setResultVisibility).toHaveBeenCalledWith(5, false, {})
+    expect(await screen.findByText(/Students can't see their scores yet/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Publish results' }))
+
+    expect(publishGrades).toHaveBeenCalledWith(5)
+    expect(await screen.findByText(/Results are published/)).toBeInTheDocument()
+  })
+
+  it('does not offer to publish results before the quiz itself is published', async () => {
+    render(<QuizEditor quiz={{ ...draftQuiz, showResultsImmediately: false }} />)
+
+    expect(await screen.findByText(/won't see their scores until you publish the results/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publish results' })).not.toBeInTheDocument()
+  })
+
+  it('shows a quiz whose results are already published as published', async () => {
+    render(<QuizEditor quiz={{ ...publishedQuiz, showResultsImmediately: false, resultsPublished: true }} />)
+
+    expect(await screen.findByLabelText('Show results to students immediately')).not.toBeChecked()
+    expect(screen.getByText(/Results are published/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publish results' })).not.toBeInTheDocument()
   })
 
   it('shows the server error when saving fails', async () => {

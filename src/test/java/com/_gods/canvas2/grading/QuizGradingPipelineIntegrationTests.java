@@ -1,5 +1,7 @@
 package com._gods.canvas2.grading;
 
+import java.time.Duration;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -51,7 +53,10 @@ import com._gods.canvas2.web.dto.QuizSubmissionRequest;
 class QuizGradingPipelineIntegrationTests {
 
   @Container
-  static RabbitMQContainer rabbitMQContainer = new RabbitMQContainer("rabbitmq:4");
+  // RabbitMQ can take close to a minute to boot on a slow laptop or a busy CI runner, which is
+  // right at Testcontainers' default limit, so give it more room before calling it a failure.
+  static RabbitMQContainer rabbitMQContainer = new RabbitMQContainer("rabbitmq:4")
+      .withStartupTimeout(Duration.ofMinutes(3));
 
   @Container
   static GenericContainer<?> redisContainer =

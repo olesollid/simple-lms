@@ -62,10 +62,19 @@ public class ContentService {
 
   public Quiz createQuiz(Long moduleId, String title, int position, int maxAttempts,
       boolean showHints, LocalDateTime deadline, String requesterEmail) {
+    return createQuiz(moduleId, title, position, maxAttempts, showHints, deadline, true,
+        requesterEmail);
+  }
+
+  public Quiz createQuiz(Long moduleId, String title, int position, int maxAttempts,
+      boolean showHints, LocalDateTime deadline, boolean showResultsImmediately,
+      String requesterEmail) {
     Module module = moduleRepository.findById(moduleId)
         .orElseThrow(() -> new ModuleNotFoundException(moduleId));
     requireTeacher(module.getCourse().getId(), requesterEmail);
-    return (Quiz) contentRepository.save(new Quiz(module, title, nextPosition(module), maxAttempts, showHints, deadline));
+    Quiz quiz = new Quiz(module, title, nextPosition(module), maxAttempts, showHints, deadline);
+    quiz.setShowResultsImmediately(showResultsImmediately);
+    return (Quiz) contentRepository.save(quiz);
   }
 
   public Assignment createAssignment(Long moduleId, String title, int position,

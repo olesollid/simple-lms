@@ -176,7 +176,7 @@ class ContentControllerTests {
     Quiz quiz = new Quiz(module, "Week 1 quiz", 0, 0, false);
     setField(quiz, "id", 1L);
     when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
-        anyString())).thenReturn(quiz);
+        eq(true), anyString())).thenReturn(quiz);
 
     mockMvc.perform(post("/api/modules/1/quizzes")
             .with(asTeacher())
@@ -188,7 +188,27 @@ class ContentControllerTests {
         .andExpect(jsonPath("$.type").value("Quiz"))
         .andExpect(jsonPath("$.maxAttempts").value(0))
         .andExpect(jsonPath("$.published").value(false))
-        .andExpect(jsonPath("$.closed").value(false));
+        .andExpect(jsonPath("$.closed").value(false))
+        .andExpect(jsonPath("$.showResultsImmediately").value(true))
+        .andExpect(jsonPath("$.resultsPublished").value(false));
+  }
+
+  @Test
+  void createQuizCanHideResultsUntilTheyArePublished() throws Exception {
+    Quiz quiz = new Quiz(module(1L), "Exam", 0, 1, false);
+    quiz.setShowResultsImmediately(false);
+    setField(quiz, "id", 2L);
+    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
+        eq(false), anyString())).thenReturn(quiz);
+
+    mockMvc.perform(post("/api/modules/1/quizzes")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"title":"Exam","position":0,"maxAttempts":1,"deadline":null,"showResultsImmediately":false}
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.showResultsImmediately").value(false));
   }
 
   @Test
