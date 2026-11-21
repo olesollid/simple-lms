@@ -11,12 +11,10 @@ const getConfig = vi.hoisted(() => vi.fn())
 const streamChat = vi.hoisted(() => vi.fn())
 const getCurrentUser = vi.hoisted(() => vi.fn())
 const getCourse = vi.hoisted(() => vi.fn())
-const getContent = vi.hoisted(() => vi.fn())
 vi.mock('../../services', () => ({
   aiTutor: { getConfig, streamChat },
   users: { getCurrentUser },
   courses: { getCourse },
-  contents: { getContent },
 }))
 
 const courses: Record<number, { id: number; title: string }> = {
@@ -45,8 +43,7 @@ function Harness({ path = '/courses' }: { path?: string }) {
         <Link to="/courses">dashboard</Link>
         <Link to="/courses/1">course one</Link>
         <Link to="/courses/2">course two</Link>
-        <Link to="/courses/1/modules/2/contents/7">lab three</Link>
-        <Link to="/courses/1/modules/2/contents/8">syllabus</Link>
+        <Link to="/courses/1/modules/2/contents/7">some content</Link>
         <Link to="/profile">profile</Link>
       </nav>
       <TutorWidget />
@@ -75,10 +72,6 @@ describe('TutorWidget', () => {
     getCurrentUser.mockResolvedValue({ email: 'student@example.com', name: 'Student' })
     getCourse.mockReset()
     getCourse.mockImplementation((id: number) => Promise.resolve(courses[id]))
-    getContent.mockReset()
-    getContent.mockImplementation((id: number) => Promise.resolve(id === 7
-      ? { id: 7, type: 'Assignment', title: 'Lab 3' }
-      : { id: 8, type: 'StaticPage', title: 'Syllabus' }))
   })
 
   afterEach(() => {
@@ -233,20 +226,13 @@ describe('TutorWidget', () => {
       expect(await screen.findByText("I see you're working on DAT250. How can I help?")).toBeInTheDocument()
     })
 
-    it('names the assignment and its course on an assignment page', async () => {
+    it('treats a content page inside a course as just the course, and never fetches it', async () => {
       render(<Harness path="/courses/1/modules/2/contents/7" />)
       await openPanel()
 
-      expect(await screen.findByText(
-        'I see you\'re working on the assignment "Lab 3" in DAT250. How can I help?',
-      )).toBeInTheDocument()
-    })
-
-    it('treats non-assignment content as a course page', async () => {
-      render(<Harness path="/courses/1/modules/2/contents/8" />)
-      await openPanel()
-
       expect(await screen.findByText("I see you're working on DAT250. How can I help?")).toBeInTheDocument()
+      expect(getCourse).toHaveBeenCalledTimes(1)
+      expect(getCourse).toHaveBeenCalledWith(1, expect.anything())
     })
 
     it('greets generically on other pages', async () => {
@@ -278,22 +264,18 @@ describe('TutorWidget', () => {
 
       await ask(user, 'Second question')
       await waitFor(() => expect(streamChat).toHaveBeenCalledTimes(2))
-      expect(streamChat.mock.calls[1][0].context).toEqual(
-        { page_type: 'course', course_id: 2, assignment_id: null },
-      )
+      expect(streamChat.mock.calls[1][0].context).toEqual({ page_type: 'course', course_id: 2 })
     })
 
-    it('sends the assignment id on an assignment page', async () => {
+    it('sends only "inside a course" and the course id from a content page, never anything finer', async () => {
       render(<Harness path="/courses/1/modules/2/contents/7" />)
       const user = await openPanel()
-      await screen.findByText(/Lab 3/)
+      await screen.findByText(/working on DAT250/)
 
       await ask(user, 'Help')
 
       await waitFor(() => expect(streamChat).toHaveBeenCalled())
-      expect(streamChat.mock.calls[0][0].context).toEqual(
-        { page_type: 'assignment', course_id: 1, assignment_id: 7 },
-      )
+      expect(streamChat.mock.calls[0][0].context).toEqual({ page_type: 'course', course_id: 1 })
     })
 
     it('shows an error with retry when course details cannot be loaded, and recovers', async () => {
@@ -312,7 +294,7 @@ describe('TutorWidget', () => {
   })
 
   describe('messages', () => {
-    it('sends the page context, timezone and history but not local greetings', async () => {
+    it('sends the page context and history but not local greetings', async () => {
       render(<Harness path="/courses/1" />)
       const user = await openPanel()
       await screen.findByText(/working on DAT250/)
@@ -328,8 +310,8 @@ describe('TutorWidget', () => {
         { role: 'assistant', content: 'Sure, let us think about it.' },
         { role: 'user', content: 'And then?' },
       ])
-      expect(request.context).toEqual({ page_type: 'course', course_id: 1, assignment_id: null })
-      expect(request.timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone)
+      expect(request.context).toEqual({ page_type: 'course', course_id: 1 })
+      expect(request).not.toHaveProperty('timezone')
       expect(options.signal).toBeInstanceOf(AbortSignal)
     })
 

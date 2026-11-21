@@ -1,7 +1,5 @@
 package com._gods.canvas2.aitutor;
 
-import java.time.DateTimeException;
-import java.time.ZoneId;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -10,7 +8,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * The body of {@code POST /api/ai-tutor/chat}. {@code messages} is the whole conversation (the
  * backend keeps no state). The limits stop one request from carrying an enormous prompt.
  */
-public record TutorChatRequest(List<Message> messages, TutorContextRequest context, String timezone) {
+public record TutorChatRequest(List<Message> messages, TutorContextRequest context) {
 
   public static final int MAX_MESSAGES = 40;
   public static final int MAX_USER_CHARS = 2_000;
@@ -52,15 +50,6 @@ public record TutorChatRequest(List<Message> messages, TutorContextRequest conte
     }
     if (context == null) {
       throw new IllegalArgumentException("context is required");
-    }
-  }
-
-  /** The student's timezone, or UTC if it is missing or not a real zone id. */
-  public ZoneId zone() {
-    try {
-      return timezone == null || timezone.isBlank() ? ZoneId.of("UTC") : ZoneId.of(timezone);
-    } catch (DateTimeException e) {
-      return ZoneId.of("UTC");
     }
   }
 

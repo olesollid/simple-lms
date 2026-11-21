@@ -21,8 +21,7 @@ async function collect(stream: AsyncGenerator<TutorStreamEvent>): Promise<TutorS
 
 const body: TutorChatRequest = {
   messages: [{ role: 'user', content: 'Hi' }],
-  context: { page_type: 'course', course_id: 1, assignment_id: null },
-  timezone: 'Europe/Oslo',
+  context: { page_type: 'course', course_id: 1 },
 }
 
 describe('parseSseStream', () => {

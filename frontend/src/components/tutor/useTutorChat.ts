@@ -89,11 +89,7 @@ export function useTutorChat({ email, context, names }: {
       .map(entry => ({ role: entry.kind as 'user' | 'assistant', content: entry.content }))
     try {
       let received = false
-      for await (const event of aiTutor.streamChat({
-        messages,
-        context,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      }, { signal: controller.signal })) {
+      for await (const event of aiTutor.streamChat({ messages, context }, { signal: controller.signal })) {
         if (event.type === 'delta') {
           received = true
           updateEntry(assistantId, entry => ({ ...entry, content: entry.content + event.text }))

@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.time.LocalDateTime;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -14,35 +13,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
-import com._gods.canvas2.model.Assignment;
-import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Enrollment;
-import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.CourseRepository;
 import com._gods.canvas2.repository.EnrollmentRepository;
-import com._gods.canvas2.repository.ModuleRepository;
 import com._gods.canvas2.repository.UserRepository;
-import com._gods.canvas2.service.ContentNotFoundException;
-import com._gods.canvas2.service.ContentService;
 import com._gods.canvas2.service.EnrollmentService;
 import com._gods.canvas2.service.ForbiddenException;
-import com._gods.canvas2.service.ModuleService;
-import com._gods.canvas2.service.StudentInteractionService;
 import com._gods.canvas2.service.UserService;
 
 @DataJpaTest
-@Import({ContentService.class, ModuleService.class, EnrollmentService.class, UserService.class,
-    StudentInteractionService.class})
+@Import({EnrollmentService.class, UserService.class})
 class TutorAccessServiceTests {
 
-  @Autowired private ContentService contentService;
   @Autowired private UserService userService;
   @Autowired private CourseRepository courseRepository;
-  @Autowired private ModuleRepository moduleRepository;
   @Autowired private UserRepository userRepository;
   @Autowired private EnrollmentRepository enrollmentRepository;
 
@@ -65,12 +53,6 @@ class TutorAccessServiceTests {
     return email;
   }
 
-  private Assignment assignmentIn(Course course, String teacher, String title) {
-    Module module = moduleRepository.save(new Module(course, "Week " + (counter++)));
-    return contentService.createAssignment(module.getId(), title, 0, "Do the thing", null,
-        false, false, teacher);
-  }
-
   private TutorAccessService service(boolean enabled, Course... enabledCourses) {
     Set<Long> ids = new java.util.HashSet<>();
     for (Course enabledCourse : enabledCourses) {
@@ -78,12 +60,11 @@ class TutorAccessServiceTests {
     }
     AiTutorProperties properties = new AiTutorProperties(enabled, ids,
         new AiTutorProperties.RateLimit(20, java.time.Duration.ofMinutes(1)));
-    return new TutorAccessService(properties, enrollmentRepository, courseRepository, userService,
-        contentService);
+    return new TutorAccessService(properties, enrollmentRepository, courseRepository, userService);
   }
 
-  private static TutorContextRequest context(TutorPageType type, Long courseId, Long assignmentId) {
-    return new TutorContextRequest(type, courseId, assignmentId);
+  private static TutorContextRequest context(TutorPageType type, Long courseId) {
+    return new TutorContextRequest(type, courseId);
   }
 
   // ---- config: is the tutor on for this student? ----
@@ -175,9 +156,7 @@ class TutorAccessServiceTests {
     TutorAccessService service = service(true, mine, theirs);
 
     assertThrows(ForbiddenException.class,
-        () -> service.verify(student, context(TutorPageType.COURSE, theirs.getId(), null)));
-    assertThrows(ForbiddenException.class,
-        () -> service.verify(student, context(TutorPageType.ASSIGNMENT, theirs.getId(), 1L)));
+        () -> service.verify(student, context(TutorPageType.COURSE, theirs.getId())));
   }
 
   @Test
@@ -188,9 +167,9 @@ class TutorAccessServiceTests {
     TutorAccessService service = service(true, mine, theirs);
 
     ForbiddenException forbidden = assertThrows(ForbiddenException.class,
-        () -> service.verify(student, context(TutorPageType.COURSE, theirs.getId(), null)));
+        () -> service.verify(student, context(TutorPageType.COURSE, theirs.getId())));
     ForbiddenException unknown = assertThrows(ForbiddenException.class,
-        () -> service.verify(student, context(TutorPageType.COURSE, 99999L, null)));
+        () -> service.verify(student, context(TutorPageType.COURSE, 99999L)));
 
     assertEquals(forbidden.getMessage(), unknown.getMessage());
   }
@@ -202,9 +181,9 @@ class TutorAccessServiceTests {
     TutorAccessService service = service(false, course);
 
     assertThrows(ForbiddenException.class,
-        () -> service.verify(student, context(TutorPageType.COURSE, course.getId(), null)));
+        () -> service.verify(student, context(TutorPageType.COURSE, course.getId())));
     assertThrows(ForbiddenException.class,
-        () -> service.verify(student, context(TutorPageType.DASHBOARD, null, null)));
+        () -> service.verify(student, context(TutorPageType.DASHBOARD, null)));
   }
 
   @Test
@@ -213,7 +192,7 @@ class TutorAccessServiceTests {
     String student = member(course, Role.STUDENT);
 
     assertThrows(ForbiddenException.class,
-        () -> service(true).verify(student, context(TutorPageType.COURSE, course.getId(), null)));
+        () -> service(true).verify(student, context(TutorPageType.COURSE, course.getId())));
   }
 
   @Test
@@ -223,9 +202,9 @@ class TutorAccessServiceTests {
     TutorAccessService service = service(true, course);
 
     assertThrows(ForbiddenException.class,
-        () -> service.verify(teacher, context(TutorPageType.COURSE, course.getId(), null)));
+        () -> service.verify(teacher, context(TutorPageType.COURSE, course.getId())));
     assertThrows(ForbiddenException.class,
-        () -> service.verify("ghost@example.com", context(TutorPageType.COURSE, course.getId(), null)));
+        () -> service.verify("ghost@example.com", context(TutorPageType.COURSE, course.getId())));
   }
 
   @Test
@@ -234,93 +213,12 @@ class TutorAccessServiceTests {
     String student = member(course, Role.STUDENT);
 
     VerifiedTutorContext verified = service(true, course)
-        .verify(student, context(TutorPageType.COURSE, course.getId(), null));
+        .verify(student, context(TutorPageType.COURSE, course.getId()));
 
     assertEquals(TutorPageType.COURSE, verified.pageType());
     assertEquals(course.getId(), verified.courseId());
     assertEquals("DAT250", verified.courseName());
-    assertNull(verified.assignmentId());
-  }
-
-  @Test
-  void verifiesAnAssignmentPageAndReturnsBothNames() {
-    Course course = course("DAT250");
-    String teacher = member(course, Role.TEACHER);
-    String student = member(course, Role.STUDENT);
-    Assignment lab = assignmentIn(course, teacher, "Lab 3");
-
-    VerifiedTutorContext verified = service(true, course)
-        .verify(student, context(TutorPageType.ASSIGNMENT, course.getId(), lab.getId()));
-
-    assertEquals("Lab 3", verified.assignmentTitle());
-    assertEquals("DAT250", verified.courseName());
-    assertEquals(lab.getId(), verified.assignmentId());
-  }
-
-  @Test
-  void rejectsAnAssignmentFromAnotherCourse() {
-    Course mine = course("DAT250");
-    Course other = course("INF100");
-    String teacher = member(other, Role.TEACHER);
-    String student = member(mine, Role.STUDENT);
-    Assignment foreign = assignmentIn(other, teacher, "Foreign lab");
-
-    TutorAccessService service = service(true, mine, other);
-
-    // The student is not in INF100 at all.
-    assertThrows(ContentNotFoundException.class, () -> service.verify(student,
-        context(TutorPageType.ASSIGNMENT, mine.getId(), foreign.getId())));
-  }
-
-  @Test
-  void rejectsAnAssignmentThatBelongsToADifferentCourseThanClaimed() {
-    Course first = course("DAT250");
-    Course second = course("INF100");
-    String teacher = member(second, Role.TEACHER);
-    String student = member(first, Role.STUDENT);
-    enrolled(second, student, Role.STUDENT);
-    Assignment inSecond = assignmentIn(second, teacher, "Lab in second");
-
-    // Enrolled in both courses, but the assignment is not in the course the request names.
-    assertThrows(ContentNotFoundException.class, () -> service(true, first, second).verify(student,
-        context(TutorPageType.ASSIGNMENT, first.getId(), inSecond.getId())));
-  }
-
-  @Test
-  void rejectsAnAssignmentThatIsNotYetVisible() {
-    Course course = course("DAT250");
-    String teacher = member(course, Role.TEACHER);
-    String student = member(course, Role.STUDENT);
-    Assignment hidden = assignmentIn(course, teacher, "Next week's lab");
-    contentService.updateContentMetadata(hidden.getId(), "Next week's lab", 0,
-        LocalDateTime.now().plusDays(7), null, teacher);
-
-    assertThrows(ContentNotFoundException.class, () -> service(true, course).verify(student,
-        context(TutorPageType.ASSIGNMENT, course.getId(), hidden.getId())));
-  }
-
-  @Test
-  void rejectsContentThatIsNotAnAssignment() {
-    Course course = course("DAT250");
-    String teacher = member(course, Role.TEACHER);
-    String student = member(course, Role.STUDENT);
-    Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Content page = contentService.createStaticPage(module.getId(), "Syllabus", 0, "text", null,
-        null, teacher);
-    // A static page is real content in the right course, but it is not an assignment.
-
-    assertThrows(ContentNotFoundException.class, () -> service(true, course).verify(student,
-        context(TutorPageType.ASSIGNMENT, course.getId(), page.getId())));
-  }
-
-  @Test
-  void rejectsAnAssignmentIdThatDoesNotExist() {
-    Course course = course("DAT250");
-    String student = member(course, Role.STUDENT);
-
-    assertThrows(ContentNotFoundException.class, () -> service(true, course).verify(student,
-        context(TutorPageType.ASSIGNMENT, course.getId(), 99999L)));
-  }
+      }
 
   @Test
   void ignoresIdsSentWithADashboardOrOtherPage() {
@@ -330,9 +228,9 @@ class TutorAccessServiceTests {
     TutorAccessService service = service(true, mine);
 
     VerifiedTutorContext dashboard = service.verify(student,
-        context(TutorPageType.DASHBOARD, theirs.getId(), 5L));
+        context(TutorPageType.DASHBOARD, theirs.getId()));
     VerifiedTutorContext other = service.verify(student,
-        context(TutorPageType.OTHER, theirs.getId(), 5L));
+        context(TutorPageType.OTHER, theirs.getId()));
 
     assertNull(dashboard.courseId());
     assertNull(dashboard.courseName());
@@ -347,10 +245,8 @@ class TutorAccessServiceTests {
 
     assertThrows(IllegalArgumentException.class, () -> service.verify(student, null));
     assertThrows(IllegalArgumentException.class,
-        () -> service.verify(student, context(null, course.getId(), null)));
+        () -> service.verify(student, context(null, course.getId())));
     assertThrows(IllegalArgumentException.class,
-        () -> service.verify(student, context(TutorPageType.COURSE, null, null)));
-    assertThrows(IllegalArgumentException.class,
-        () -> service.verify(student, context(TutorPageType.ASSIGNMENT, course.getId(), null)));
+        () -> service.verify(student, context(TutorPageType.COURSE, null)));
   }
 }

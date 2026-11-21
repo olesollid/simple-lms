@@ -6,8 +6,6 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com._gods.canvas2.model.Assignment;
-import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
@@ -17,10 +15,11 @@ import com._gods.canvas2.service.ContentService;
 import com._gods.canvas2.service.ModuleService;
 
 /**
- * Collects the published course material the tutor may ground its answers in. It reads only what
- * this student can already see in the app: contents come through {@link ContentService}, which
- * hides locked modules and content outside its visibility window. Quizzes are left out entirely
- * so questions and correct answers can never reach the model.
+ * Collects the published course material the tutor may ground its answers in: the course
+ * description and its pages. It reads only what this student can already see in the app: contents
+ * come through {@link ContentService}, which hides locked modules and content outside its
+ * visibility window. Assignments, coding exercises and quizzes are left out entirely, so the
+ * tutor never sees them (or their questions and answers).
  */
 @Service
 @Transactional(readOnly = true)
@@ -28,12 +27,11 @@ public class TutorGroundingService {
 
   /** A piece of published course material the tutor may draw on. Always data, never instructions. */
   public record Material(Kind kind, String title, String text) {
-    public enum Kind { COURSE, ASSIGNMENT, PAGE }
+    public enum Kind { COURSE, PAGE }
   }
 
   static final int MAX_TOTAL_CHARS = 12_000;
   static final int MAX_ITEM_CHARS = 4_000;
-  static final int MAX_CURRENT_ASSIGNMENT_CHARS = 6_000;
 
   private final CourseRepository courseRepository;
   private final ModuleService moduleService;
@@ -54,12 +52,6 @@ public class TutorGroundingService {
     Budget budget = new Budget(MAX_TOTAL_CHARS);
     List<Material> material = new ArrayList<>();
 
-    if (context.assignmentId() != null) {
-      Content current = contentService.getContentById(context.assignmentId(), email);
-      budget.add(material, Material.Kind.ASSIGNMENT, current.getTitle(),
-          describe(current), MAX_CURRENT_ASSIGNMENT_CHARS);
-    }
-
     Course course = courseRepository.findById(context.courseId()).orElse(null);
     if (course != null && !course.getDescription().isBlank()) {
       budget.add(material, Material.Kind.COURSE, course.getTitle(), course.getDescription(),
@@ -71,29 +63,13 @@ public class TutorGroundingService {
         if (budget.exhausted()) {
           return material;
         }
-        if (content.getId().equals(context.assignmentId())) {
-          continue;
-        }
         if (content instanceof StaticPage page) {
           budget.add(material, Material.Kind.PAGE, page.getTitle(), page.getBody(), MAX_ITEM_CHARS);
-        } else if (content instanceof Assignment || content instanceof CodingExercise) {
-          budget.add(material, Material.Kind.ASSIGNMENT, content.getTitle(),
-              describe(content), MAX_ITEM_CHARS);
         }
-        // Quizzes are skipped on purpose.
+        // Everything else (assignments, coding exercises, quizzes) is skipped on purpose.
       }
     }
     return material;
-  }
-
-  private static String describe(Content content) {
-    if (content instanceof Assignment assignment) {
-      return assignment.getInstructions();
-    }
-    if (content instanceof CodingExercise exercise) {
-      return "Coding exercise. Starter repository: " + exercise.getRepositoryUrl();
-    }
-    return "";
   }
 
   /** Keeps the total prompt material bounded however much the course contains. */
