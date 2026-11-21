@@ -100,10 +100,42 @@ describe('CreateContentModal', () => {
     await user.type(screen.getByLabelText(/Title/), 'Week 1 Quiz')
     await user.clear(screen.getByLabelText(/Max attempts/))
     await user.type(screen.getByLabelText(/Max attempts/), '3')
-    await user.click(screen.getByLabelText('Show hints'))
     await user.click(screen.getByRole('button', { name: 'Add content' }))
 
     expect(createQuiz).toHaveBeenCalledWith(1,
-      { title: 'Week 1 Quiz', position: 0, maxAttempts: 3, showHints: true, deadline: null }, {})
+      { title: 'Week 1 Quiz', position: 0, maxAttempts: 3, deadline: null }, {})
+  })
+
+  it('creates a quiz with unlimited attempts', async () => {
+    const user = userEvent.setup()
+    createQuiz.mockResolvedValue({ ...staticPageResponse, type: 'Quiz' })
+
+    render(<CreateContentModal moduleId={1} open={true} onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('Type'), 'Quiz')
+    await user.type(screen.getByLabelText(/Title/), 'Practice quiz')
+    await user.click(screen.getByLabelText('Unlimited attempts'))
+
+    expect(screen.queryByLabelText(/Max attempts/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Add content' }))
+
+    expect(createQuiz).toHaveBeenCalledWith(1,
+      { title: 'Practice quiz', position: 0, maxAttempts: 0, deadline: null }, {})
+  })
+
+  it('creates a quiz with a deadline and no late-submission option', async () => {
+    const user = userEvent.setup()
+    createQuiz.mockResolvedValue({ ...staticPageResponse, type: 'Quiz' })
+
+    render(<CreateContentModal moduleId={1} open={true} onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('Type'), 'Quiz')
+    await user.type(screen.getByLabelText(/Title/), 'Exam quiz')
+    expect(screen.queryByLabelText('Accept late submissions')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Deadline (Europe/Oslo)'), { target: { value: '2026-12-01T12:00' } })
+    await user.click(screen.getByRole('button', { name: 'Add content' }))
+
+    expect(createQuiz).toHaveBeenCalledWith(1,
+      { title: 'Exam quiz', position: 0, maxAttempts: 1, deadline: '2026-12-01T12:00' }, {})
   })
 })

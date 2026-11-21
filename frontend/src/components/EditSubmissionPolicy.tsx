@@ -12,6 +12,7 @@ export default function EditSubmissionPolicy({ content, onSaved }: { content: Co
   const [acceptsLate, setAcceptsLate] = useState(content.lateSubmissionsAccepted ?? false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const isQuiz = content.type === 'Quiz'
 
   async function save(event: React.FormEvent) {
     event.preventDefault()
@@ -33,12 +34,12 @@ export default function EditSubmissionPolicy({ content, onSaved }: { content: Co
     setAcceptsLate(content.lateSubmissionsAccepted ?? false)
     setError(null)
     setEditing(true)
-  }}>Edit deadline and late policy</Button>
+  }}>{isQuiz ? 'Edit deadline' : 'Edit deadline and late policy'}</Button>
 
   return <form onSubmit={save} aria-label="Submission deadline settings">
     <fieldset disabled={saving} style={{ border: 0, padding: 0 }}>
       <SubmissionPolicyFields deadline={deadline} acceptsLate={acceptsLate}
-        onDeadline={setDeadline} onAcceptsLate={setAcceptsLate} />
+        onDeadline={setDeadline} onAcceptsLate={isQuiz ? undefined : setAcceptsLate} />
       {error && <ErrorMessage message={error} />}
       <div className="page-heading-actions">
         <Button type="submit" loading={saving}>Save deadline settings</Button>

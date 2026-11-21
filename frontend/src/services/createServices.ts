@@ -6,6 +6,7 @@ import { createModuleService } from './modules.ts'
 import { createContentService } from './contents.ts'
 import { createSubmissionService } from './submissions.ts'
 import { createGroupService } from './groups.ts'
+import { createQuizService } from './quizzes.ts'
 
 export function createServices(request: ApiRequest) {
   return {
@@ -16,5 +17,6 @@ export function createServices(request: ApiRequest) {
     contents: createContentService(request),
     submissions: createSubmissionService(request),
     groups: createGroupService(request),
+    quizzes: createQuizService(request),
   }
 }

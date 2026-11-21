@@ -3,7 +3,7 @@ package com._gods.canvas2.model;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-/** Assignment/coding deadlines are course wall-clock times in Europe/Oslo. */
+/** Assignment, coding exercise and quiz deadlines are course wall-clock times in Europe/Oslo. */
 public final class HandInPolicy {
   public static final ZoneId ZONE = ZoneId.of("Europe/Oslo");
 
@@ -13,6 +13,7 @@ public final class HandInPolicy {
     return switch (content) {
       case Assignment assignment -> assignment.getDeadline();
       case CodingExercise exercise -> exercise.getDeadline();
+      case Quiz quiz -> quiz.getDeadline();
       default -> null;
     };
   }

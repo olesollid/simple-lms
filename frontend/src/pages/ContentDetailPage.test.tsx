@@ -14,6 +14,9 @@ const getOwnSubmission = vi.hoisted(() => vi.fn())
 const submit = vi.hoisted(() => vi.fn())
 const getOwnGroup = vi.hoisted(() => vi.fn())
 const getSubmissionsByContent = vi.hoisted(() => vi.fn())
+const getQuestions = vi.hoisted(() => vi.fn())
+const getQuestionsWithAnswers = vi.hoisted(() => vi.fn())
+const getOwnAttempts = vi.hoisted(() => vi.fn())
 
 vi.mock('../services', () => ({
   contents: { getContent, deleteContent },
@@ -22,6 +25,7 @@ vi.mock('../services', () => ({
   enrollments: { getEnrollment },
   submissions: { getOwnSubmission, submit, getSubmissionsByContent, gradesPublished: () => Promise.resolve(false) },
   groups: { getOwnGroup },
+  quizzes: { getQuestions, getQuestionsWithAnswers, getOwnAttempts },
 }))
 
 const staticPage = {
@@ -37,6 +41,8 @@ const assignment = {
 }
 
 const groupAssignment = { ...assignment, id: 3, title: 'Group Essay', groupSubmission: true }
+
+const quiz = { ...staticPage, id: 4, type: 'Quiz', title: 'Week 1 quiz', body: null }
 
 const module1 = { id: 1, courseId: 1, title: 'Week 1', dependencyIds: [], locked: false }
 
@@ -74,6 +80,38 @@ describe('ContentDetailPage', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Syllabus' })).toBeInTheDocument()
     expect(screen.getByText('Welcome to the course!')).toBeInTheDocument()
+  })
+
+  it('shows the quiz editor for a teacher', async () => {
+    getContent.mockResolvedValue(quiz)
+    getEnrollment.mockResolvedValue({ role: 'TEACHER' })
+    getQuestionsWithAnswers.mockResolvedValue([])
+    renderAt('/courses/1/modules/1/contents/4')
+
+    expect(await screen.findByRole('heading', { name: 'Add question' })).toBeInTheDocument()
+    expect(getQuestions).not.toHaveBeenCalled()
+  })
+
+  it('shows the quiz deadline in Oslo time', async () => {
+    getContent.mockResolvedValue({ ...quiz, deadline: '2026-12-01T12:00:00' })
+    getEnrollment.mockResolvedValue({ role: 'STUDENT' })
+    getOwnAttempts.mockResolvedValue({ attemptsUsed: 0, maxAttempts: 1, deadline: '2026-12-01T12:00:00', closed: false, best: null, latest: null })
+    getQuestions.mockResolvedValue([{ id: 1, text: 'What is 2+2?', position: 0, options: [{ id: 10, text: '4' }] }])
+    renderAt('/courses/1/modules/1/contents/4')
+
+    expect(await screen.findByText('Deadline: 2026-12-01 12:00:00 (Europe/Oslo). The quiz closes after it.')).toBeInTheDocument()
+  })
+
+  it('lets a student take a quiz', async () => {
+    getContent.mockResolvedValue(quiz)
+    getEnrollment.mockResolvedValue({ role: 'STUDENT' })
+    getOwnAttempts.mockResolvedValue({ attemptsUsed: 0, maxAttempts: 1, best: null, latest: null })
+    getQuestions.mockResolvedValue([{ id: 1, text: 'What is 2+2?', position: 0, options: [{ id: 10, text: '4' }] }])
+    renderAt('/courses/1/modules/1/contents/4')
+
+    expect(await screen.findByText('What is 2+2?')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Submit quiz' })).toBeInTheDocument()
+    expect(getQuestionsWithAnswers).not.toHaveBeenCalled()
   })
 
   it('shows the submission form for an assignment when the student has not submitted yet', async () => {

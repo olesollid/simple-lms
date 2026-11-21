@@ -65,7 +65,7 @@ public class ContentController {
   public ResponseEntity<ContentResponse> createQuiz(@PathVariable Long moduleId,
       @RequestBody QuizRequest request, Authentication authentication) {
     Quiz quiz = contentService.createQuiz(moduleId, request.title(), request.position(),
-        request.maxAttempts(), request.showHints(), request.deadline(),
+        request.maxAttempts(), false, request.deadline(),
         authentication.getName());
     return ResponseEntity.status(HttpStatus.CREATED).body(ContentResponse.from(quiz));
   }

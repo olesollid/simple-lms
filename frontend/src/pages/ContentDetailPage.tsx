@@ -5,6 +5,8 @@ import ErrorMessage from '../components/ui/ErrorMessage'
 import Button from '../components/ui/Button'
 import SubmissionForm from '../components/SubmissionForm'
 import SubmissionsReview from '../components/SubmissionsReview'
+import QuizEditor from '../components/QuizEditor'
+import QuizTaker from '../components/QuizTaker'
 import EditSubmissionPolicy from '../components/EditSubmissionPolicy'
 import { contents, enrollments, groups, modules, submissions, users } from '../services'
 import { ApiError } from '../services/apiClient'
@@ -177,7 +179,13 @@ export default function ContentDetailPage() {
       )}
 
       {content.type === 'Quiz' && (
-        <p className="module-placeholder">Quiz-taking is coming soon.</p>
+        <>
+          <p className="content-deadline">{content.deadline
+            ? `Deadline: ${content.deadline.replace('T', ' ')} (Europe/Oslo). The quiz closes after it.`
+            : 'No deadline'}</p>
+          {isTeacher && <EditSubmissionPolicy content={content} onSaved={reload} />}
+          {isTeacher ? <QuizEditor quiz={content} /> : <QuizTaker quizId={content.id} />}
+        </>
       )}
     </article>
   )

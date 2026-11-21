@@ -37,6 +37,10 @@ public class Question {
   @Column(nullable = false)
   private int position;
 
+  /** Optional hint shown to a student who answered this question wrong. */
+  @Lob
+  private String hint;
+
   @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
   @OrderBy("id")
   private List<AnswerOption> options = new ArrayList<>();
@@ -45,6 +49,10 @@ public class Question {
   }
 
   public Question(Quiz quiz, String text, int position) {
+    this(quiz, text, position, null);
+  }
+
+  public Question(Quiz quiz, String text, int position, String hint) {
     if (quiz == null) {
       throw new IllegalArgumentException("Quiz must not be null");
     }
@@ -58,6 +66,11 @@ public class Question {
     this.quiz = quiz;
     this.text = text.trim();
     this.position = position;
+    this.hint = normalizeHint(hint);
+  }
+
+  private static String normalizeHint(String hint) {
+    return hint == null || hint.isBlank() ? null : hint.trim();
   }
 
   public Long getId() {
@@ -74,6 +87,27 @@ public class Question {
 
   public int getPosition() {
     return position;
+  }
+
+  public String getHint() {
+    return hint;
+  }
+
+  void setPosition(int position) {
+    this.position = position;
+  }
+
+  /** Replaces the text and hint. Options are replaced separately via {@link #clearOptions()}. */
+  public void update(String text, String hint) {
+    if (text == null || text.isBlank()) {
+      throw new IllegalArgumentException("Text must not be blank");
+    }
+    this.text = text.trim();
+    this.hint = normalizeHint(hint);
+  }
+
+  public void clearOptions() {
+    options.clear();
   }
 
   public List<AnswerOption> getOptions() {

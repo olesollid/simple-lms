@@ -35,6 +35,7 @@ import com._gods.canvas2.model.Assignment;
 import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
+import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.StaticPage;
 import com._gods.canvas2.model.StudentInteraction;
 import com._gods.canvas2.model.Term;
@@ -166,6 +167,28 @@ class ContentControllerTests {
                 {"title":"Syllabus","position":0,"body":"Welcome!"}
                 """))
         .andExpect(status().isNotFound());
+  }
+
+  /** Exactly the body the frontend sends: no showHints (hints are per question now). */
+  @Test
+  void createQuizReturns201AsADraft() throws Exception {
+    Module module = module(1L);
+    Quiz quiz = new Quiz(module, "Week 1 quiz", 0, 0, false);
+    setField(quiz, "id", 1L);
+    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
+        anyString())).thenReturn(quiz);
+
+    mockMvc.perform(post("/api/modules/1/quizzes")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"title":"Week 1 quiz","position":0,"maxAttempts":0,"deadline":null}
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.type").value("Quiz"))
+        .andExpect(jsonPath("$.maxAttempts").value(0))
+        .andExpect(jsonPath("$.published").value(false))
+        .andExpect(jsonPath("$.closed").value(false));
   }
 
   @Test

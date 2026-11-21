@@ -122,6 +122,28 @@ class QuizGraderDataTests {
     assertEquals(1.0, grade.score());
   }
 
+  @Test
+  void recordsAttemptNumberAndWhichQuestionsWereWrong() {
+    Course course = courseRepository.save(new Course("Intro", "desc", Term.AUTUMN, 2026));
+    Module module = moduleRepository.save(new Module(course, "Week 1"));
+    Quiz quiz = new Quiz(module, "Quiz", 0, 0, false);
+    Question first = quiz.addQuestion("First");
+    AnswerOption firstCorrect = first.addOption("Right", true);
+    first.addOption("Wrong", false);
+    Question second = quiz.addQuestion("Second");
+    second.addOption("Right", true);
+    AnswerOption secondWrong = second.addOption("Wrong", false);
+    Quiz saved = (Quiz) contentRepository.save(quiz);
+
+    QuizGrade grade = grader.grade(saved, "student@example.com", 3, Map.of(
+        first.getId(), List.of(firstCorrect.getId()),
+        second.getId(), List.of(secondWrong.getId())));
+
+    assertEquals(3, grade.attemptNumber());
+    assertEquals(1, grade.correctQuestions());
+    assertEquals(List.of(second.getId()), grade.incorrectQuestionIds());
+  }
+
   private Long questionId() {
     return quizWithOneMultiSelectQuestion.getQuestions().get(0).getId();
   }

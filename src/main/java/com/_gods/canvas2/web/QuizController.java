@@ -5,23 +5,28 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com._gods.canvas2.grading.QuizGrade;
-import com._gods.canvas2.grading.QuizGradeStore;
 import com._gods.canvas2.model.Question;
 import com._gods.canvas2.service.QuizGradeNotFoundException;
 import com._gods.canvas2.service.QuizService;
 import com._gods.canvas2.service.QuizSubmissionService;
+import com._gods.canvas2.web.dto.ContentResponse;
 import com._gods.canvas2.web.dto.QuestionRequest;
 import com._gods.canvas2.web.dto.QuestionResponse;
 import com._gods.canvas2.web.dto.QuestionWithAnswersResponse;
+import com._gods.canvas2.web.dto.QuizAttemptsResponse;
+import com._gods.canvas2.web.dto.QuizStudentResultResponse;
 import com._gods.canvas2.web.dto.QuizSubmissionRequest;
+import com._gods.canvas2.web.dto.QuizSubmissionResponse;
 
 @RestController
 @RequestMapping("/api/quizzes/{quizId}")
@@ -29,13 +34,10 @@ public class QuizController {
 
   private final QuizService quizService;
   private final QuizSubmissionService quizSubmissionService;
-  private final QuizGradeStore quizGradeStore;
 
-  public QuizController(QuizService quizService, QuizSubmissionService quizSubmissionService,
-      QuizGradeStore quizGradeStore) {
+  public QuizController(QuizService quizService, QuizSubmissionService quizSubmissionService) {
     this.quizService = quizService;
     this.quizSubmissionService = quizSubmissionService;
-    this.quizGradeStore = quizGradeStore;
   }
 
   @PostMapping("/questions")
@@ -62,17 +64,55 @@ public class QuizController {
         .toList();
   }
 
-  @PostMapping("/submissions")
-  public ResponseEntity<Void> submit(@PathVariable Long quizId,
-      @RequestBody QuizSubmissionRequest request, Authentication authentication) {
-    quizSubmissionService.submit(quizId, request, authentication.getName());
-    return ResponseEntity.accepted().build();
+  @PutMapping("/questions/{questionId}")
+  public QuestionWithAnswersResponse updateQuestion(@PathVariable Long quizId,
+      @PathVariable Long questionId, @RequestBody QuestionRequest request,
+      Authentication authentication) {
+    return QuestionWithAnswersResponse.from(
+        quizService.updateQuestion(quizId, questionId, request, authentication.getName()));
   }
 
+  @DeleteMapping("/questions/{questionId}")
+  public ResponseEntity<Void> deleteQuestion(@PathVariable Long quizId,
+      @PathVariable Long questionId, Authentication authentication) {
+    quizService.deleteQuestion(quizId, questionId, authentication.getName());
+    return ResponseEntity.noContent().build();
+  }
+
+  @PutMapping("/publication")
+  public ContentResponse publish(@PathVariable Long quizId, Authentication authentication) {
+    return ContentResponse.from(quizService.publishQuiz(quizId, authentication.getName()));
+  }
+
+  /** Grading is asynchronous: poll {@code GET /attempts/mine} for the result of this attempt. */
+  @PostMapping("/submissions")
+  public ResponseEntity<QuizSubmissionResponse> submit(@PathVariable Long quizId,
+      @RequestBody QuizSubmissionRequest request, Authentication authentication) {
+    int attempt = quizSubmissionService.submit(quizId, request, authentication.getName());
+    return ResponseEntity.accepted().body(new QuizSubmissionResponse(attempt));
+  }
+
+  @GetMapping("/attempts/mine")
+  public QuizAttemptsResponse getOwnAttempts(@PathVariable Long quizId,
+      Authentication authentication) {
+    return quizSubmissionService.getOwnAttempts(quizId, authentication.getName());
+  }
+
+  /** Teacher-only: each student's attempts and best grade. */
+  @GetMapping("/results")
+  public List<QuizStudentResultResponse> getResults(@PathVariable Long quizId,
+      Authentication authentication) {
+    return quizSubmissionService.getResults(quizId, authentication.getName());
+  }
+
+  /** The requester's best graded attempt -- the grade that counts. 404 until one is graded. */
   @GetMapping("/grade")
   public QuizGrade getGrade(@PathVariable Long quizId, Authentication authentication) {
-    quizService.requirePublishedGrade(quizId, authentication.getName());
-    return quizGradeStore.find(quizId, authentication.getName())
-        .orElseThrow(() -> new QuizGradeNotFoundException(quizId, authentication.getName()));
+    QuizAttemptsResponse attempts =
+        quizSubmissionService.getOwnAttempts(quizId, authentication.getName());
+    if (attempts.best() == null) {
+      throw new QuizGradeNotFoundException(quizId, authentication.getName());
+    }
+    return attempts.best();
   }
 }

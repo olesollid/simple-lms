@@ -1,6 +1,7 @@
 package com._gods.canvas2.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,6 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 import com._gods.canvas2.model.AnswerOption;
@@ -31,7 +33,8 @@ import com._gods.canvas2.web.dto.AnswerOptionRequest;
 import com._gods.canvas2.web.dto.QuestionRequest;
 
 @DataJpaTest
-@Import({QuizService.class, EnrollmentService.class, UserService.class})
+@Import({QuizService.class, EnrollmentService.class, UserService.class, ModuleService.class,
+    StudentInteractionService.class})
 class QuizServiceTests {
 
   @Autowired
@@ -39,6 +42,9 @@ class QuizServiceTests {
 
   @Autowired
   private ContentRepository contentRepository;
+
+  @Autowired
+  private TestEntityManager entityManager;
 
   @Autowired
   private CourseRepository courseRepository;
@@ -66,17 +72,116 @@ class QuizServiceTests {
   }
 
   @Test
-  void quizGradesArePrivateUntilPublishedAndStillRequireEnrollment() {
+  void eachQuizKeepsItsOwnGradeKeyThroughSaveAndReload() {
+    Quiz first = quiz();
+    Quiz second = quiz();
+    String firstKey = first.getGradeKey();
+    entityManager.flush();
+    entityManager.clear();
+
+    Quiz reloaded = quizService.getQuiz(first.getId());
+
+    assertEquals(firstKey, reloaded.getGradeKey());
+    assertEquals(36, firstKey.length());
+    assertNotEquals(firstKey, quizService.getQuiz(second.getId()).getGradeKey());
+  }
+
+  @Test
+  void draftQuizQuestionsAreHiddenFromStudentsUntilPublished() {
     Quiz quiz = quiz();
     String student = studentOf(quiz);
-    assertThrows(QuizGradeNotFoundException.class,
-        () -> quizService.requirePublishedGrade(quiz.getId(), student));
-    quizService.requirePublishedGrade(quiz.getId(), teacherEmail);
-    quiz.publishGrades();
-    contentRepository.saveAndFlush(quiz);
-    quizService.requirePublishedGrade(quiz.getId(), student);
-    assertThrows(ForbiddenException.class,
-        () -> quizService.requirePublishedGrade(quiz.getId(), "stranger@example.com"));
+    quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+
+    assertThrows(QuizNotFoundException.class, () -> quizService.getQuestions(quiz.getId(), student));
+    assertEquals(1, quizService.getQuestions(quiz.getId(), teacherEmail).size());
+
+    quizService.publishQuiz(quiz.getId(), teacherEmail);
+
+    assertEquals(1, quizService.getQuestions(quiz.getId(), student).size());
+  }
+
+  @Test
+  void rejectsPublishingAQuizWithoutQuestions() {
+    Quiz quiz = quiz();
+
+    assertThrows(ConflictException.class, () -> quizService.publishQuiz(quiz.getId(), teacherEmail));
+  }
+
+  @Test
+  void rejectsPublishingByStudent() {
+    Quiz quiz = quiz();
+    String student = studentOf(quiz);
+    quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+
+    assertThrows(ForbiddenException.class, () -> quizService.publishQuiz(quiz.getId(), student));
+  }
+
+  @Test
+  void questionsAreFrozenOnceTheQuizIsPublished() {
+    Quiz quiz = quiz();
+    Question question = quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+    quizService.publishQuiz(quiz.getId(), teacherEmail);
+
+    assertThrows(ConflictException.class,
+        () -> quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail));
+    assertThrows(ConflictException.class, () -> quizService.updateQuestion(quiz.getId(),
+        question.getId(), twoOptionQuestion(), teacherEmail));
+    assertThrows(ConflictException.class,
+        () -> quizService.deleteQuestion(quiz.getId(), question.getId(), teacherEmail));
+  }
+
+  @Test
+  void updatesQuestionTextHintAndOptionsWhileDraft() {
+    Quiz quiz = quiz();
+    Question question = quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+
+    Question updated = quizService.updateQuestion(quiz.getId(), question.getId(),
+        new QuestionRequest("Which is even?", "Even numbers divide by 2", List.of(
+            new AnswerOptionRequest("3", false),
+            new AnswerOptionRequest("6", true),
+            new AnswerOptionRequest("9", false))), teacherEmail);
+
+    assertEquals("Which is even?", updated.getText());
+    assertEquals("Even numbers divide by 2", updated.getHint());
+    List<Question> questions = quizService.getQuestionsWithAnswers(quiz.getId(), teacherEmail);
+    assertEquals(3, questions.get(0).getOptions().size());
+    assertEquals(List.of("6"), questions.get(0).getOptions().stream()
+        .filter(AnswerOption::isCorrect).map(AnswerOption::getText).toList());
+  }
+
+  @Test
+  void blankHintIsStoredAsNoHint() {
+    Quiz quiz = quiz();
+
+    Question question = quizService.addQuestion(quiz.getId(),
+        new QuestionRequest("Q", "   ", twoOptionQuestion().options()), teacherEmail);
+
+    assertEquals(null, question.getHint());
+  }
+
+  @Test
+  void deletingAQuestionRenumbersTheRest() {
+    Quiz quiz = quiz();
+    Question first = quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+    quizService.addQuestion(quiz.getId(),
+        new QuestionRequest("Second", null, twoOptionQuestion().options()), teacherEmail);
+
+    quizService.deleteQuestion(quiz.getId(), first.getId(), teacherEmail);
+
+    List<Question> questions = quizService.getQuestionsWithAnswers(quiz.getId(), teacherEmail);
+    assertEquals(1, questions.size());
+    assertEquals("Second", questions.get(0).getText());
+    assertEquals(0, questions.get(0).getPosition());
+  }
+
+  @Test
+  void rejectsEditingAQuestionFromAnotherQuiz() {
+    Quiz quiz = quiz();
+    Question question = quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+    Quiz otherQuiz = quiz();
+
+    assertThrows(NotFoundException.class, () -> quizService.updateQuestion(otherQuiz.getId(),
+        question.getId(), twoOptionQuestion(), teacherEmail));
   }
 
   private String studentOf(Quiz quiz) {
@@ -87,7 +192,7 @@ class QuizServiceTests {
   }
 
   private QuestionRequest twoOptionQuestion() {
-    return new QuestionRequest("Which are prime?", List.of(
+    return new QuestionRequest("Which are prime?", null, List.of(
         new AnswerOptionRequest("2", true),
         new AnswerOptionRequest("4", false)));
   }
@@ -108,7 +213,7 @@ class QuizServiceTests {
     String longText = "q".repeat(5_000);
 
     Question question = quizService.addQuestion(quiz.getId(),
-        new QuestionRequest(longText, twoOptionQuestion().options()), teacherEmail);
+        new QuestionRequest(longText, null, twoOptionQuestion().options()), teacherEmail);
 
     assertEquals(longText, question.getText());
   }
@@ -135,7 +240,7 @@ class QuizServiceTests {
   @Test
   void rejectsQuestionWithFewerThanTwoOptions() {
     Quiz quiz = quiz();
-    QuestionRequest request = new QuestionRequest("Only one option",
+    QuestionRequest request = new QuestionRequest("Only one option", null,
         List.of(new AnswerOptionRequest("A", true)));
 
     assertThrows(IllegalArgumentException.class,
@@ -145,7 +250,7 @@ class QuizServiceTests {
   @Test
   void rejectsQuestionWithNoCorrectOption() {
     Quiz quiz = quiz();
-    QuestionRequest request = new QuestionRequest("No correct answer", List.of(
+    QuestionRequest request = new QuestionRequest("No correct answer", null, List.of(
         new AnswerOptionRequest("A", false),
         new AnswerOptionRequest("B", false)));
 
@@ -177,6 +282,7 @@ class QuizServiceTests {
     Quiz quiz = quiz();
     String student = studentOf(quiz);
     quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+    quizService.publishQuiz(quiz.getId(), teacherEmail);
 
     List<Question> questions = quizService.getQuestions(quiz.getId(), student);
 
