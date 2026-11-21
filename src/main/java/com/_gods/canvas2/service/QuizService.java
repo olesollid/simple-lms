@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com._gods.canvas2.model.AnswerOption;
 import com._gods.canvas2.model.Content;
+import com._gods.canvas2.model.HandInPolicy;
 import com._gods.canvas2.model.Question;
 import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Role;
@@ -106,7 +107,7 @@ public class QuizService {
     Long courseId = quiz.getModule().getCourse().getId();
     enrollmentService.requireEnrolled(courseId, requesterEmail);
     if (!enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER)
-        && (!quiz.isVisibleAt(LocalDateTime.now())
+        && (!quiz.isVisibleAt(LocalDateTime.now(HandInPolicy.ZONE))
             || moduleService.isLocked(quiz.getModule(), requesterEmail))) {
       throw new QuizNotFoundException(quizId);
     }

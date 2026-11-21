@@ -1,7 +1,11 @@
 package com._gods.canvas2.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -13,6 +17,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Enrollment;
+import com._gods.canvas2.model.HandInPolicy;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StaticPage;
@@ -167,6 +172,71 @@ class StudentInteractionServiceTests {
     StudentInteraction interaction = studentInteractionService.markCompleted(week2Page.getId(), student);
 
     assertNotNull(interaction.getCompletedAt());
+  }
+
+  @Test
+  void listsOnlyTheStudentsOwnCompletionsInThatCourse() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    String classmate = studentOf(course);
+    StaticPage done = pageIn(course, teacher);
+    contentService.createStaticPage(done.getModule().getId(), "Not done", 1, "Later", null, null,
+        teacher);
+    Course otherCourse = course();
+    String otherTeacher = teacherOf(otherCourse);
+    enrollmentRepository.save(new Enrollment(userRepository.findById(student).orElseThrow(),
+        otherCourse, Role.STUDENT));
+    StaticPage elsewhere = pageIn(otherCourse, otherTeacher);
+    studentInteractionService.markCompleted(done.getId(), student);
+    studentInteractionService.markCompleted(elsewhere.getId(), student);
+    studentInteractionService.markCompleted(done.getId(), classmate);
+
+    List<StudentInteraction> completions =
+        studentInteractionService.getOwnCompletions(course.getId(), student);
+
+    assertEquals(List.of(done.getId()),
+        completions.stream().map(interaction -> interaction.getContent().getId()).toList());
+  }
+
+  @Test
+  void onlyCourseMembersCanListCompletions() {
+    Course course = course();
+
+    assertThrows(ForbiddenException.class,
+        () -> studentInteractionService.getOwnCompletions(course.getId(), "stranger@example.com"));
+  }
+
+  @Test
+  void contentStudentsCannotSeeDoesNotKeepTheNextModuleLocked() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    StaticPage week1Page = pageIn(course, teacher);
+    Long week1 = week1Page.getModule().getId();
+    LocalDateTime now = LocalDateTime.now(HandInPolicy.ZONE);
+    contentService.createStaticPage(week1, "Opens next week", 1, "Later", now.plusDays(7), null, teacher);
+    contentService.createStaticPage(week1, "Closed last week", 2, "Gone", null, now.minusDays(7), teacher);
+    Module week2 = moduleRepository.save(new Module(course, "Week 2"));
+    week2 = moduleService.addDependency(week2.getId(), week1, teacher);
+    studentInteractionService.markCompleted(week1Page.getId(), student);
+
+    assertFalse(moduleService.isLocked(week2, student));
+  }
+
+  @Test
+  void aVisibleButUncompletedItemStillKeepsTheNextModuleLocked() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    StaticPage week1Page = pageIn(course, teacher);
+    contentService.createStaticPage(week1Page.getModule().getId(), "Also required", 1, "Read me",
+        null, null, teacher);
+    Module week2 = moduleRepository.save(new Module(course, "Week 2"));
+    week2 = moduleService.addDependency(week2.getId(), week1Page.getModule().getId(), teacher);
+    studentInteractionService.markCompleted(week1Page.getId(), student);
+
+    assertTrue(moduleService.isLocked(week2, student));
   }
 
   @Test

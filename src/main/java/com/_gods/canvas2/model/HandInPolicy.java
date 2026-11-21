@@ -3,7 +3,10 @@ package com._gods.canvas2.model;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-/** Assignment, coding exercise and quiz deadlines are course wall-clock times in Europe/Oslo. */
+/**
+ * All course times -- deadlines and content visibility windows -- are wall-clock times in
+ * Europe/Oslo, whatever time zone the server or the browser runs in.
+ */
 public final class HandInPolicy {
   public static final ZoneId ZONE = ZoneId.of("Europe/Oslo");
 

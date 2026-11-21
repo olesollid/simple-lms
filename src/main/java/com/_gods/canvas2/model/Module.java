@@ -31,6 +31,10 @@ public class Module {
   @Column(nullable = false)
   private String title;
 
+  /** Order within the course, set by the teacher. Prerequisites are still shown first. */
+  @Column(nullable = false, columnDefinition = "integer default 0")
+  private int position;
+
   @ManyToMany
   @JoinTable(
       name = "module_dependencies",
@@ -55,6 +59,17 @@ public class Module {
 
   public Long getId() {
     return id;
+  }
+
+  public int getPosition() {
+    return position;
+  }
+
+  public void moveTo(int position) {
+    if (position < 0) {
+      throw new IllegalArgumentException("Position must not be negative");
+    }
+    this.position = position;
   }
 
   public Course getCourse() {

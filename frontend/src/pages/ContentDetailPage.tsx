@@ -7,11 +7,26 @@ import SubmissionForm from '../components/SubmissionForm'
 import SubmissionsReview from '../components/SubmissionsReview'
 import QuizEditor from '../components/QuizEditor'
 import QuizTaker from '../components/QuizTaker'
+import PageCompletion from '../components/PageCompletion'
+import EditContentForm from '../components/EditContentForm'
 import EditSubmissionPolicy from '../components/EditSubmissionPolicy'
 import { contents, enrollments, groups, modules, submissions, users } from '../services'
 import { ApiError } from '../services/apiClient'
 import { contentDetailError } from './contentDetailState'
 import type { ContentDetailState } from './contentDetailState'
+import type { ContentResponse } from '../types/content'
+
+const at = (value: string) => value.slice(0, 16).replace('T', ' ')
+
+/** Teacher-facing summary of when students can see this item (times are Europe/Oslo). */
+function visibilityText(content: ContentResponse): string {
+  const window = content.visibleFrom && content.visibleUntil
+    ? `from ${at(content.visibleFrom)} until ${at(content.visibleUntil)}`
+    : content.visibleFrom ? `from ${at(content.visibleFrom)}`
+      : content.visibleUntil ? `until ${at(content.visibleUntil)}` : 'at all times'
+  const now = content.visibleToStudents === false ? ' Hidden from students right now.' : ''
+  return `Visible to students ${window} (Europe/Oslo).${now}`
+}
 
 export default function ContentDetailPage() {
   const { courseId: courseIdParam, contentId: contentIdParam } =
@@ -22,6 +37,7 @@ export default function ContentDetailPage() {
   const [state, setState] = useState<ContentDetailState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [deleting, setDeleting] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -132,13 +148,32 @@ export default function ContentDetailPage() {
           <h1 id="content-title">{content.title}</h1>
         </div>
         {isTeacher && (
-          <Button variant="danger" onClick={handleDelete} loading={deleting}>Delete content</Button>
+          <div className="page-heading-actions">
+            {!editing && <Button variant="secondary" onClick={() => setEditing(true)}>Edit content</Button>}
+            <Button variant="danger" onClick={handleDelete} loading={deleting}>Delete content</Button>
+          </div>
         )}
       </div>
       {deleteError && <ErrorMessage message={deleteError} />}
+      {isTeacher && (
+        <p className="content-visibility">{visibilityText(content)}</p>
+      )}
+      {isTeacher && editing && (
+        <EditContentForm
+          content={content}
+          onCancel={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false)
+            reload()
+          }}
+        />
+      )}
 
       {content.type === 'StaticPage' && (
-        <div className="content-body">{content.body}</div>
+        <>
+          <div className="content-body">{content.body}</div>
+          {!isTeacher && <PageCompletion courseId={Number(courseIdParam)} moduleId={content.moduleId} contentId={content.id} />}
+        </>
       )}
 
       {(content.type === 'Assignment' || content.type === 'CodingExercise') && (

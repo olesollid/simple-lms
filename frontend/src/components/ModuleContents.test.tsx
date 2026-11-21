@@ -7,7 +7,8 @@ import ModuleContents from './ModuleContents'
 
 const getContentsByModule = vi.hoisted(() => vi.fn())
 const deleteContent = vi.hoisted(() => vi.fn())
-vi.mock('../services', () => ({ contents: { getContentsByModule, deleteContent } }))
+const reorder = vi.hoisted(() => vi.fn())
+vi.mock('../services', () => ({ contents: { getContentsByModule, deleteContent, reorder } }))
 
 function renderWithRouter(isTeacher = false) {
   return render(
@@ -28,6 +29,7 @@ describe('ModuleContents', () => {
   beforeEach(() => {
     getContentsByModule.mockReset()
     deleteContent.mockReset()
+    reorder.mockReset()
   })
 
   it('shows a message when the module has no content', async () => {
@@ -104,5 +106,41 @@ describe('ModuleContents', () => {
 
       expect(await screen.findByRole('alert')).toHaveTextContent(/permission/i)
     })
+  })
+
+  it('lets a teacher move content up and down', async () => {
+    getContentsByModule.mockResolvedValue([page, assignment])
+    reorder.mockResolvedValue([assignment, page])
+    const user = userEvent.setup()
+    renderWithRouter(true)
+
+    expect(await screen.findByRole('button', { name: 'Move Syllabus up' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move Essay down' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Move Syllabus down' }))
+
+    expect(reorder).toHaveBeenCalledWith(1, [2, 1], {})
+    const titles = screen.getAllByRole('link').map(link => link.textContent)
+    expect(titles[0]).toContain('Essay')
+  })
+
+  it('shows teachers which items students cannot see', async () => {
+    getContentsByModule.mockResolvedValue([
+      { ...page, visibleToStudents: false },
+      { ...assignment, visibleToStudents: true },
+      { ...page, id: 3, type: 'Quiz', title: 'Draft quiz', published: false, visibleToStudents: false },
+    ])
+    renderWithRouter(true)
+
+    expect((await screen.findByText('Syllabus')).closest('li')).toHaveTextContent('Hidden from students')
+    expect(screen.getByText('Essay').closest('li')).not.toHaveTextContent('Hidden')
+    expect(screen.getByText('Draft quiz').closest('li')).toHaveTextContent('Draft')
+  })
+
+  it('shows students no reorder buttons or hidden badges', async () => {
+    getContentsByModule.mockResolvedValue([page, assignment])
+    renderWithRouter(false)
+
+    expect(await screen.findByText('Syllabus')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Move/ })).not.toBeInTheDocument()
   })
 })

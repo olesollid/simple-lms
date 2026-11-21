@@ -11,6 +11,10 @@ export function createModuleService(request: ApiRequest) {
       request<ModuleResponse>(`/courses/${courseId}/modules`, { ...options, method: 'POST', body }),
     updateModule: (id: number, body: ModuleRequest, options?: ApiCallOptions) =>
       request<ModuleResponse>(`/modules/${id}`, { ...options, method: 'PUT', body }),
+    reorder: (courseId: number, ids: number[], options?: ApiCallOptions) =>
+      request<ModuleResponse[]>(`/courses/${courseId}/modules/order`, {
+        ...options, method: 'PUT', body: { ids },
+      }),
     deleteModule: (id: number, options?: ApiCallOptions) =>
       request<ModuleDeleteResponse>(`/modules/${id}`, { ...options, method: 'DELETE' }),
     addDependency: (id: number, dependencyId: number, options?: ApiCallOptions) =>

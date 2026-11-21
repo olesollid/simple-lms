@@ -19,6 +19,7 @@ import com._gods.canvas2.service.ModuleService;
 import com._gods.canvas2.web.dto.ModuleDeleteResponse;
 import com._gods.canvas2.web.dto.ModuleRequest;
 import com._gods.canvas2.web.dto.ModuleResponse;
+import com._gods.canvas2.web.dto.OrderRequest;
 
 @RestController
 @RequestMapping("/api")
@@ -43,6 +44,15 @@ public class ModuleController {
     String requesterEmail = authentication.getName();
     return moduleService.getModulesByCourse(courseId, requesterEmail).stream()
         .map(module -> ModuleResponse.from(module, moduleService.isLocked(module, requesterEmail)))
+        .toList();
+  }
+
+  /** Teacher-only: new order for the course's modules (prerequisites still come first). */
+  @PutMapping("/courses/{courseId}/modules/order")
+  public List<ModuleResponse> reorderModules(@PathVariable Long courseId,
+      @RequestBody OrderRequest request, Authentication authentication) {
+    return moduleService.reorderModules(courseId, request.ids(), authentication.getName()).stream()
+        .map(ModuleResponse::from)
         .toList();
   }
 

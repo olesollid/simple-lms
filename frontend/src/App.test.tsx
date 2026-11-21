@@ -12,7 +12,7 @@ vi.mock('./services', () => ({
     getCourse: () => Promise.resolve(course),
   },
   modules: { getModules: () => Promise.resolve([]) },
-  contents: { getContentsByModule: () => Promise.resolve([]) },
+  contents: { getContentsByModule: () => Promise.resolve([]), getOwnCompletions: () => Promise.resolve([]) },
   users: { getCurrentUser: () => Promise.resolve({ email: 'teacher@example.com', name: 'Teacher' }) },
   enrollments: { getEnrollment: () => Promise.resolve({ role: 'STUDENT' }) },
 }))

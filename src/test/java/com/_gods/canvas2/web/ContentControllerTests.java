@@ -320,6 +320,47 @@ class ContentControllerTests {
   }
 
   @Test
+  void updatesTheTextOfAContentItem() throws Exception {
+    StaticPage page = page(1L, module(1L), "Syllabus", "New body");
+    when(contentService.updateText(1L, "New body", "teacher@example.com")).thenReturn(page);
+
+    mockMvc.perform(put("/api/contents/1/text")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"text\":\"New body\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.body").value("New body"))
+        .andExpect(jsonPath("$.visibleToStudents").value(true));
+  }
+
+  @Test
+  void reorderContentsRejectsAnIncompleteOrderWith400() throws Exception {
+    when(contentService.reorderContents(1L, List.of(5L), "teacher@example.com"))
+        .thenThrow(new IllegalArgumentException("The new order must list each of the content items exactly once"));
+
+    mockMvc.perform(put("/api/modules/1/contents/order")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"ids\":[5]}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("The new order must list each of the content items exactly once"));
+  }
+
+  @Test
+  void listsTheRequestersOwnCompletionsInACourse() throws Exception {
+    StaticPage page = page(1L, module(1L), "Syllabus", "Welcome!");
+    StudentInteraction interaction = new StudentInteraction(new User("teacher@example.com", "Teacher"), page);
+    interaction.markCompleted();
+    when(studentInteractionService.getOwnCompletions(1L, "teacher@example.com"))
+        .thenReturn(List.of(interaction));
+
+    mockMvc.perform(get("/api/courses/1/interactions/mine").with(asTeacher()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].contentId").value(1))
+        .andExpect(jsonPath("$[0].completedAt").exists());
+  }
+
+  @Test
   void markCompletedReturnsTheInteraction() throws Exception {
     Module module = module(1L);
     StaticPage page = page(1L, module, "Syllabus", "Welcome!");

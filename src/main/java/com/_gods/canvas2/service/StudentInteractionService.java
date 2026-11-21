@@ -9,21 +9,29 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com._gods.canvas2.model.Content;
+import com._gods.canvas2.model.HandInPolicy;
+import com._gods.canvas2.model.Group;
+import com._gods.canvas2.model.GroupMembership;
 import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StudentInteraction;
 import com._gods.canvas2.model.User;
 import com._gods.canvas2.repository.ContentRepository;
+import com._gods.canvas2.repository.GroupMembershipRepository;
 import com._gods.canvas2.repository.StudentInteractionRepository;
 
 /**
- * Tracks which content items a student has "interacted with" ({@link StudentInteraction}), used
- * to gate module visibility: a module is only visible once every content item in each module it
- * depends on has been marked completed by that student. For most content types completion is an
- * explicit action via {@link #markCompleted}; quiz completion is instead marked automatically
- * once grading finishes (see {@code SubmissionGradingListener}), since the submission itself is
- * the unambiguous "done" signal.
+ * Tracks which content items a student has completed ({@link StudentInteraction}), used to gate
+ * module visibility: a module unlocks once every content item in each module it depends on is
+ * completed by that student (draft quizzes don't count). The completion rules per content type:
+ * <ul>
+ *   <li><b>Page:</b> the student marks it completed themselves ({@link #markCompleted}).</li>
+ *   <li><b>Assignment / coding exercise:</b> completed when submitted. For a group submission it
+ *       is completed for every member of the group ({@link #markCompletedForGroup}).</li>
+ *   <li><b>Quiz:</b> completed once an attempt has been graded (see
+ *       {@code SubmissionGradingListener}), whatever the score.</li>
+ * </ul>
  */
 @Service
 @Transactional
@@ -33,14 +41,43 @@ public class StudentInteractionService {
   private final ContentRepository contentRepository;
   private final UserService userService;
   private final EnrollmentService enrollmentService;
+  private final GroupMembershipRepository groupMembershipRepository;
 
   public StudentInteractionService(StudentInteractionRepository studentInteractionRepository,
       ContentRepository contentRepository, UserService userService,
-      EnrollmentService enrollmentService) {
+      EnrollmentService enrollmentService, GroupMembershipRepository groupMembershipRepository) {
     this.studentInteractionRepository = studentInteractionRepository;
     this.contentRepository = contentRepository;
     this.userService = userService;
     this.enrollmentService = enrollmentService;
+    this.groupMembershipRepository = groupMembershipRepository;
+  }
+
+  /**
+   * A group hands in one submission on behalf of all its members, so the content counts as
+   * completed for every member -- otherwise only the member who happened to press submit could
+   * unlock the next module. Callers have already checked that the submitter may submit.
+   */
+  public void markCompletedForGroup(Content content, Group group) {
+    for (GroupMembership membership : groupMembershipRepository.findByGroup(group)) {
+      User member = membership.getUser();
+      StudentInteraction interaction = studentInteractionRepository
+          .findByUserAndContent(member, content)
+          .orElseGet(() -> new StudentInteraction(member, content));
+      interaction.markCompleted();
+      studentInteractionRepository.save(interaction);
+    }
+  }
+
+  /** The requester's own completed content items in a course, so the UI can show progress. */
+  @Transactional(readOnly = true)
+  public List<StudentInteraction> getOwnCompletions(Long courseId, String requesterEmail) {
+    enrollmentService.requireEnrolled(courseId, requesterEmail);
+    User user = userService.getUserByEmail(requesterEmail);
+    return studentInteractionRepository.findByUser(user).stream()
+        .filter(interaction -> interaction.getCompletedAt() != null)
+        .filter(interaction -> interaction.getContent().getModule().getCourse().getId().equals(courseId))
+        .toList();
   }
 
   /**
@@ -58,7 +95,7 @@ public class StudentInteractionService {
     enrollmentService.requireEnrolled(courseId, requesterEmail);
     boolean isTeacher = enrollmentService.hasRole(courseId, requesterEmail, Role.TEACHER);
     if (!isTeacher && (isLocked(content.getModule(), requesterEmail)
-        || !content.isVisibleAt(LocalDateTime.now()))) {
+        || !content.isVisibleAt(LocalDateTime.now(HandInPolicy.ZONE)))) {
       throw new ContentNotFoundException(contentId);
     }
     User user = userService.getUserByEmail(requesterEmail);
@@ -106,11 +143,15 @@ public class StudentInteractionService {
   @Transactional(readOnly = true)
   public boolean hasCompletedDependencies(Module module, String studentEmail) {
     User user = userService.getUserByEmail(studentEmail);
+    LocalDateTime now = LocalDateTime.now(HandInPolicy.ZONE);
     for (Module dependency : module.getDependencies()) {
       List<Content> contents = contentRepository.findByModuleOrderByPosition(dependency);
       for (Content content : contents) {
-        if (content instanceof Quiz quiz && !quiz.isPublished()) {
-          continue; // a draft quiz is invisible to students, so it can't be required either
+        // Only what students can see right now can be required: a draft quiz, or content outside
+        // its visibility window (not open yet, or already closed) would otherwise lock the next
+        // module until it opens -- or forever, for a student who missed it.
+        if (!content.isVisibleAt(now)) {
+          continue;
         }
         boolean completed = studentInteractionRepository.findByUserAndContent(user, content)
             .map(interaction -> interaction.getCompletedAt() != null)

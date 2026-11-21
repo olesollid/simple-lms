@@ -9,7 +9,9 @@ const getCourse = vi.hoisted(() => vi.fn())
 const deleteCourse = vi.hoisted(() => vi.fn())
 const getModules = vi.hoisted(() => vi.fn())
 const deleteModule = vi.hoisted(() => vi.fn())
+const reorderModules = vi.hoisted(() => vi.fn())
 const getContentsByModule = vi.hoisted(() => vi.fn())
+const getOwnCompletions = vi.hoisted(() => vi.fn())
 const getCurrentUser = vi.hoisted(() => vi.fn())
 const getEnrollment = vi.hoisted(() => vi.fn())
 const getEnrollments = vi.hoisted(() => vi.fn())
@@ -18,8 +20,8 @@ const getMembers = vi.hoisted(() => vi.fn())
 const getGroupsByCourse = vi.hoisted(() => vi.fn())
 vi.mock('../services', () => ({
   courses: { getCourse, deleteCourse },
-  modules: { getModules, deleteModule },
-  contents: { getContentsByModule },
+  modules: { getModules, deleteModule, reorder: reorderModules },
+  contents: { getContentsByModule, getOwnCompletions },
   users: { getCurrentUser },
   enrollments: { getEnrollment, getEnrollments },
   groups: { getOwnGroup, getMembers, getGroupsByCourse },
@@ -40,6 +42,7 @@ function renderAt(path: string) {
 
 describe('CourseDetailPage', () => {
   beforeEach(() => {
+    getOwnCompletions.mockReset().mockResolvedValue([])
     getCourse.mockReset()
     deleteCourse.mockReset()
     getModules.mockReset()
@@ -70,6 +73,52 @@ describe('CourseDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'Module 1' })).toBeInTheDocument()
     expect(getCourse).toHaveBeenCalledWith(1, expect.anything())
     expect(getModules).toHaveBeenCalledWith(1, expect.anything())
+  })
+
+  it('shows a student their completed items and how modules unlock', async () => {
+    getCourse.mockResolvedValue(course)
+    getModules.mockResolvedValue([makeModule(1), { ...makeModule(2), dependencyIds: [1] }])
+    getContentsByModule.mockResolvedValue([
+      { id: 10, moduleId: 1, type: 'StaticPage', title: 'Intro', position: 0 },
+    ])
+    getOwnCompletions.mockResolvedValue([
+      { id: 1, contentId: 10, userEmail: 'student@example.com', completedAt: '2026-11-21T10:00:00' },
+    ])
+    renderAt('/courses/1')
+
+    expect(await screen.findByText('How modules unlock')).toBeInTheDocument()
+    expect(getOwnCompletions).toHaveBeenCalledWith(1, expect.anything())
+    expect((await screen.findAllByText('✓ Completed')).length).toBeGreaterThan(0)
+  })
+
+  it('updates the modules in place after a reorder, without showing the loading screen', async () => {
+    getEnrollment.mockResolvedValue({ role: 'TEACHER' })
+    getCourse.mockResolvedValue(course)
+    getModules.mockResolvedValueOnce([makeModule(1), makeModule(2)])
+      .mockResolvedValueOnce([makeModule(2), makeModule(1)])
+    reorderModules.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderAt('/courses/1')
+
+    await user.click(await screen.findByRole('button', { name: 'Move Module 1 down' }))
+
+    expect(reorderModules).toHaveBeenCalledWith(1, [2, 1], {})
+    await vi.waitFor(() => expect(getModules).toHaveBeenCalledTimes(2))
+    expect(screen.queryByText('Loading course…')).not.toBeInTheDocument()
+    const titles = (await screen.findAllByRole('heading', { level: 3 })).map(heading => heading.textContent)
+    expect(titles).toEqual(['Module 2', 'Module 1'])
+    expect(getCourse).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not load completions for a teacher', async () => {
+    getEnrollment.mockResolvedValue({ role: 'TEACHER' })
+    getCourse.mockResolvedValue(course)
+    getModules.mockResolvedValue([makeModule(1), { ...makeModule(2), dependencyIds: [1] }])
+    renderAt('/courses/1')
+
+    expect(await screen.findByRole('heading', { level: 1, name: /DAT250/ })).toBeInTheDocument()
+    expect(getOwnCompletions).not.toHaveBeenCalled()
+    expect(screen.queryByText('How modules unlock')).not.toBeInTheDocument()
   })
 
   it('shows an empty state when the course has no modules', async () => {

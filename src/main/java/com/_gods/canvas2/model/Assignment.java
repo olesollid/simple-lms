@@ -48,6 +48,13 @@ public class Assignment extends Content {
     return instructions;
   }
 
+  public void updateInstructions(String instructions) {
+    if (instructions == null || instructions.isBlank()) {
+      throw new IllegalArgumentException("instructions must not be blank");
+    }
+    this.instructions = instructions;
+  }
+
   public LocalDateTime getDeadline() {
     return deadline;
   }

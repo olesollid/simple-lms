@@ -166,6 +166,70 @@ class ModuleServiceTests {
   }
 
   @Test
+  void teacherReordersModulesAroundTheirPrerequisites() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    Module a = moduleService.createModule(course.getId(), "A", teacher);
+    Module b = moduleService.createModule(course.getId(), "B", teacher);
+    Module c = moduleService.createModule(course.getId(), "C", teacher);
+    moduleService.addDependency(b.getId(), a.getId(), teacher);
+
+    moduleService.reorderModules(course.getId(), List.of(c.getId(), a.getId(), b.getId()), teacher);
+
+    assertEquals(List.of("C", "A", "B"), moduleService.getModulesByCourse(course.getId(), teacher)
+        .stream().map(Module::getTitle).toList());
+  }
+
+  @Test
+  void refusesToMoveAModuleAboveOneOfItsPrerequisitesAndSaysWhy() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    Module week1 = moduleService.createModule(course.getId(), "Week 1", teacher);
+    Module week2 = moduleService.createModule(course.getId(), "Week 2", teacher);
+    Module week3 = moduleService.createModule(course.getId(), "Week 3", teacher);
+    moduleService.addDependency(week3.getId(), week1.getId(), teacher);
+    moduleService.addDependency(week3.getId(), week2.getId(), teacher);
+
+    IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+        () -> moduleService.reorderModules(course.getId(),
+            List.of(week1.getId(), week3.getId(), week2.getId()), teacher));
+
+    assertEquals("Week 3 must stay below Week 2, because Week 2 is a prerequisite of Week 3.",
+        refused.getMessage());
+    assertEquals(List.of("Week 1", "Week 2", "Week 3"),
+        moduleService.getModulesByCourse(course.getId(), teacher).stream().map(Module::getTitle).toList());
+  }
+
+  @Test
+  void newModulesGoAtTheEndOfTheCourse() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    Module a = moduleService.createModule(course.getId(), "A", teacher);
+    Module b = moduleService.createModule(course.getId(), "B", teacher);
+    moduleService.reorderModules(course.getId(), List.of(b.getId(), a.getId()), teacher);
+
+    Module c = moduleService.createModule(course.getId(), "C", teacher);
+
+    assertEquals(2, c.getPosition());
+    assertEquals(List.of("B", "A", "C"), moduleService.getModulesByCourse(course.getId(), teacher)
+        .stream().map(Module::getTitle).toList());
+  }
+
+  @Test
+  void rejectsReorderingModulesByStudentsOrWithMissingModules() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    Module a = moduleService.createModule(course.getId(), "A", teacher);
+    moduleService.createModule(course.getId(), "B", teacher);
+    String student = studentOf(course);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> moduleService.reorderModules(course.getId(), List.of(a.getId()), teacher));
+    assertThrows(ForbiddenException.class,
+        () -> moduleService.reorderModules(course.getId(), List.of(a.getId()), student));
+  }
+
+  @Test
   void updatesModuleTitle() {
     Course course = course();
     String teacher = teacherOf(course);

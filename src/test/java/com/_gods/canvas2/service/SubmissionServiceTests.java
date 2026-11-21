@@ -176,6 +176,9 @@ class SubmissionServiceTests {
   private SubmissionService submissionService;
 
   @Autowired
+  private StudentInteractionService studentInteractionService;
+
+  @Autowired
   private ContentService contentService;
 
   @Autowired
@@ -454,6 +457,46 @@ class SubmissionServiceTests {
     assertEquals(bob, afterBob.getLastSubmittedBy().getEmail());
     List<Submission> all = submissionService.getSubmissionsByContent(assignment.getId(), teacher);
     assertEquals(1, all.size());
+  }
+
+  @Test
+  void aGroupSubmissionCompletesTheContentForEveryMember() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String alice = studentOf(course);
+    String bob = studentOf(course);
+    String outsider = studentOf(course);
+    Assignment assignment = groupAssignmentIn(course, teacher);
+    Group group = groupService.createGroup(course.getId(), "Team A", teacher);
+    groupService.addMember(group.getId(), alice, teacher);
+    groupService.addMember(group.getId(), bob, teacher);
+
+    submissionService.submit(assignment.getId(), "Our answer", alice);
+
+    for (String member : List.of(alice, bob)) {
+      assertEquals(List.of(assignment.getId()), completedContentIds(course, member));
+    }
+    assertEquals(List.of(), completedContentIds(course, outsider));
+  }
+
+  @Test
+  void anIndividualSubmissionCompletesTheContentForTheSubmitterOnly() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String alice = studentOf(course);
+    String bob = studentOf(course);
+    Assignment assignment = assignmentIn(course, teacher);
+
+    submissionService.submit(assignment.getId(), "My answer", alice);
+
+    assertEquals(List.of(assignment.getId()), completedContentIds(course, alice));
+    assertEquals(List.of(), completedContentIds(course, bob));
+  }
+
+  private List<Long> completedContentIds(Course course, String email) {
+    return studentInteractionService.getOwnCompletions(course.getId(), email).stream()
+        .map(interaction -> interaction.getContent().getId())
+        .toList();
   }
 
   @Test

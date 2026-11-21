@@ -150,3 +150,28 @@ h1 { font-size: clamp(32px, 5vw, 42px); line-height: 1.2; letter-spacing: -0.04e
 .group-add select { flex: 1; min-width: 180px; }
 .quiz-scoring-note { margin: 0; padding: 10px 14px; background: #fff8e6; border: 1px solid #f2d48a; border-radius: 8px; color: #5c4a14; }
 .quiz-status-closed { background: #f3f4f6; border-color: #cfd4dc; }
+
+/* Completion and prerequisites */
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.completed-badge { color: #166534; font-weight: 600; font-size: 0.9rem; margin: 0; }
+.page-completion { display: grid; gap: 8px; justify-items: start; margin-top: 20px; }
+.module-progress { margin: 0 0 8px; font-size: 0.85rem; color: #4b5563; }
+.completion-rules { display: grid; gap: 4px; margin: 16px 0; padding: 12px 16px; background: #eef4ff; border: 1px solid #c7d7f5; border-radius: 10px; color: #23395d; font-size: 0.9rem; }
+.module-prerequisites { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: 0.9rem; }
+.module-prerequisites-label { font-weight: 600; color: #4b5563; }
+.module-prerequisites-none, .module-prerequisites-note { color: #6b7280; font-size: 0.9rem; }
+.module-prerequisites-note { margin: 4px 0 10px; }
+.prerequisite-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; background: #f3f4f6; border: 1px solid #dfe3e8; border-radius: 999px; }
+.prerequisite-remove { border: 0; background: transparent; cursor: pointer; color: #6b7280; padding: 0 6px; }
+.prerequisite-remove:hover { color: #a3123d; }
+.prerequisite-add { display: inline-flex; align-items: center; gap: 6px; }
+.prerequisite-add select { width: auto; }
+
+/* Ordering and visibility */
+.reorder-buttons { display: inline-flex; gap: 4px; }
+.reorder-button { width: 30px; height: 30px; border: 1px solid #dfe3e8; border-radius: 6px; background: #fff; cursor: pointer; color: #374151; }
+.reorder-button:hover:not(:disabled) { background: #f3f4f6; }
+.reorder-button:disabled { opacity: 0.35; cursor: default; }
+.hidden-badge { font-size: 0.8rem; padding: 2px 8px; border-radius: 999px; background: #f3f4f6; color: #4b5563; border: 1px solid #dfe3e8; }
+.content-edit-form { display: grid; gap: 14px; padding: 20px 24px; margin: 16px 0; background: #fff; border: 1px solid #dfe3e8; border-radius: 10px; }
+.content-visibility { margin: 4px 0 12px; font-size: 0.9rem; color: #4b5563; }

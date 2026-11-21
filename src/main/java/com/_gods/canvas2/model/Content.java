@@ -111,6 +111,13 @@ public abstract class Content {
     return true;
   }
 
+  public void moveTo(int position) {
+    if (position < 0) {
+      throw new IllegalArgumentException("Position must not be negative");
+    }
+    this.position = position;
+  }
+
   public void updateMetadata(String title, int position, LocalDateTime visibleFrom,
       LocalDateTime visibleUntil) {
     if (title == null || title.isBlank()) {
