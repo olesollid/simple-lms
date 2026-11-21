@@ -1,5 +1,6 @@
 package com._gods.canvas2.web;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -7,10 +8,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import com._gods.canvas2.aitutor.RateLimitExceededException;
 import com._gods.canvas2.service.ConflictException;
 import com._gods.canvas2.service.ForbiddenException;
 import com._gods.canvas2.service.NotFoundException;
 import com._gods.canvas2.web.dto.ErrorResponse;
+import com._gods.canvas2.web.dto.RateLimitErrorResponse;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -42,6 +45,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException exception) {
     return ResponseEntity.status(HttpStatus.FORBIDDEN)
         .body(new ErrorResponse(exception.getMessage()));
+  }
+
+  @ExceptionHandler(RateLimitExceededException.class)
+  public ResponseEntity<RateLimitErrorResponse> handleRateLimited(RateLimitExceededException exception) {
+    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+        .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getRetryAfterSeconds()))
+        .body(new RateLimitErrorResponse(exception.getMessage(), exception.getRetryAfterSeconds()));
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
