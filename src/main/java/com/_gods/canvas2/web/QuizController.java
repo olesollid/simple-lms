@@ -27,6 +27,7 @@ import com._gods.canvas2.web.dto.QuizAttemptsResponse;
 import com._gods.canvas2.web.dto.QuizStudentResultResponse;
 import com._gods.canvas2.web.dto.QuizSubmissionRequest;
 import com._gods.canvas2.web.dto.QuizSubmissionResponse;
+import com._gods.canvas2.web.dto.ResultVisibilityRequest;
 
 @RestController
 @RequestMapping("/api/quizzes/{quizId}")
@@ -77,6 +78,14 @@ public class QuizController {
       @PathVariable Long questionId, Authentication authentication) {
     quizService.deleteQuestion(quizId, questionId, authentication.getName());
     return ResponseEntity.noContent().build();
+  }
+
+  /** Teacher-only: show results as soon as attempts are graded, or only once published. */
+  @PutMapping("/result-visibility")
+  public ContentResponse setResultVisibility(@PathVariable Long quizId,
+      @RequestBody ResultVisibilityRequest request, Authentication authentication) {
+    return ContentResponse.from(quizService.setShowResultsImmediately(quizId,
+        request.showResultsImmediately(), authentication.getName()));
   }
 
   @PutMapping("/publication")

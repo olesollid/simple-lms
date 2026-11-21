@@ -14,6 +14,7 @@ import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Group;
 import com._gods.canvas2.model.Role;
+import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Submission;
 import com._gods.canvas2.model.SubmissionFile;
 import com._gods.canvas2.model.User;
@@ -239,6 +240,11 @@ public class SubmissionService {
     Content content = contentRepository.findById(contentId)
         .orElseThrow(() -> new ContentNotFoundException(contentId));
     requireTeacher(content.getModule().getCourse().getId(), requesterEmail);
+    // Publishing can't be undone, so a draft quiz must not end up with "results published"
+    // before anyone can even take it.
+    if (content instanceof Quiz quiz && !quiz.isPublished()) {
+      throw new ConflictException("Publish the quiz before publishing its results.");
+    }
     content.publishGrades();
     contentRepository.save(content);
     return true;

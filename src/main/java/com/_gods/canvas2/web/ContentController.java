@@ -68,7 +68,7 @@ public class ContentController {
       @RequestBody QuizRequest request, Authentication authentication) {
     Quiz quiz = contentService.createQuiz(moduleId, request.title(), request.position(),
         request.maxAttempts(), false, request.deadline(),
-        authentication.getName());
+        !Boolean.FALSE.equals(request.showResultsImmediately()), authentication.getName());
     return ResponseEntity.status(HttpStatus.CREATED).body(ContentResponse.from(quiz));
   }
 

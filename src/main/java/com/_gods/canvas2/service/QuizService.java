@@ -83,6 +83,18 @@ public class QuizService {
     entityManager.flush();
   }
 
+  /**
+   * Teacher-only: whether students see their score and hints as soon as an attempt is graded,
+   * or only after the teacher publishes the quiz's grades. Can be changed at any time.
+   */
+  public Quiz setShowResultsImmediately(Long quizId, boolean showResultsImmediately,
+      String requesterEmail) {
+    Quiz quiz = getQuiz(quizId);
+    requireTeacher(quiz.getModule().getCourse().getId(), requesterEmail);
+    quiz.setShowResultsImmediately(showResultsImmediately);
+    return quiz;
+  }
+
   /** Teacher-only: makes the quiz available to students and freezes its questions. */
   public Quiz publishQuiz(Long quizId, String requesterEmail) {
     Quiz quiz = getQuiz(quizId);

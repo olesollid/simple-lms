@@ -55,7 +55,9 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
   }, [quizId, attempt])
 
   const attempts = state.status === 'ready' ? state.attempts : null
-  const gradingPending = attempts != null && attempts.attemptsUsed > (attempts.latest?.attemptNumber ?? 0)
+  // Only while results are visible can we tell when grading is done; otherwise there is nothing to wait for.
+  const gradingPending = attempts != null && attempts.resultsVisible !== false
+    && attempts.attemptsUsed > (attempts.latest?.attemptNumber ?? 0)
 
   useEffect(() => {
     if (!gradingPending || polls >= GRADING_POLL_LIMIT) return
@@ -193,6 +195,11 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
         </div>
       )}
       <p className="module-placeholder">{attemptsText}</p>
+      {state.attempts.resultsVisible === false && attemptsUsed > 0 && (
+        <p className="quiz-results-pending" role="status">
+          Your answers are submitted. Your teacher will publish the results later.
+        </p>
+      )}
 
       {gradingPending ? (
         polls >= GRADING_POLL_LIMIT ? (

@@ -234,6 +234,48 @@ class QuizSubmissionServiceTests {
   }
 
   @Test
+  void hidesScoresAndHintsUntilTheTeacherPublishesWhenResultsAreNotImmediate() {
+    Quiz quiz = quiz(3);
+    var question = quizService.addQuestion(quiz.getId(), new QuestionRequest("Tricky", "Think again",
+        List.of(new AnswerOptionRequest("A", true), new AnswerOptionRequest("B", false))), teacher);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    quizService.setShowResultsImmediately(quiz.getId(), false, teacher);
+    String student = enrol(Role.STUDENT);
+    QuizGrade graded = new QuizGrade(quiz.getId(), student, 1, 1, 2, 0.5, List.of(question.getId()),
+        LocalDateTime.now());
+    when(quizGradeStore.attemptsUsed(any(Quiz.class), eq(student))).thenReturn(1);
+    when(quizGradeStore.find(any(Quiz.class), eq(student))).thenReturn(Optional.of(graded));
+    when(quizGradeStore.findLatest(any(Quiz.class), eq(student))).thenReturn(Optional.of(graded));
+
+    QuizAttemptsResponse hidden = quizSubmissionService.getOwnAttempts(quiz.getId(), student);
+    assertEquals(false, hidden.resultsVisible());
+    assertEquals(1, hidden.attemptsUsed());
+    assertEquals(null, hidden.best());
+    assertEquals(null, hidden.latest());
+    assertEquals(Map.of(), hidden.hints());
+
+    Quiz stored = quizService.getQuiz(quiz.getId());
+    stored.publishGrades();
+    contentRepository.saveAndFlush(stored);
+
+    QuizAttemptsResponse visible = quizSubmissionService.getOwnAttempts(quiz.getId(), student);
+    assertEquals(true, visible.resultsVisible());
+    assertEquals(graded, visible.best());
+    assertEquals(Map.of(question.getId(), "Think again"), visible.hints());
+  }
+
+  @Test
+  void onlyTeachersChooseWhenResultsAreShown() {
+    Quiz quiz = quiz(1);
+    String student = enrol(Role.STUDENT);
+
+    assertThrows(ForbiddenException.class,
+        () -> quizService.setShowResultsImmediately(quiz.getId(), false, student));
+    assertEquals(false, quizService.setShowResultsImmediately(quiz.getId(), false, teacher)
+        .isShowResultsImmediately());
+  }
+
+  @Test
   void rejectsSubmissionsFromPeopleOutsideTheCourse() {
     Quiz quiz = quiz(1);
     quizService.publishQuiz(quiz.getId(), teacher);

@@ -40,6 +40,13 @@ public class Quiz extends Content {
   @Column(name = "grade_key", unique = true, updatable = false, length = 36)
   private String gradeKey;
 
+  /**
+   * When true (the default) a student sees their score and hints as soon as an attempt is
+   * graded. When false, results stay hidden until the teacher publishes the quiz's grades.
+   */
+  @Column(nullable = false, columnDefinition = "boolean default true")
+  private boolean showResultsImmediately = true;
+
   @Column(nullable = false)
   private boolean showHints;
 
@@ -90,6 +97,19 @@ public class Quiz extends Content {
   /** A quiz with a deadline closes at it: no new attempts after, exactly at the deadline is fine. */
   public boolean isClosedAt(LocalDateTime time) {
     return deadline != null && time.isAfter(deadline);
+  }
+
+  public boolean isShowResultsImmediately() {
+    return showResultsImmediately;
+  }
+
+  public void setShowResultsImmediately(boolean showResultsImmediately) {
+    this.showResultsImmediately = showResultsImmediately;
+  }
+
+  /** Students see their results right away, or once the teacher has published the grades. */
+  public boolean areResultsVisibleToStudents() {
+    return showResultsImmediately || isGradesPublished();
   }
 
   public boolean hasUnlimitedAttempts() {

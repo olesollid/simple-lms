@@ -58,6 +58,8 @@ export interface QuizAttempts {
   deadline: string | null
   /** True once the deadline has passed (decided by the server, so time zones don't matter). */
   closed: boolean
+  /** False while the teacher keeps results hidden; best, latest and hints are then empty. */
+  resultsVisible: boolean
   /** The grade that counts. */
   best: QuizGrade | null
   latest: QuizGrade | null

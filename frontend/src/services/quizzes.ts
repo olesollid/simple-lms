@@ -22,6 +22,10 @@ export function createQuizService(request: ApiRequest) {
       }),
     deleteQuestion: (quizId: number, questionId: number, options?: ApiCallOptions) =>
       request<void>(`/quizzes/${quizId}/questions/${questionId}`, { ...options, method: 'DELETE' }),
+    setResultVisibility: (quizId: number, showResultsImmediately: boolean, options?: ApiCallOptions) =>
+      request<ContentResponse>(`/quizzes/${quizId}/result-visibility`, {
+        ...options, method: 'PUT', body: { showResultsImmediately },
+      }),
     publish: (quizId: number, options?: ApiCallOptions) =>
       request<ContentResponse>(`/quizzes/${quizId}/publication`, { ...options, method: 'PUT' }),
     submit: (quizId: number, body: QuizSubmissionRequest, options?: ApiCallOptions) =>

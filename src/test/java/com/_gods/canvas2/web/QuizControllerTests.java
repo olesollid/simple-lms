@@ -115,7 +115,7 @@ class QuizControllerTests {
     QuizGrade best = new QuizGrade(5L, "student@example.com", 1, 2, 2, 1.0, List.of(),
         LocalDateTime.of(2026, 11, 21, 10, 0));
     when(quizSubmissionService.getOwnAttempts(5L, "student@example.com"))
-        .thenReturn(new QuizAttemptsResponse(1, 0, LocalDateTime.of(2026, 12, 1, 12, 0), false, best, best,
+        .thenReturn(new QuizAttemptsResponse(1, 0, LocalDateTime.of(2026, 12, 1, 12, 0), false, true, best, best,
             Map.of(7L, "Count on your fingers")));
 
     mockMvc.perform(get("/api/quizzes/5/attempts/mine").with(as("student@example.com")))
@@ -124,6 +124,7 @@ class QuizControllerTests {
         .andExpect(jsonPath("$.maxAttempts").value(0))
         .andExpect(jsonPath("$.deadline").value("2026-12-01T12:00:00"))
         .andExpect(jsonPath("$.closed").value(false))
+        .andExpect(jsonPath("$.resultsVisible").value(true))
         .andExpect(jsonPath("$.best.score").value(1.0))
         .andExpect(jsonPath("$.latest.incorrectQuestionIds").isEmpty())
         .andExpect(jsonPath("$.hints.7").value("Count on your fingers"));

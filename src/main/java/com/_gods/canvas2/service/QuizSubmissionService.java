@@ -76,14 +76,17 @@ public class QuizSubmissionService {
   @Transactional(readOnly = true)
   public QuizAttemptsResponse getOwnAttempts(Long quizId, String requesterEmail) {
     Quiz quiz = requireOpenQuiz(quizId, requesterEmail);
+    int attemptsUsed = quizGradeStore.attemptsUsed(quiz, requesterEmail);
+    boolean closed = quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE));
+    if (!quiz.areResultsVisibleToStudents()) {
+      // Hidden until the teacher publishes: no score, and no hints either, since a hint gives
+      // away which questions were wrong.
+      return new QuizAttemptsResponse(attemptsUsed, quiz.getMaxAttempts(), quiz.getDeadline(),
+          closed, false, null, null, Map.of());
+    }
     QuizGrade latest = quizGradeStore.findLatest(quiz, requesterEmail).orElse(null);
-    return new QuizAttemptsResponse(
-        quizGradeStore.attemptsUsed(quiz, requesterEmail),
-        quiz.getMaxAttempts(),
-        quiz.getDeadline(),
-        quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE)),
-        quizGradeStore.find(quiz, requesterEmail).orElse(null),
-        latest,
+    return new QuizAttemptsResponse(attemptsUsed, quiz.getMaxAttempts(), quiz.getDeadline(),
+        closed, true, quizGradeStore.find(quiz, requesterEmail).orElse(null), latest,
         hintsForWrongAnswers(quiz, latest));
   }
 

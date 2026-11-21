@@ -175,3 +175,5 @@ h1 { font-size: clamp(32px, 5vw, 42px); line-height: 1.2; letter-spacing: -0.04e
 .hidden-badge { font-size: 0.8rem; padding: 2px 8px; border-radius: 999px; background: #f3f4f6; color: #4b5563; border: 1px solid #dfe3e8; }
 .content-edit-form { display: grid; gap: 14px; padding: 20px 24px; margin: 16px 0; background: #fff; border: 1px solid #dfe3e8; border-radius: 10px; }
 .content-visibility { margin: 4px 0 12px; font-size: 0.9rem; color: #4b5563; }
+.quiz-results-hidden { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.quiz-results-pending { margin: 0; padding: 10px 14px; background: #fff8e6; border: 1px solid #f2d48a; border-radius: 8px; color: #5c4a14; }
