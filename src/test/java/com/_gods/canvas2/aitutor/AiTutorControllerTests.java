@@ -35,7 +35,6 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com._gods.canvas2.service.ForbiddenException;
-import com._gods.canvas2.service.ContentNotFoundException;
 import com._gods.canvas2.web.GlobalExceptionHandler;
 
 @WebMvcTest(AiTutorController.class)
@@ -45,8 +44,7 @@ class AiTutorControllerTests {
 
   private static final String BODY = """
       {"messages":[{"role":"user","content":"Explain JPA"}],
-       "context":{"page_type":"course","course_id":1,"assignment_id":null},
-       "timezone":"Europe/Oslo"}
+       "context":{"page_type":"course","course_id":1}}
       """;
 
   @Autowired private MockMvc mockMvc;
@@ -145,7 +143,6 @@ class AiTutorControllerTests {
     assertEqualsText("Explain JPA", parsed.messages().getFirst().content());
     org.junit.jupiter.api.Assertions.assertEquals(TutorPageType.COURSE, parsed.context().pageType());
     org.junit.jupiter.api.Assertions.assertEquals(1L, parsed.context().courseId());
-    org.junit.jupiter.api.Assertions.assertEquals("Europe/Oslo", parsed.timezone());
   }
 
   private static void assertEqualsText(String expected, String actual) {
@@ -173,15 +170,6 @@ class AiTutorControllerTests {
         .andExpect(status().isTooManyRequests())
         .andExpect(header().string("Retry-After", "30"))
         .andExpect(jsonPath("$.retry_after_seconds").value(30));
-  }
-
-  @Test
-  void anUnknownAssignmentIs404() throws Exception {
-    when(chatService.start(any(), any(), any())).thenThrow(new ContentNotFoundException(9L));
-
-    mockMvc.perform(post("/api/ai-tutor/chat").with(as("student@example.com"))
-            .contentType(MediaType.APPLICATION_JSON).accept("text/event-stream, application/json").content(BODY))
-        .andExpect(status().isNotFound());
   }
 
   @Test

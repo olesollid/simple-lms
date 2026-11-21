@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -79,11 +78,11 @@ class TutorChatServiceTests {
   private TutorRateLimiter limiter;
 
   private static final VerifiedTutorContext CONTEXT =
-      new VerifiedTutorContext(TutorPageType.COURSE, 1L, "DAT250", null, null);
+      new VerifiedTutorContext(TutorPageType.COURSE, 1L, "DAT250");
 
   private static TutorChatRequest request(String text) {
     return new TutorChatRequest(List.of(new Message(Message.Role.USER, text)),
-        new TutorContextRequest(TutorPageType.COURSE, 1L, null), "Europe/Oslo");
+        new TutorContextRequest(TutorPageType.COURSE, 1L));
   }
 
   private TutorChatService serviceWith(java.util.concurrent.Executor executor, int maxRequests) {
@@ -113,7 +112,7 @@ class TutorChatServiceTests {
         new Message(Message.Role.USER, "What is JPA?"),
         new Message(Message.Role.ASSISTANT, "An API for persistence."),
         new Message(Message.Role.USER, "Show an example")),
-        new TutorContextRequest(TutorPageType.COURSE, 1L, null), "Europe/Oslo");
+        new TutorContextRequest(TutorPageType.COURSE, 1L));
 
     service.start("student@example.com", conversation, sink);
 
@@ -129,7 +128,7 @@ class TutorChatServiceTests {
   void verifiesAccessForTheLoggedInUserNotAnyoneNamedInTheRequest() {
     service.start("student@example.com", request("Hi"), sink);
 
-    verify(access).verify("student@example.com", new TutorContextRequest(TutorPageType.COURSE, 1L, null));
+    verify(access).verify("student@example.com", new TutorContextRequest(TutorPageType.COURSE, 1L));
     verify(grounding).gather("student@example.com", CONTEXT);
   }
 
@@ -159,7 +158,7 @@ class TutorChatServiceTests {
   @Test
   void aMalformedRequestIsRejectedWithoutUsingUpTheRateLimit() {
     service = serviceWith(Runnable::run, 1);
-    TutorChatRequest empty = new TutorChatRequest(List.of(), new TutorContextRequest(TutorPageType.COURSE, 1L, null), "UTC");
+    TutorChatRequest empty = new TutorChatRequest(List.of(), new TutorContextRequest(TutorPageType.COURSE, 1L));
 
     assertThrows(IllegalArgumentException.class, () -> service.start("student@example.com", empty, sink));
 
@@ -241,7 +240,7 @@ class TutorChatServiceTests {
   @Nested
   class RequestValidation {
 
-    private static final TutorContextRequest CONTEXT = new TutorContextRequest(TutorPageType.COURSE, 1L, null);
+    private static final TutorContextRequest CONTEXT = new TutorContextRequest(TutorPageType.COURSE, 1L);
 
     private static Message user(String text) {
       return new Message(Message.Role.USER, text);
@@ -252,7 +251,7 @@ class TutorChatServiceTests {
     }
 
     private static TutorChatRequest request(List<Message> messages) {
-      return new TutorChatRequest(messages, CONTEXT, "Europe/Oslo");
+      return new TutorChatRequest(messages, CONTEXT);
     }
 
     @Test
@@ -308,14 +307,7 @@ class TutorChatServiceTests {
     @Test
     void requiresAContext() {
       assertThrows(IllegalArgumentException.class,
-          () -> new TutorChatRequest(List.of(user("Hi")), null, "UTC").validate());
-    }
-
-    @Test
-    void usesTheStudentsTimezoneOrFallsBackToUtc() {
-      assertEquals(ZoneId.of("Europe/Oslo"), request(List.of(user("Hi"))).zone());
-      assertEquals(ZoneId.of("UTC"), new TutorChatRequest(List.of(user("Hi")), CONTEXT, "Mars/Olympus").zone());
-      assertEquals(ZoneId.of("UTC"), new TutorChatRequest(List.of(user("Hi")), CONTEXT, null).zone());
+          () -> new TutorChatRequest(List.of(user("Hi")), null).validate());
     }
 
     @Test

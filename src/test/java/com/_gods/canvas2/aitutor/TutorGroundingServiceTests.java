@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
-import com._gods.canvas2.model.Assignment;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Enrollment;
 import com._gods.canvas2.model.Module;
@@ -59,7 +58,7 @@ class TutorGroundingServiceTests {
   }
 
   private static VerifiedTutorContext courseContext(Course course) {
-    return new VerifiedTutorContext(TutorPageType.COURSE, course.getId(), course.getTitle(), null, null);
+    return new VerifiedTutorContext(TutorPageType.COURSE, course.getId(), course.getTitle());
   }
 
   private static String all(List<TutorGroundingService.Material> material) {
@@ -67,37 +66,39 @@ class TutorGroundingServiceTests {
   }
 
   @Test
-  void includesTheCourseDescriptionPagesAndAssignmentDescriptions() {
+  void includesTheCourseDescriptionAndItsPages() {
     Course course = course("DAT250", "Advanced software technologies");
     String teacher = member(course, Role.TEACHER);
     String student = member(course, Role.STUDENT);
     Module week1 = module(course, "Week 1");
     contentService.createStaticPage(week1.getId(), "Syllabus", 0, "Weekly topics: JPA, REST", null, null, teacher);
-    contentService.createAssignment(week1.getId(), "Lab 1", 1, "Build a REST API", null, false, false, teacher);
 
-    List<TutorGroundingService.Material> material = grounding.gather(student, courseContext(course));
+    String text = all(grounding.gather(student, courseContext(course)));
 
-    String text = all(material);
     assertTrue(text.contains("Advanced software technologies"));
     assertTrue(text.contains("Weekly topics: JPA, REST"));
-    assertTrue(text.contains("Build a REST API"));
   }
 
   @Test
-  void putsTheCurrentAssignmentFirst() {
+  void neverIncludesAssignmentsOrCodingExercises() {
     Course course = course("DAT250", "desc");
     String teacher = member(course, Role.TEACHER);
     String student = member(course, Role.STUDENT);
     Module week1 = module(course, "Week 1");
-    contentService.createStaticPage(week1.getId(), "Syllabus", 0, "Topics", null, null, teacher);
-    Assignment lab = contentService.createAssignment(week1.getId(), "Lab 3", 1, "Do lab three", null, false, false, teacher);
+    contentService.createStaticPage(week1.getId(), "Syllabus", 0, "Visible page text", null, null, teacher);
+    contentService.createAssignment(week1.getId(), "Secret Lab", 1, "Instructions: build a REST API", null, false, false, teacher);
+    contentService.createCodingExercise(week1.getId(), "Secret Kata", 2, "https://git.example/kata", null, false, false, teacher);
 
-    List<TutorGroundingService.Material> material = grounding.gather(student, new VerifiedTutorContext(
-        TutorPageType.ASSIGNMENT, course.getId(), "DAT250", lab.getId(), "Lab 3"));
+    List<TutorGroundingService.Material> material = grounding.gather(student, courseContext(course));
 
-    assertEquals("Lab 3", material.getFirst().title());
-    assertEquals(TutorGroundingService.Material.Kind.ASSIGNMENT, material.getFirst().kind());
-    assertEquals(1, material.stream().filter(m -> m.title().equals("Lab 3")).count());
+    String text = all(material);
+    assertTrue(text.contains("Visible page text"));
+    assertFalse(text.contains("Secret Lab"));
+    assertFalse(text.contains("Instructions: build a REST API"));
+    assertFalse(text.contains("Secret Kata"));
+    assertFalse(text.contains("git.example"));
+    assertTrue(material.stream().allMatch(m -> m.kind() != null
+        && (m.kind() == TutorGroundingService.Material.Kind.COURSE || m.kind() == TutorGroundingService.Material.Kind.PAGE)));
   }
 
   @Test
@@ -174,6 +175,6 @@ class TutorGroundingServiceTests {
     String student = member(course, Role.STUDENT);
 
     assertTrue(grounding.gather(student,
-        new VerifiedTutorContext(TutorPageType.DASHBOARD, null, null, null, null)).isEmpty());
+        new VerifiedTutorContext(TutorPageType.DASHBOARD, null, null)).isEmpty());
   }
 }

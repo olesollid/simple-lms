@@ -13,20 +13,19 @@ describe('parseTutorRoute', () => {
     expect(parseTutorRoute('/courses/12')).toEqual({ kind: 'course', courseId: 12 })
   })
 
-  it('recognises a content page with both ids', () => {
-    expect(parseTutorRoute('/courses/12/modules/3/contents/45'))
-      .toEqual({ kind: 'content', courseId: 12, contentId: 45 })
+  it('treats anything inside a course, including content pages, as just the course', () => {
+    expect(parseTutorRoute('/courses/12/modules/3/contents/45')).toEqual({ kind: 'course', courseId: 12 })
+    expect(parseTutorRoute('/courses/12/anything/else')).toEqual({ kind: 'course', courseId: 12 })
   })
 
   it('treats anything else, including malformed ids, as other', () => {
     expect(parseTutorRoute('/profile')).toEqual({ kind: 'other' })
     expect(parseTutorRoute('/courses/abc')).toEqual({ kind: 'other' })
-    expect(parseTutorRoute('/courses/1/modules/2/contents/x')).toEqual({ kind: 'other' })
+    expect(parseTutorRoute('/courses/abc/modules/1/contents/2')).toEqual({ kind: 'other' })
   })
 
-  it('exposes the course id only for course and content pages', () => {
+  it('exposes the course id only inside a course', () => {
     expect(routeCourseId({ kind: 'course', courseId: 4 })).toBe(4)
-    expect(routeCourseId({ kind: 'content', courseId: 4, contentId: 9 })).toBe(4)
     expect(routeCourseId({ kind: 'dashboard' })).toBeNull()
     expect(routeCourseId({ kind: 'other' })).toBeNull()
   })

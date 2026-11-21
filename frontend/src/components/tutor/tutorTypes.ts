@@ -13,5 +13,4 @@ export interface ChatEntry {
 export interface TutorNames {
   status: 'loading' | 'ready' | 'error'
   courseName: string | null
-  assignmentName: string | null
 }

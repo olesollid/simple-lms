@@ -65,7 +65,7 @@ public class TutorChatService {
     rateLimiter.acquire(email);
     VerifiedTutorContext context = accessService.verify(email, request.context());
     TutorModelClient.Request modelRequest = new TutorModelClient.Request(
-        promptBuilder.build(context, groundingService.gather(email, context), false),
+        promptBuilder.build(context, groundingService.gather(email, context)),
         request.turns());
 
     if (!permits.tryAcquire()) {
