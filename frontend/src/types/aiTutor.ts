@@ -14,9 +14,14 @@
  *     data: {"type":"delta","text":"..."}                       streamed answer text
  *     data: {"type":"done"}                                     end of answer
  *     data: {"type":"error","message":"...","code":"..."}       failure after streaming began
- *   Non-200 answers carry JSON { "message": string, "retry_after_seconds"?: number }:
- *     401 not signed in, 403 not enrolled or not allowed to see the assignment,
- *     429 per-user rate limit (also send a Retry-After header), 503 AI provider unavailable.
+ *   Requests the server refuses before streaming starts get a normal JSON error
+ *   { "message": string, "retry_after_seconds"?: number }, so the client must send
+ *   `Accept: text/event-stream, application/json`:
+ *     400 malformed request, 401 not signed in, 403 tutor off or not enrolled, 404 unknown or
+ *     hidden assignment, 429 per-user rate limit (with a Retry-After header), 503 tutor not
+ *     configured or too busy.
+ *   A failure of the AI provider itself arrives as an `error` event on the stream
+ *   (code "provider_unavailable"), because the 200 response has already started.
  *   The backend must re-check enrollment and assignment visibility on every request and must
  *   never trust the ids below. `messages` is the whole conversation so far (the backend is
  *   stateless); local greetings and notices are never sent.
