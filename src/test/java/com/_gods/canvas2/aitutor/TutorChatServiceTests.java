@@ -16,7 +16,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
@@ -86,7 +85,7 @@ class TutorChatServiceTests {
   }
 
   private TutorChatService serviceWith(java.util.concurrent.Executor executor, int maxRequests) {
-    limiter = new TutorRateLimiter(new AiTutorProperties(true, Set.of(1L),
+    limiter = new TutorRateLimiter(new AiTutorProperties(true,
         new AiTutorProperties.RateLimit(maxRequests, Duration.ofMinutes(1))), Clock.systemUTC());
     return new TutorChatService(access, limiter, grounding, new TutorPromptBuilder(), model, executor);
   }

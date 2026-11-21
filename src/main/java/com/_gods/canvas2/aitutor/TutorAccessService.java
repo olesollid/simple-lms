@@ -38,9 +38,9 @@ public class TutorAccessService {
   }
 
   /**
-   * Whether the tutor is on for this user. With a course: the global switch, that course's opt-in,
-   * and a student enrollment in it. Without one (dashboard): the global switch and a student
-   * enrollment in at least one opted-in course. Never throws; anything unexpected means "off".
+   * Whether the tutor is on for this user. With a course: the global switch and a student
+   * enrollment in that course. Without one (dashboard): the global switch and a student enrollment
+   * in at least one course. Never throws; anything unexpected means "off".
    */
   public boolean isEnabledFor(String email, Long courseId) {
     if (!properties.enabled()) {
@@ -52,11 +52,7 @@ public class TutorAccessService {
     }
     if (courseId == null) {
       return enrollmentRepository.findByUser(user.get()).stream()
-          .anyMatch(enrollment -> enrollment.getRole() == Role.STUDENT
-              && properties.isCourseEnabled(enrollment.getCourse().getId()));
-    }
-    if (!properties.isCourseEnabled(courseId)) {
-      return false;
+          .anyMatch(enrollment -> enrollment.getRole() == Role.STUDENT);
     }
     return courseRepository.findById(courseId)
         .flatMap(course -> enrollmentRepository.findByUserAndCourse(user.get(), course))
@@ -86,15 +82,15 @@ public class TutorAccessService {
     if (request.courseId() == null) {
       throw new IllegalArgumentException("course_id is required");
     }
-    Course course = requireStudentOfEnabledCourse(email, request.courseId());
+    Course course = requireStudentOfCourse(email, request.courseId());
     return new VerifiedTutorContext(pageType, course.getId(), course.getTitle());
   }
 
-  private Course requireStudentOfEnabledCourse(String email, Long courseId) {
+  private Course requireStudentOfCourse(String email, Long courseId) {
     // One message for every failure, so a caller cannot tell a missing course from a forbidden one.
     ForbiddenException refusal =
         new ForbiddenException("The AI tutor is not available for this course.");
-    if (!properties.isCourseEnabled(courseId)) {
+    if (!properties.enabled()) {
       throw refusal;
     }
     User user = findUser(email).orElseThrow(() -> refusal);

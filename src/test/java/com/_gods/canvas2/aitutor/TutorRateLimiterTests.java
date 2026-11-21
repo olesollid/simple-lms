@@ -8,7 +8,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +36,7 @@ class TutorRateLimiterTests {
 
   private static TutorRateLimiter limiter(MutableClock clock, int max, Duration window) {
     return new TutorRateLimiter(
-        new AiTutorProperties(true, Set.of(), new AiTutorProperties.RateLimit(max, window)), clock);
+        new AiTutorProperties(true, new AiTutorProperties.RateLimit(max, window)), clock);
   }
 
   @Test

@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -21,48 +20,38 @@ class AiTutorPropertiesTests {
   }
 
   @Test
-  void everythingIsOffWithNoConfiguration() {
+  void isOffWithNoConfiguration() {
     AiTutorProperties properties = bind(Map.of());
 
     assertFalse(properties.enabled());
-    assertTrue(properties.enabledCourseIds().isEmpty());
-    assertFalse(properties.isCourseEnabled(1L));
     assertEquals(20, properties.rateLimit().maxRequests());
     assertEquals(Duration.ofMinutes(1), properties.rateLimit().window());
   }
 
   @Test
-  void bindsTheSwitchCourseListAndLimits() {
+  void bindsTheSwitchAndTheLimits() {
     AiTutorProperties properties = bind(Map.of(
         "app.ai-tutor.enabled", "true",
-        "app.ai-tutor.enabled-course-ids", "1, 3",
         "app.ai-tutor.rate-limit.max-requests", "5",
         "app.ai-tutor.rate-limit.window", "30s"));
 
     assertTrue(properties.enabled());
-    assertEquals(Set.of(1L, 3L), properties.enabledCourseIds());
     assertEquals(5, properties.rateLimit().maxRequests());
     assertEquals(Duration.ofSeconds(30), properties.rateLimit().window());
   }
 
   @Test
-  void aBlankCourseListMeansNoCourses() {
+  void hasNoPerCourseSettings() {
+    // The one switch covers every course, so these settings are gone and are ignored if present.
     AiTutorProperties properties = bind(Map.of(
-        "app.ai-tutor.enabled", "true", "app.ai-tutor.enabled-course-ids", ""));
+        "app.ai-tutor.enabled", "true",
+        "app.ai-tutor.enabled-course-ids", "1",
+        "app.ai-tutor.all-courses", "false"));
 
-    assertTrue(properties.enabledCourseIds().isEmpty());
-  }
-
-  @Test
-  void aCourseNeedsBothTheGlobalSwitchAndItsOwnOptIn() {
-    AiTutorProperties off = bind(Map.of("app.ai-tutor.enabled-course-ids", "1"));
-    AiTutorProperties on = bind(Map.of(
-        "app.ai-tutor.enabled", "true", "app.ai-tutor.enabled-course-ids", "1"));
-
-    assertFalse(off.isCourseEnabled(1L));
-    assertTrue(on.isCourseEnabled(1L));
-    assertFalse(on.isCourseEnabled(2L));
-    assertFalse(on.isCourseEnabled(null));
+    assertTrue(properties.enabled());
+    assertEquals(java.util.Set.of("enabled", "rateLimit"),
+        java.util.Arrays.stream(AiTutorProperties.class.getRecordComponents())
+            .map(component -> component.getName()).collect(java.util.stream.Collectors.toSet()));
   }
 
   @Test

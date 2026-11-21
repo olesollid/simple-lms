@@ -6,9 +6,9 @@
  * course (and which one): no assignment, module or content id is ever sent.
  *
  * GET  /api/ai-tutor/config[?course_id=N]  ->  { "enabled": boolean }
- *   Whether the tutor is on for this student: global flag AND (when course_id is given) the
- *   per-course flag AND the caller is an enrolled student. Off by default. 401/403/404, or any
- *   failure, is treated as "off" by the widget.
+ *   Whether the tutor is on for this student: the global flag AND the caller is an enrolled
+ *   student (of that course, or of any course when course_id is left out). Off by default.
+ *   401/403/404, or any failure, is treated as "off" by the widget.
  *
  * POST /api/ai-tutor/chat   (JSON body: TutorChatRequest, CSRF header as for every POST)
  *   200 text/event-stream. Each event is one `data: <json>` line followed by a blank line:

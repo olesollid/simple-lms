@@ -96,14 +96,14 @@ describe('TutorWidget', () => {
       expect(screen.queryByRole('button', { name: /AI tutor/ })).not.toBeInTheDocument()
     })
 
-    it('asks for the per-course flag on a course page', async () => {
+    it('asks the server about the course on a course page', async () => {
       render(<Harness path="/courses/2" />)
 
       await screen.findByRole('button', { name: /AI tutor/ })
       expect(getConfig).toHaveBeenCalledWith(2, expect.anything())
     })
 
-    it('hides the widget on a course where the tutor is off and brings it back elsewhere', async () => {
+    it('hides the widget on a course the server does not allow and brings it back elsewhere', async () => {
       const user = userEvent.setup()
       getConfig.mockImplementation((courseId: number | null) =>
         Promise.resolve({ enabled: courseId !== 2 }))

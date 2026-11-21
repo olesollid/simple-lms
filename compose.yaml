@@ -21,7 +21,6 @@ services:
       REDIS_HOST: redis
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
       AI_TUTOR_ENABLED: ${AI_TUTOR_ENABLED:-false}
-      AI_TUTOR_COURSE_IDS: ${AI_TUTOR_COURSE_IDS:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-dummy}

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { aiTutor, users } from '../../services'
 
 /**
- * Whether the tutor is on for this student here, and who they are. The backend decides (global
- * flag, per-course flag, enrollment); any failure counts as off, so the widget never shows up
+ * Whether the tutor is on for this student here, and who they are. The backend decides (the global
+ * flag and enrollment as a student); any failure counts as off, so the widget never shows up
  * unless the server explicitly says so. Results are cached per course for the session.
  */
 export function useTutorAccess(courseId: number | null): { enabled: boolean; email: string | null } {
