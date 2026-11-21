@@ -1,20 +1,18 @@
 package com._gods.canvas2.aitutor;
 
 import java.time.Duration;
-import java.util.Set;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * Feature flags and limits for the AI tutor. Everything is off by default: the tutor is available
- * only when {@code app.ai-tutor.enabled} is true (global switch) and the course is listed in
- * {@code app.ai-tutor.enabled-course-ids} (per-course opt-in).
+ * Settings for the AI tutor. It is off by default and has one switch: {@code app.ai-tutor.enabled}
+ * (the {@code AI_TUTOR_ENABLED} environment variable). When it is on, the tutor is available to the
+ * students of every course.
  */
 @ConfigurationProperties("app.ai-tutor")
 public record AiTutorProperties(
     @DefaultValue("false") boolean enabled,
-    @DefaultValue Set<Long> enabledCourseIds,
     @DefaultValue RateLimit rateLimit) {
 
   /** At most {@code maxRequests} chat requests per user within any {@code window}. */
@@ -27,9 +25,5 @@ public record AiTutorProperties(
         throw new IllegalArgumentException("app.ai-tutor.rate-limit.window must be positive");
       }
     }
-  }
-
-  public boolean isCourseEnabled(Long courseId) {
-    return enabled && courseId != null && enabledCourseIds.contains(courseId);
   }
 }

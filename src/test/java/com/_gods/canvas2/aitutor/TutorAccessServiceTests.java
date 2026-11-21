@@ -53,12 +53,8 @@ class TutorAccessServiceTests {
     return email;
   }
 
-  private TutorAccessService service(boolean enabled, Course... enabledCourses) {
-    Set<Long> ids = new java.util.HashSet<>();
-    for (Course enabledCourse : enabledCourses) {
-      ids.add(enabledCourse.getId());
-    }
-    AiTutorProperties properties = new AiTutorProperties(enabled, ids,
+  private TutorAccessService service(boolean enabled) {
+    AiTutorProperties properties = new AiTutorProperties(enabled,
         new AiTutorProperties.RateLimit(20, java.time.Duration.ofMinutes(1)));
     return new TutorAccessService(properties, enrollmentRepository, courseRepository, userService);
   }
@@ -74,8 +70,8 @@ class TutorAccessServiceTests {
     Course course = course("DAT250");
     String student = member(course, Role.STUDENT);
 
-    assertFalse(service(false, course).isEnabledFor(student, course.getId()));
-    assertFalse(service(false, course).isEnabledFor(student, null));
+    assertFalse(service(false).isEnabledFor(student, course.getId()));
+    assertFalse(service(false).isEnabledFor(student, null));
   }
 
   @Test
@@ -83,16 +79,7 @@ class TutorAccessServiceTests {
     Course course = course("DAT250");
     String student = member(course, Role.STUDENT);
 
-    assertTrue(service(true, course).isEnabledFor(student, course.getId()));
-  }
-
-  @Test
-  void isOffForACourseThatIsNotOptedIn() {
-    Course enabled = course("DAT250");
-    Course other = course("INF100");
-    String student = member(other, Role.STUDENT);
-
-    assertFalse(service(true, enabled).isEnabledFor(student, other.getId()));
+    assertTrue(service(true).isEnabledFor(student, course.getId()));
   }
 
   @Test
@@ -101,7 +88,7 @@ class TutorAccessServiceTests {
     String teacher = member(course, Role.TEACHER);
     String outsider = member(course("INF100"), Role.STUDENT);
 
-    TutorAccessService service = service(true, course);
+    TutorAccessService service = service(true);
 
     assertFalse(service.isEnabledFor(teacher, course.getId()));
     assertFalse(service.isEnabledFor(outsider, course.getId()));
@@ -113,22 +100,38 @@ class TutorAccessServiceTests {
     Course course = course("DAT250");
     String student = member(course, Role.STUDENT);
 
-    assertFalse(service(true, course).isEnabledFor(student, 99999L));
+    assertFalse(service(true).isEnabledFor(student, 99999L));
   }
 
   @Test
-  void dashboardNeedsAStudentEnrollmentInAnOptedInCourse() {
-    Course enabled = course("DAT250");
-    Course other = course("INF100");
-    String inEnabled = member(enabled, Role.STUDENT);
-    String inOther = member(other, Role.STUDENT);
-    String teacherOnly = member(enabled, Role.TEACHER);
+  void dashboardNeedsAStudentEnrollmentInSomeCourse() {
+    Course first = course("DAT250");
+    Course second = course("INF100");
+    String student = member(first, Role.STUDENT);
+    String teacherOnly = member(second, Role.TEACHER);
 
-    TutorAccessService service = service(true, enabled);
+    TutorAccessService service = service(true);
 
-    assertTrue(service.isEnabledFor(inEnabled, null));
-    assertFalse(service.isEnabledFor(inOther, null));
+    assertTrue(service.isEnabledFor(student, null));
     assertFalse(service.isEnabledFor(teacherOnly, null));
+    assertFalse(service.isEnabledFor("nobody@example.com", null));
+  }
+
+  @Test
+  void everyCourseIsAvailableToItsStudentsWithNothingToConfigure() {
+    Course first = course("DAT250");
+    Course second = course("INF100");
+    String inFirst = member(first, Role.STUDENT);
+    String inSecond = member(second, Role.STUDENT);
+
+    TutorAccessService service = service(true);
+
+    assertTrue(service.isEnabledFor(inFirst, first.getId()));
+    assertTrue(service.isEnabledFor(inSecond, second.getId()));
+    assertEquals("DAT250", service.verify(inFirst, context(TutorPageType.COURSE, first.getId())).courseName());
+    assertEquals("INF100", service.verify(inSecond, context(TutorPageType.COURSE, second.getId())).courseName());
+    // Being in one course does not open another.
+    assertFalse(service.isEnabledFor(inFirst, second.getId()));
   }
 
   @Test
@@ -138,7 +141,7 @@ class TutorAccessServiceTests {
     String person = member(taught, Role.TEACHER);
     enrolled(attended, person, Role.STUDENT);
 
-    TutorAccessService service = service(true, taught, attended);
+    TutorAccessService service = service(true);
 
     assertFalse(service.isEnabledFor(person, taught.getId()));
     assertTrue(service.isEnabledFor(person, attended.getId()));
@@ -152,8 +155,8 @@ class TutorAccessServiceTests {
     Course theirs = course("SECRET101");
     String student = member(mine, Role.STUDENT);
 
-    // Even when the tutor is opted in for that course, an outsider is refused.
-    TutorAccessService service = service(true, mine, theirs);
+    // The tutor is on for every course, but an outsider is still refused.
+    TutorAccessService service = service(true);
 
     assertThrows(ForbiddenException.class,
         () -> service.verify(student, context(TutorPageType.COURSE, theirs.getId())));
@@ -164,7 +167,7 @@ class TutorAccessServiceTests {
     Course mine = course("DAT250");
     Course theirs = course("SECRET101");
     String student = member(mine, Role.STUDENT);
-    TutorAccessService service = service(true, mine, theirs);
+    TutorAccessService service = service(true);
 
     ForbiddenException forbidden = assertThrows(ForbiddenException.class,
         () -> service.verify(student, context(TutorPageType.COURSE, theirs.getId())));
@@ -178,7 +181,7 @@ class TutorAccessServiceTests {
   void rejectsEverythingWhileTheGlobalSwitchIsOff() {
     Course course = course("DAT250");
     String student = member(course, Role.STUDENT);
-    TutorAccessService service = service(false, course);
+    TutorAccessService service = service(false);
 
     assertThrows(ForbiddenException.class,
         () -> service.verify(student, context(TutorPageType.COURSE, course.getId())));
@@ -187,19 +190,10 @@ class TutorAccessServiceTests {
   }
 
   @Test
-  void rejectsACourseThatIsNotOptedIn() {
-    Course course = course("DAT250");
-    String student = member(course, Role.STUDENT);
-
-    assertThrows(ForbiddenException.class,
-        () -> service(true).verify(student, context(TutorPageType.COURSE, course.getId())));
-  }
-
-  @Test
   void rejectsTeachersAndUnknownUsers() {
     Course course = course("DAT250");
     String teacher = member(course, Role.TEACHER);
-    TutorAccessService service = service(true, course);
+    TutorAccessService service = service(true);
 
     assertThrows(ForbiddenException.class,
         () -> service.verify(teacher, context(TutorPageType.COURSE, course.getId())));
@@ -212,7 +206,7 @@ class TutorAccessServiceTests {
     Course course = course("DAT250");
     String student = member(course, Role.STUDENT);
 
-    VerifiedTutorContext verified = service(true, course)
+    VerifiedTutorContext verified = service(true)
         .verify(student, context(TutorPageType.COURSE, course.getId()));
 
     assertEquals(TutorPageType.COURSE, verified.pageType());
@@ -225,7 +219,7 @@ class TutorAccessServiceTests {
     Course mine = course("DAT250");
     Course theirs = course("SECRET101");
     String student = member(mine, Role.STUDENT);
-    TutorAccessService service = service(true, mine);
+    TutorAccessService service = service(true);
 
     VerifiedTutorContext dashboard = service.verify(student,
         context(TutorPageType.DASHBOARD, theirs.getId()));
@@ -241,7 +235,7 @@ class TutorAccessServiceTests {
   void rejectsAMalformedContext() {
     Course course = course("DAT250");
     String student = member(course, Role.STUDENT);
-    TutorAccessService service = service(true, course);
+    TutorAccessService service = service(true);
 
     assertThrows(IllegalArgumentException.class, () -> service.verify(student, null));
     assertThrows(IllegalArgumentException.class,
@@ -249,4 +243,5 @@ class TutorAccessServiceTests {
     assertThrows(IllegalArgumentException.class,
         () -> service.verify(student, context(TutorPageType.COURSE, null)));
   }
+
 }
