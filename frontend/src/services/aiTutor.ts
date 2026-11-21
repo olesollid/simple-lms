@@ -104,7 +104,12 @@ export function createAiTutorService(request: ApiRequest, transport: {
 
     /** Streams the answer. The shared request client reads whole bodies, so this uses fetch directly. */
     async* streamChat(body: TutorChatRequest, options?: { signal?: AbortSignal }): AsyncGenerator<TutorStreamEvent> {
-      const headers = new Headers({ Accept: 'text/event-stream', 'Content-Type': 'application/json' })
+      const headers = new Headers({
+        // JSON must be accepted too: refusals (403, 429, 503) are JSON bodies, and the server
+        // cannot write them to a client that only accepts an event stream.
+        Accept: 'text/event-stream, application/json',
+        'Content-Type': 'application/json',
+      })
       const token = readXsrfToken()
       if (token) headers.set('X-XSRF-TOKEN', token)
       const response = await fetchImplementation(`${base}/ai-tutor/chat`, {

@@ -91,7 +91,7 @@ describe('createAiTutorService', () => {
     expect(url).toBe('/api/ai-tutor/chat')
     expect(init.method).toBe('POST')
     expect(init.credentials).toBe('include')
-    expect(init.headers.get('Accept')).toBe('text/event-stream')
+    expect(init.headers.get('Accept')).toBe('text/event-stream, application/json')
     expect(init.headers.get('X-XSRF-TOKEN')).toBe('token-123')
     expect(JSON.parse(init.body)).toEqual(body)
   })

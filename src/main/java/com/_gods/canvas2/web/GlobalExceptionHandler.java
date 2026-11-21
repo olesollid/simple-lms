@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com._gods.canvas2.aitutor.RateLimitExceededException;
+import com._gods.canvas2.aitutor.TutorChatService;
 import com._gods.canvas2.service.ConflictException;
 import com._gods.canvas2.service.ForbiddenException;
 import com._gods.canvas2.service.NotFoundException;
@@ -52,6 +53,12 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
         .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getRetryAfterSeconds()))
         .body(new RateLimitErrorResponse(exception.getMessage(), exception.getRetryAfterSeconds()));
+  }
+
+  @ExceptionHandler(TutorChatService.Unavailable.class)
+  public ResponseEntity<ErrorResponse> handleTutorUnavailable(TutorChatService.Unavailable exception) {
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .body(new ErrorResponse(exception.getMessage()));
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
