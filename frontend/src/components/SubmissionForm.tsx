@@ -69,6 +69,7 @@ export default function SubmissionForm({ contentId, existingSubmission, onSubmit
       {existingSubmission && (
         <div className="submission-status">
           <p>Submitted {new Date(existingSubmission.submittedAt).toLocaleString()}</p>
+          {existingSubmission.lateSubmission != null && <p>{existingSubmission.lateSubmission ? 'Submitted late' : 'Submitted on time'}</p>}
           <SubmissionAttachment submission={existingSubmission} />
           {existingSubmission.grade != null && (
             <div className="submission-grade">

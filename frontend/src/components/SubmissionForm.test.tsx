@@ -9,6 +9,15 @@ const upload = vi.hoisted(() => vi.fn())
 vi.mock('../services', () => ({ submissions: { submit, upload } }))
 
 describe('SubmissionForm', () => {
+  it('shows the late status returned by the backend', () => {
+    render(<SubmissionForm contentId={1} onSubmitted={() => {}} existingSubmission={{
+      id: 1, contentId: 1, submitterEmail: 'student@example.com', groupId: null,
+      lastSubmittedByEmail: 'student@example.com', text: 'Late essay',
+      submittedAt: '2026-11-30T12:00:01', grade: null, feedback: null,
+      gradedAt: null, lateSubmission: true,
+    }} />)
+    expect(screen.getByText('Submitted late')).toBeInTheDocument()
+  })
   it('shows a waiting message without grade or feedback while results are private', () => {
     render(<SubmissionForm contentId={1} onSubmitted={() => {}} existingSubmission={{
       id: 1, contentId: 1, submitterEmail: 'student@example.com', groupId: null,

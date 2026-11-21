@@ -45,6 +45,34 @@ import com._gods.canvas2.service.SubmissionService;
 @WebMvcTest(SubmissionController.class)
 @AutoConfigureMockMvc
 class SubmissionControllerTests {
+  @Test
+  void bothStudentAndTeacherResponsesIncludeAcceptedLateStatus() throws Exception {
+    Submission saved = submission(1L, "student@example.com", "Late essay");
+    var now = java.time.LocalDateTime.now(com._gods.canvas2.model.HandInPolicy.ZONE);
+    ((Assignment) saved.getContent()).updateSubmissionPolicy(now.minusHours(1), true);
+    saved.recordSubmissionTime(now);
+    when(submissionService.getOwnSubmission(eq(1L), anyString())).thenReturn(saved);
+    when(submissionService.getSubmissionsByContent(eq(1L), anyString())).thenReturn(List.of(saved));
+    mockMvc.perform(get("/api/contents/1/submissions/mine").with(as("student@example.com")))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.lateSubmission").value(true));
+    mockMvc.perform(get("/api/contents/1/submissions").with(as("teacher@example.com")))
+        .andExpect(status().isOk()).andExpect(jsonPath("$[0].lateSubmission").value(true));
+  }
+
+  @Test
+  void textAndMultipartExposeTheSameDeadlineRejection() throws Exception {
+    when(submissionService.submit(eq(1L), any(), anyString()))
+        .thenThrow(new ForbiddenException("The deadline has passed. Late submissions are not accepted."));
+    when(submissionService.submit(eq(1L), any(), any(com._gods.canvas2.model.SubmissionFile.class), anyString()))
+        .thenThrow(new ForbiddenException("The deadline has passed. Late submissions are not accepted."));
+    mockMvc.perform(post("/api/contents/1/submissions").with(as("student@example.com"))
+        .contentType(MediaType.APPLICATION_JSON).content("{\"text\":\"Late\"}"))
+        .andExpect(status().isForbidden()).andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("deadline has passed")));
+    mockMvc.perform(multipart("/api/contents/1/submissions")
+        .file(new org.springframework.mock.web.MockMultipartFile("file", "late.pdf", "application/pdf", "%PDF-1.4".getBytes()))
+        .with(as("student@example.com")))
+        .andExpect(status().isForbidden()).andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("deadline has passed")));
+  }
 
   @Test
   void multipartUploadReturnsMetadataWithoutFileBytes() throws Exception {

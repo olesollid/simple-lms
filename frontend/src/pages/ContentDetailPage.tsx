@@ -5,6 +5,7 @@ import ErrorMessage from '../components/ui/ErrorMessage'
 import Button from '../components/ui/Button'
 import SubmissionForm from '../components/SubmissionForm'
 import SubmissionsReview from '../components/SubmissionsReview'
+import EditSubmissionPolicy from '../components/EditSubmissionPolicy'
 import { contents, enrollments, groups, modules, submissions, users } from '../services'
 import { ApiError } from '../services/apiClient'
 import { contentDetailError } from './contentDetailState'
@@ -148,7 +149,11 @@ export default function ContentDetailPage() {
               </a>
             </p>
           )}
-          {content.deadline && <p className="content-deadline">Deadline: {content.deadline}</p>}
+          <p className="content-deadline">{content.deadline
+            ? `Deadline: ${content.deadline.replace('T', ' ')} (Europe/Oslo)` : 'No deadline'}</p>
+          {content.deadline && <p className="content-deadline">{content.lateSubmissionsAccepted
+            ? 'Late submissions are accepted and flagged.' : 'Submissions close after the deadline.'}</p>}
+          {isTeacher && <EditSubmissionPolicy content={content} onSaved={reload} />}
           {!isTeacher && needsGroup && (
             <p className="module-placeholder">
               This is a group assignment. Ask your teacher to add you to a group before you can submit.

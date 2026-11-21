@@ -38,8 +38,7 @@ public class CodingExercise extends Content {
     }
 
     this.repositoryUrl = repositoryUrl.trim();
-    this.deadline = deadline;
-    this.lateSubmissionsAccepted = lateSubmissionsAccepted;
+    updateSubmissionPolicy(deadline, lateSubmissionsAccepted);
     this.groupSubmission = groupSubmission;
   }
 
@@ -49,6 +48,12 @@ public class CodingExercise extends Content {
 
   public LocalDateTime getDeadline() {
     return deadline;
+  }
+
+  public void updateSubmissionPolicy(LocalDateTime deadline, boolean acceptsLate) {
+    HandInPolicy.validateDeadline(deadline);
+    this.deadline = deadline;
+    this.lateSubmissionsAccepted = acceptsLate;
   }
 
   public boolean isLateSubmissionsAccepted() {

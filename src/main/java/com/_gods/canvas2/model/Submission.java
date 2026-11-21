@@ -56,6 +56,17 @@ public class Submission {
   @Column(nullable = false)
   private LocalDateTime submittedAt;
 
+  // Nullable for existing rows, whose historical deadline policy is unknown.
+  private Boolean lateSubmission;
+
+  public boolean isLateSubmission() { return Boolean.TRUE.equals(lateSubmission); }
+  public Boolean getLateSubmission() { return lateSubmission; }
+
+  public void recordSubmissionTime(LocalDateTime time) {
+    submittedAt = java.util.Objects.requireNonNull(time);
+    lateSubmission = HandInPolicy.isLate(content, time);
+  }
+
   @ManyToOne(optional = false)
   @JoinColumn(name = "last_submitted_by", nullable = false)
   private User lastSubmittedBy;

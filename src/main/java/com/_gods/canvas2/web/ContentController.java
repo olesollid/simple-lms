@@ -35,6 +35,14 @@ import com._gods.canvas2.web.dto.StudentInteractionResponse;
 @RequestMapping("/api")
 public class ContentController {
 
+  @PutMapping("/contents/{contentId}/submission-policy")
+  public ContentResponse updateSubmissionPolicy(@PathVariable Long contentId,
+      @RequestBody com._gods.canvas2.web.dto.SubmissionPolicyRequest request,
+      Authentication authentication) {
+    return ContentResponse.from(contentService.updateSubmissionPolicy(contentId, request.deadline(),
+        request.lateSubmissionsAccepted(), authentication.getName()));
+  }
+
   private final ContentService contentService;
   private final StudentInteractionService studentInteractionService;
 

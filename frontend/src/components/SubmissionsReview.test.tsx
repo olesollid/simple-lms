@@ -52,6 +52,12 @@ describe('SubmissionsReview', () => {
     expect(screen.getByText(/by bob@example.com/)).toBeInTheDocument()
   })
 
+  it('flags accepted late submissions for the teacher', async () => {
+    getSubmissionsByContent.mockResolvedValue([{ ...individual, lateSubmission: true }])
+    render(<SubmissionsReview contentId={1} />)
+    expect(await screen.findByText('Submitted late')).toBeInTheDocument()
+  })
+
   it('offers an authenticated download link when grading a file submission', async () => {
     getSubmissionsByContent.mockResolvedValue([{ ...groupSubmission, fileName: 'report.pdf', fileSize: 2048 }])
     render(<SubmissionsReview contentId={1} />)

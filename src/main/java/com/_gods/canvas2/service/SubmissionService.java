@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com._gods.canvas2.model.Assignment;
+import com._gods.canvas2.model.HandInPolicy;
 import com._gods.canvas2.model.CodingExercise;
 import com._gods.canvas2.model.Content;
 import com._gods.canvas2.model.Group;
@@ -80,6 +81,10 @@ public class SubmissionService {
         || !content.isVisibleAt(LocalDateTime.now()))) {
       throw new ContentNotFoundException(contentId);
     }
+    LocalDateTime submittedAt = LocalDateTime.now(HandInPolicy.ZONE);
+    if (HandInPolicy.isLate(content, submittedAt) && !HandInPolicy.acceptsLate(content)) {
+      throw new ForbiddenException("The deadline has passed. Late submissions are not accepted.");
+    }
     User submittedBy = userService.getUserByEmail(requesterEmail);
 
     if (!isTeacher && isGroupSubmission(content)) {
@@ -90,6 +95,7 @@ public class SubmissionService {
       } catch (DataIntegrityViolationException raceLostToConcurrentInsert) {
         saved = updateExistingGroupSubmission(group, submittedBy, content, text, file);
       }
+      saved.recordSubmissionTime(submittedAt);
       studentInteractionService.markCompleted(contentId, requesterEmail);
       return saved;
     }
@@ -100,6 +106,7 @@ public class SubmissionService {
     } catch (DataIntegrityViolationException raceLostToConcurrentInsert) {
       saved = updateExistingSubmission(submittedBy, content, text, file);
     }
+    saved.recordSubmissionTime(submittedAt);
     studentInteractionService.markCompleted(contentId, requesterEmail);
     return saved;
   }

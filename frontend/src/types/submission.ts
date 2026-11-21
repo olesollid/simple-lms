@@ -17,6 +17,7 @@ export interface SubmissionResponse {
   feedback: string | null
   gradedAt: string | null
   gradingComplete?: boolean
+  lateSubmission?: boolean | null
   fileName?: string | null
   fileContentType?: string | null
   fileSize?: number | null

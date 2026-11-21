@@ -32,6 +32,83 @@ import com._gods.canvas2.repository.UserRepository;
     EnrollmentService.class, UserService.class, StudentInteractionService.class,
     GroupService.class})
 class SubmissionServiceTests {
+  private java.time.LocalDateTime nowOslo() {
+    return java.time.LocalDateTime.now(com._gods.canvas2.model.HandInPolicy.ZONE);
+  }
+
+  @Test
+  void deadlineRejectsTextAndFileResubmissionsWithoutChangingExistingWork() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Assignment assignment = assignmentIn(course, teacher);
+    Submission saved = submissionService.submit(assignment.getId(), "On time", pdf("original.pdf"), student);
+    assertFalse(saved.isLateSubmission());
+    var originalTime = saved.getSubmittedAt();
+    contentService.updateSubmissionPolicy(assignment.getId(), nowOslo().minusHours(1), false, teacher);
+    assertThrows(ForbiddenException.class,
+        () -> submissionService.submit(assignment.getId(), "Too late", student));
+    assertThrows(ForbiddenException.class,
+        () -> submissionService.submit(assignment.getId(), "", pdf("late.pdf"), student));
+    assertEquals("On time", saved.getText());
+    assertEquals("original.pdf", saved.getFile().getFilename());
+    assertEquals(originalTime, saved.getSubmittedAt());
+    assertFalse(saved.isLateSubmission());
+  }
+
+  @Test
+  void acceptedGroupResubmissionStoresLateFlagForAllMembersAndKeepsItAfterPolicyChange() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String alice = studentOf(course);
+    String bob = studentOf(course);
+    Assignment assignment = groupAssignmentIn(course, teacher);
+    Group group = groupService.createGroup(course.getId(), "Late team", teacher);
+    groupService.addMember(group.getId(), alice, teacher);
+    groupService.addMember(group.getId(), bob, teacher);
+    Submission original = submissionService.submit(assignment.getId(), "Draft", alice);
+    contentService.updateSubmissionPolicy(assignment.getId(), nowOslo().minusHours(1), true, teacher);
+    Submission late = submissionService.submit(assignment.getId(), "", pdf("final.pdf"), bob);
+    assertEquals(original.getId(), late.getId());
+    assertTrue(late.isLateSubmission());
+    assertTrue(com._gods.canvas2.web.dto.SubmissionResponse.forStudent(late).lateSubmission());
+    Long id = late.getId();
+    entityManager.flush();
+    entityManager.clear();
+    assertTrue(submissionService.getOwnSubmission(assignment.getId(), alice).isLateSubmission());
+    contentService.updateSubmissionPolicy(assignment.getId(), nowOslo().plusHours(1), false, teacher);
+    assertTrue(submissionService.getOwnSubmission(assignment.getId(), bob).isLateSubmission());
+    assertEquals(id, submissionService.getOwnSubmission(assignment.getId(), bob).getId());
+  }
+
+  @Test
+  void codingExerciseEnforcesLatePolicyAndTeacherCanReopenIt() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Module module = moduleRepository.save(new Module(course, "Code"));
+    var exercise = contentService.createCodingExercise(module.getId(), "Exercise", 0,
+        "https://example.com/repo", nowOslo().minusHours(1), false, false, teacher);
+    assertThrows(ForbiddenException.class,
+        () -> submissionService.submit(exercise.getId(), "Code", student));
+    contentService.updateSubmissionPolicy(exercise.getId(), nowOslo().minusHours(1), true, teacher);
+    assertTrue(submissionService.submit(exercise.getId(), "", pdf("code.pdf"), student).isLateSubmission());
+    contentService.updateSubmissionPolicy(exercise.getId(), nowOslo().plusHours(1), false, teacher);
+    assertFalse(submissionService.submit(exercise.getId(), "New work", student).isLateSubmission());
+  }
+
+  @Test
+  void policyUpdatesRequireATeacherInTheSameCourse() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    Assignment assignment = assignmentIn(course, teacher);
+    assertThrows(ForbiddenException.class,
+        () -> contentService.updateSubmissionPolicy(assignment.getId(), null, true, student));
+    String otherTeacher = teacherOf(course());
+    assertThrows(ForbiddenException.class,
+        () -> contentService.updateSubmissionPolicy(assignment.getId(), null, true, otherTeacher));
+  }
   @Autowired
   private jakarta.persistence.EntityManager entityManager;
 
