@@ -1,6 +1,7 @@
 package com._gods.canvas2.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -166,6 +167,21 @@ class StudentInteractionServiceTests {
     StudentInteraction interaction = studentInteractionService.markCompleted(week2Page.getId(), student);
 
     assertNotNull(interaction.getCompletedAt());
+  }
+
+  @Test
+  void aDraftQuizInAPrerequisiteModuleDoesNotKeepTheNextModuleLocked() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    String student = studentOf(course);
+    StaticPage week1Page = pageIn(course, teacher);
+    contentService.createQuiz(week1Page.getModule().getId(), "Unfinished quiz", 1, 1, false, null,
+        teacher);
+    Module week2 = moduleRepository.save(new Module(course, "Week 2"));
+    week2 = moduleService.addDependency(week2.getId(), week1Page.getModule().getId(), teacher);
+    studentInteractionService.markCompleted(week1Page.getId(), student);
+
+    assertFalse(moduleService.isLocked(week2, student));
   }
 
   @Test

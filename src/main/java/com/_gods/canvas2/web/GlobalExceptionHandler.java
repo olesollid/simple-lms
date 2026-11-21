@@ -1,5 +1,8 @@
 package com._gods.canvas2.web;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.AmqpException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -14,6 +17,8 @@ import com._gods.canvas2.web.dto.ErrorResponse;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
   @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
   public ResponseEntity<ErrorResponse> handleUploadTooLarge(Exception exception) {
@@ -58,12 +63,22 @@ public class GlobalExceptionHandler {
         .body(new ErrorResponse("Malformed request"));
   }
 
+  /** RabbitMQ is down or unreachable, so a quiz attempt cannot be queued for grading. */
+  @ExceptionHandler(AmqpException.class)
+  public ResponseEntity<ErrorResponse> handleMessagingUnavailable(AmqpException exception) {
+    log.error("Message broker unavailable: {}", exception.getMessage());
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .body(new ErrorResponse("Quiz grading is temporarily unavailable. Try again in a moment."));
+  }
+
   /**
    * Fallback for anything not covered above, so an unexpected bug still returns this API's own
-   * {@link ErrorResponse} shape instead of Spring Boot's default error body.
+   * {@link ErrorResponse} shape instead of Spring Boot's default error body. The client only gets
+   * a generic message, so the full error is logged here -- otherwise it would be invisible.
    */
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> handleUnexpected(Exception exception) {
+    log.error("Unhandled error", exception);
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
         .body(new ErrorResponse("An unexpected error occurred"));
   }

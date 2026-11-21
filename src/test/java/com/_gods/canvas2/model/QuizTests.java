@@ -36,8 +36,69 @@ class QuizTests {
   }
 
   @Test
-  void rejectsNonPositiveMaxAttempts() {
-    assertThrows(IllegalArgumentException.class, () -> new Quiz(module(), "Week 1 Quiz", 0, 0, true));
+  void rejectsNegativeMaxAttempts() {
+    assertThrows(IllegalArgumentException.class, () -> new Quiz(module(), "Week 1 Quiz", 0, -1, true));
+  }
+
+  @Test
+  void zeroMaxAttemptsMeansUnlimited() {
+    assertTrue(new Quiz(module(), "Week 1 Quiz", 0, Quiz.UNLIMITED_ATTEMPTS, false).hasUnlimitedAttempts());
+    assertFalse(new Quiz(module(), "Week 1 Quiz", 0, 3, false).hasUnlimitedAttempts());
+  }
+
+  @Test
+  void startsAsAnInvisibleDraftAndBecomesVisibleWhenPublished() {
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    quiz.addQuestion("What is 2+2?");
+
+    assertFalse(quiz.isPublished());
+    assertFalse(quiz.isVisibleAt(LocalDateTime.now()));
+    quiz.publish();
+    assertTrue(quiz.isPublished());
+    assertTrue(quiz.isVisibleAt(LocalDateTime.now()));
+  }
+
+  @Test
+  void closesAfterItsDeadlineButNotExactlyAtIt() {
+    LocalDateTime deadline = LocalDateTime.of(2026, 12, 1, 12, 0);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false, deadline);
+
+    assertFalse(quiz.isClosedAt(deadline));
+    assertTrue(quiz.isClosedAt(deadline.plusSeconds(1)));
+    quiz.updateDeadline(null);
+    assertFalse(quiz.isClosedAt(deadline.plusYears(1)));
+  }
+
+  @Test
+  void rejectsADeadlineThatIsAmbiguousWhenTheClocksGoBack() {
+    // 25 October 2026, 02:30 happens twice in Europe/Oslo.
+    LocalDateTime ambiguous = LocalDateTime.of(2026, 10, 25, 2, 30);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+
+    assertThrows(IllegalArgumentException.class, () -> quiz.updateDeadline(ambiguous));
+    assertThrows(IllegalArgumentException.class,
+        () -> new Quiz(module(), "Week 1 Quiz", 0, 1, false, ambiguous));
+  }
+
+  @Test
+  void cannotPublishWithoutQuestions() {
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+
+    assertThrows(IllegalStateException.class, quiz::publish);
+  }
+
+  @Test
+  void removingAQuestionRenumbersTheRest() {
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    Question first = quiz.addQuestion("First");
+    quiz.addQuestion("Second");
+    Question third = quiz.addQuestion("Third", "A hint");
+
+    quiz.removeQuestion(first);
+
+    assertEquals(2, quiz.getQuestions().size());
+    assertEquals(1, third.getPosition());
+    assertEquals("A hint", third.getHint());
   }
 
   @Test

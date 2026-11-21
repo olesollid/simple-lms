@@ -27,6 +27,18 @@ it('saves an edited deadline and late policy without browser timezone conversion
   expect(onSaved).toHaveBeenCalledOnce()
 })
 
+it('edits only the deadline for a quiz, which simply closes at it', async () => {
+  const user = userEvent.setup()
+  const quiz: ContentResponse = { ...content, id: 9, type: 'Quiz', deadline: null, lateSubmissionsAccepted: null }
+  updateSubmissionPolicy.mockResolvedValue(quiz)
+  render(<EditSubmissionPolicy content={quiz} onSaved={vi.fn()} />)
+  await user.click(screen.getByRole('button', { name: 'Edit deadline' }))
+  expect(screen.queryByLabelText('Accept late submissions')).not.toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText('Deadline (Europe/Oslo)'), { target: { value: '2026-12-01T15:30' } })
+  await user.click(screen.getByRole('button', { name: 'Save deadline settings' }))
+  expect(updateSubmissionPolicy).toHaveBeenCalledWith(9, { deadline: '2026-12-01T15:30', lateSubmissionsAccepted: false })
+})
+
 it('allows removing a deadline and keeps the form open after a rejected update', async () => {
   const user = userEvent.setup()
   const onSaved = vi.fn()

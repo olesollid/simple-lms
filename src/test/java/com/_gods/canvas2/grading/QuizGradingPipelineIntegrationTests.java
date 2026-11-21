@@ -106,7 +106,7 @@ class QuizGradingPipelineIntegrationTests {
     Quiz quiz = contentRepository.save(new Quiz(module, "Week 1 Quiz", 0, 1, false));
 
     quizService.addQuestion(quiz.getId(),
-        new QuestionRequest("Which are prime?", List.of(
+        new QuestionRequest("Which are prime?", null, List.of(
             new AnswerOptionRequest("2", true),
             new AnswerOptionRequest("4", false))),
         teacher.getEmail());
@@ -114,17 +114,21 @@ class QuizGradingPipelineIntegrationTests {
     Long correctOptionId = reloadedQuestion.getOptions().stream()
         .filter(o -> o.getText().equals("2"))
         .findFirst().orElseThrow().getId();
+    quizService.publishQuiz(quiz.getId(), teacher.getEmail());
 
-    quizSubmissionService.submit(quiz.getId(),
+    int attemptNumber = quizSubmissionService.submit(quiz.getId(),
         new QuizSubmissionRequest(Map.of(reloadedQuestion.getId(), List.of(correctOptionId))),
         student.getEmail());
 
-    Optional<QuizGrade> grade = awaitGrade(quiz.getId(), student.getEmail());
+    Optional<QuizGrade> grade = awaitGrade(quiz, student.getEmail());
 
     assertTrue(grade.isPresent());
     assertEquals(1, grade.get().correctQuestions());
     assertEquals(1, grade.get().totalQuestions());
     assertEquals(1.0, grade.get().score());
+    assertEquals(1, attemptNumber);
+    assertEquals(1, grade.get().attemptNumber());
+    assertEquals(List.of(), grade.get().incorrectQuestionIds());
 
     Optional<StudentInteraction> interaction =
         studentInteractionRepository.findByUserAndContent(student, quiz);
@@ -133,9 +137,9 @@ class QuizGradingPipelineIntegrationTests {
   }
 
   /** Grading happens asynchronously off a real broker, so poll instead of asserting immediately. */
-  private Optional<QuizGrade> awaitGrade(Long quizId, String studentEmail) throws InterruptedException {
+  private Optional<QuizGrade> awaitGrade(Quiz quiz, String studentEmail) throws InterruptedException {
     for (int attempt = 0; attempt < 100; attempt++) {
-      Optional<QuizGrade> grade = quizGradeStore.find(quizId, studentEmail);
+      Optional<QuizGrade> grade = quizGradeStore.find(quiz, studentEmail);
       if (grade.isPresent()) {
         return grade;
       }

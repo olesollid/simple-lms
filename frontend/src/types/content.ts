@@ -14,6 +14,12 @@ export interface ContentResponse {
   deadline: string | null
   lateSubmissionsAccepted: boolean | null
   groupSubmission: boolean | null
+  /** Quizzes only: 0 means unlimited attempts. */
+  maxAttempts?: number | null
+  /** Quizzes only: false while the quiz is a draft that students cannot see. */
+  published?: boolean | null
+  /** Quizzes only: true once the Europe/Oslo deadline has passed (decided by the server). */
+  closed?: boolean | null
 }
 
 export interface StaticPageRequest {
@@ -27,8 +33,8 @@ export interface StaticPageRequest {
 export interface QuizRequest {
   title: string
   position: number
+  /** 0 means unlimited attempts. */
   maxAttempts: number
-  showHints: boolean
   deadline: string | null
 }
 

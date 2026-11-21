@@ -20,8 +20,14 @@ import com._gods.canvas2.model.Quiz;
 public class QuizGrader {
 
   public QuizGrade grade(Quiz quiz, String studentEmail, Map<Long, List<Long>> answers) {
+    return grade(quiz, studentEmail, 1, answers);
+  }
+
+  public QuizGrade grade(Quiz quiz, String studentEmail, int attemptNumber,
+      Map<Long, List<Long>> answers) {
     List<Question> questions = quiz.getQuestions();
     int correctCount = 0;
+    List<Long> incorrectQuestionIds = new java.util.ArrayList<>();
 
     for (Question question : questions) {
       Set<Long> correctOptionIds = question.getOptions().stream()
@@ -34,13 +40,15 @@ public class QuizGrader {
 
       if (selectedOptionIds.equals(correctOptionIds)) {
         correctCount++;
+      } else if (question.getId() != null) {
+        incorrectQuestionIds.add(question.getId());
       }
     }
 
     int total = questions.size();
     double score = total == 0 ? 0.0 : (double) correctCount / total;
 
-    return new QuizGrade(quiz.getId(), studentEmail, correctCount, total, score,
-        LocalDateTime.now());
+    return new QuizGrade(quiz.getId(), studentEmail, attemptNumber, correctCount, total, score,
+        List.copyOf(incorrectQuestionIds), LocalDateTime.now());
   }
 }

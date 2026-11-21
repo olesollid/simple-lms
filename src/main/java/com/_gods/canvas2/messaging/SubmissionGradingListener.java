@@ -40,7 +40,8 @@ public class SubmissionGradingListener {
   @Transactional
   public void onSubmissionCreated(SubmissionCreatedEvent event) {
     Quiz quiz = quizService.getQuiz(event.quizId());
-    QuizGrade grade = quizGrader.grade(quiz, event.studentEmail(), event.answers());
+    QuizGrade grade = quizGrader.grade(quiz, event.studentEmail(), event.attemptNumber(),
+        event.answers());
     // Submitting a quiz is the unambiguous "done" signal for it, so mark completion
     // automatically rather than requiring a separate explicit call from the student. Done before
     // the Redis write (which the DB transaction can't roll back) so a failure here never leaves a
@@ -48,6 +49,6 @@ public class SubmissionGradingListener {
     // after a failure safely repeats both steps, since grading is deterministic and marking an
     // already-completed interaction completed again is a no-op.
     studentInteractionService.markCompleted(quiz.getId(), event.studentEmail());
-    quizGradeStore.save(grade);
+    quizGradeStore.save(quiz, grade);
   }
 }

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 import org.hibernate.Hibernate;
 
@@ -18,8 +19,26 @@ import jakarta.persistence.OrderBy;
 @DiscriminatorValue("QUIZ")
 public class Quiz extends Content {
 
+  /** Number of attempts a student gets; {@link #UNLIMITED_ATTEMPTS} means no limit. */
   @Column(nullable = false)
   private int maxAttempts;
+
+  public static final int UNLIMITED_ATTEMPTS = 0;
+
+  /**
+   * A quiz starts as a draft: teachers can still add, edit and remove questions, and students
+   * cannot see it. Publishing freezes the questions so every attempt is graded the same way.
+   */
+  @Column(nullable = false, columnDefinition = "boolean default false")
+  private boolean published;
+
+  /**
+   * Random, never-reused identity for this quiz's grades and attempt counts in Redis. Database IDs
+   * are not safe for that: Redis outlives the database, and a fresh database (every dev restart)
+   * hands out the same IDs again, so a new quiz would inherit an old quiz's attempts and grades.
+   */
+  @Column(name = "grade_key", unique = true, updatable = false, length = 36)
+  private String gradeKey;
 
   @Column(nullable = false)
   private boolean showHints;
@@ -42,17 +61,57 @@ public class Quiz extends Content {
       LocalDateTime deadline) {
     super(module, title, position);
 
-    if (maxAttempts < 1) {
-      throw new IllegalArgumentException("maxAttempts must be at least 1");
+    if (maxAttempts < 0) {
+      throw new IllegalArgumentException("maxAttempts must not be negative (0 means unlimited)");
     }
 
+    HandInPolicy.validateDeadline(deadline);
     this.maxAttempts = maxAttempts;
     this.showHints = showHints;
+    this.gradeKey = UUID.randomUUID().toString();
     this.deadline = deadline;
   }
 
   public int getMaxAttempts() {
     return maxAttempts;
+  }
+
+  /** Quizzes created before this key existed fall back to their ID, which is what they used. */
+  public String getGradeKey() {
+    return gradeKey != null ? gradeKey : String.valueOf(getId());
+  }
+
+  /** Sets or clears (null) the deadline. Times are Europe/Oslo wall-clock, like hand-ins. */
+  public void updateDeadline(LocalDateTime deadline) {
+    HandInPolicy.validateDeadline(deadline);
+    this.deadline = deadline;
+  }
+
+  /** A quiz with a deadline closes at it: no new attempts after, exactly at the deadline is fine. */
+  public boolean isClosedAt(LocalDateTime time) {
+    return deadline != null && time.isAfter(deadline);
+  }
+
+  public boolean hasUnlimitedAttempts() {
+    return maxAttempts == UNLIMITED_ATTEMPTS;
+  }
+
+  public boolean isPublished() {
+    return published;
+  }
+
+  /** Makes the quiz available to students. Throws if it has no questions yet. */
+  public void publish() {
+    if (questions.isEmpty()) {
+      throw new IllegalStateException("A quiz needs at least one question before it can be published");
+    }
+    published = true;
+  }
+
+  /** A draft quiz is never visible to students, whatever its visibility window says. */
+  @Override
+  public boolean isVisibleAt(LocalDateTime time) {
+    return published && super.isVisibleAt(time);
   }
 
   public boolean isShowHints() {
@@ -78,8 +137,22 @@ public class Quiz extends Content {
   }
 
   public Question addQuestion(String text) {
-    Question question = new Question(this, text, questions.size());
+    return addQuestion(text, null);
+  }
+
+  public Question addQuestion(String text, String hint) {
+    Question question = new Question(this, text, questions.size(), hint);
     questions.add(question);
     return question;
+  }
+
+  /** Removes a question and closes the gap so positions stay 0..n-1. */
+  public void removeQuestion(Question question) {
+    if (!questions.remove(question)) {
+      throw new IllegalArgumentException("Question does not belong to this quiz");
+    }
+    for (int i = 0; i < questions.size(); i++) {
+      questions.get(i).setPosition(i);
+    }
   }
 }

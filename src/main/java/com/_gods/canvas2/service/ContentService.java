@@ -143,7 +143,9 @@ public class ContentService {
     switch (content) {
       case Assignment assignment -> assignment.updateSubmissionPolicy(deadline, acceptsLate);
       case CodingExercise exercise -> exercise.updateSubmissionPolicy(deadline, acceptsLate);
-      default -> throw new IllegalArgumentException("Only assignments and coding exercises have hand-in policies");
+      // A quiz simply closes at its deadline; there are no late attempts to accept.
+      case Quiz quiz -> quiz.updateDeadline(deadline);
+      default -> throw new IllegalArgumentException("Only assignments, coding exercises and quizzes have deadlines");
     }
     return contentRepository.save(content);
   }

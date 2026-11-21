@@ -29,7 +29,7 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
   const [deadline, setDeadline] = useState('')
   const [acceptsLate, setAcceptsLate] = useState(false)
   const [maxAttempts, setMaxAttempts] = useState(1)
-  const [showHints, setShowHints] = useState(false)
+  const [unlimitedAttempts, setUnlimitedAttempts] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,7 +43,7 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
     setDeadline('')
     setAcceptsLate(false)
     setMaxAttempts(1)
-    setShowHints(false)
+    setUnlimitedAttempts(false)
     setError(null)
   }
 
@@ -63,7 +63,7 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
           { title, position: 0, body, visibleFrom: null, visibleUntil: null }, {})
       } else if (type === 'Quiz') {
         content = await contents.createQuiz(moduleId,
-          { title, position: 0, maxAttempts, showHints, deadline: null }, {})
+          { title, position: 0, maxAttempts: unlimitedAttempts ? 0 : maxAttempts, deadline: deadline || null }, {})
       } else if (type === 'Assignment') {
         content = await contents.createAssignment(moduleId,
           { title, position: 0, instructions, deadline: deadline || null, lateSubmissionsAccepted: acceptsLate,
@@ -120,22 +120,28 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
 
         {type === 'Quiz' && (
           <>
-            <Input
-              label="Max attempts"
-              type="number"
-              min="1"
-              value={maxAttempts}
-              onChange={event => setMaxAttempts(Number(event.target.value))}
-              required
-            />
+            {!unlimitedAttempts && (
+              <Input
+                label="Max attempts"
+                type="number"
+                min="1"
+                value={maxAttempts}
+                onChange={event => setMaxAttempts(Number(event.target.value))}
+                required
+              />
+            )}
             <label className="ui-checkbox-field">
               <input
                 type="checkbox"
-                checked={showHints}
-                onChange={event => setShowHints(event.target.checked)}
+                checked={unlimitedAttempts}
+                onChange={event => setUnlimitedAttempts(event.target.checked)}
               />
-              Show hints
+              Unlimited attempts
             </label>
+            <SubmissionPolicyFields deadline={deadline} onDeadline={setDeadline} />
+            <p className="module-placeholder">
+              The quiz starts as a draft. Add questions and hints, then publish it for students.
+            </p>
           </>
         )}
 

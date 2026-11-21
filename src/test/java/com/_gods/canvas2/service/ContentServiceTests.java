@@ -123,6 +123,33 @@ class ContentServiceTests {
   }
 
   @Test
+  void teacherCanSetAndClearAQuizDeadline() {
+    Module module = module();
+    Quiz quiz = contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, false, null,
+        teacherEmail);
+    LocalDateTime deadline = LocalDateTime.of(2026, 12, 1, 12, 0);
+
+    Quiz updated = (Quiz) contentService.updateSubmissionPolicy(quiz.getId(), deadline, true,
+        teacherEmail);
+    assertEquals(deadline, updated.getDeadline());
+
+    Quiz cleared = (Quiz) contentService.updateSubmissionPolicy(quiz.getId(), null, false,
+        teacherEmail);
+    assertEquals(null, cleared.getDeadline());
+  }
+
+  @Test
+  void studentCannotChangeAQuizDeadline() {
+    Module module = module();
+    Quiz quiz = contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, false, null,
+        teacherEmail);
+    String student = studentOf(module);
+
+    assertThrows(ForbiddenException.class, () -> contentService.updateSubmissionPolicy(
+        quiz.getId(), LocalDateTime.of(2026, 12, 1, 12, 0), false, student));
+  }
+
+  @Test
   void rejectsCreatingQuizByStudent() {
     Module module = module();
     String student = studentOf(module);

@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com._gods.canvas2.model.Content;
+import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Role;
 import com._gods.canvas2.model.StudentInteraction;
@@ -108,6 +109,9 @@ public class StudentInteractionService {
     for (Module dependency : module.getDependencies()) {
       List<Content> contents = contentRepository.findByModuleOrderByPosition(dependency);
       for (Content content : contents) {
+        if (content instanceof Quiz quiz && !quiz.isPublished()) {
+          continue; // a draft quiz is invisible to students, so it can't be required either
+        }
         boolean completed = studentInteractionRepository.findByUserAndContent(user, content)
             .map(interaction -> interaction.getCompletedAt() != null)
             .orElse(false);
