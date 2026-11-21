@@ -388,4 +388,48 @@ class QuizSubmissionServiceTests {
     assertEquals(null, attempts.latest());
     assertEquals(false, attempts.resultsPublished());
   }
+
+  @Test
+  void sendsTypedAnswersAlongWithTheSelectedOptions() {
+    Quiz quiz = quiz(3);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    when(quizGradeStore.reserveAttempt(any(Quiz.class), eq(student))).thenReturn(Optional.of(1));
+
+    quizSubmissionService.submit(quiz.getId(),
+        new QuizSubmissionRequest(Map.of(1L, List.of(10L)), Map.of(2L, List.of("Oslo", "Norway"))), student);
+
+    ArgumentCaptor<SubmissionCreatedEvent> event = ArgumentCaptor.forClass(SubmissionCreatedEvent.class);
+    verify(submissionPublisher).publish(event.capture());
+    assertEquals(Map.of(1L, List.of(10L)), event.getValue().answers());
+    assertEquals(Map.of(2L, List.of("Oslo", "Norway")), event.getValue().textAnswers());
+  }
+
+  @Test
+  void typedAnswersAreOptional() {
+    Quiz quiz = quiz(3);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    when(quizGradeStore.reserveAttempt(any(Quiz.class), eq(student))).thenReturn(Optional.of(1));
+
+    quizSubmissionService.submit(quiz.getId(), ANSWERS, student);
+
+    ArgumentCaptor<SubmissionCreatedEvent> event = ArgumentCaptor.forClass(SubmissionCreatedEvent.class);
+    verify(submissionPublisher).publish(event.capture());
+    assertEquals(null, event.getValue().textAnswers());
+  }
+
+  @Test
+  void rejectsOversizedTypedAnswersWithoutUsingAnAttempt() {
+    Quiz quiz = quiz(3);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+
+    assertThrows(IllegalArgumentException.class, () -> quizSubmissionService.submit(quiz.getId(),
+        new QuizSubmissionRequest(Map.of(), Map.of(1L, List.of("x".repeat(201)))), student));
+    assertThrows(IllegalArgumentException.class, () -> quizSubmissionService.submit(quiz.getId(),
+        new QuizSubmissionRequest(Map.of(), Map.of(1L, java.util.Collections.nCopies(21, "a"))), student));
+    verify(quizGradeStore, never()).reserveAttempt(any(Quiz.class), any());
+    verify(submissionPublisher, never()).publish(any());
+  }
 }

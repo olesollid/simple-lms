@@ -1,6 +1,8 @@
 package com._gods.canvas2.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -163,18 +165,69 @@ public class QuizService {
     return quiz;
   }
 
+  private static final int MAX_BLANKS = 20;
+
   private static void validate(QuestionRequest request) {
     if (request.text() == null || request.text().isBlank()) {
       throw new IllegalArgumentException("Question text must not be blank");
     }
-    if (request.options() == null || request.options().size() < 2) {
-      throw new IllegalArgumentException("A question needs at least two answer options");
+    Question.Type type = typeOf(request);
+    if (request.options() == null || request.options().isEmpty()) {
+      throw new IllegalArgumentException("A question needs answer options");
     }
-    // An ordering question's correct answer is the order of its options, so it has no flags.
-    boolean ordering = request.type() == Question.Type.ORDERING;
-    if (!ordering && request.options().stream().noneMatch(AnswerOptionRequest::correct)) {
-      throw new IllegalArgumentException("A question needs at least one correct answer option");
+    switch (type) {
+      case CHOICE -> {
+        requireAtLeastTwo(request, "answer options");
+        requireOptionTexts(request);
+        if (request.options().stream().noneMatch(AnswerOptionRequest::correct)) {
+          throw new IllegalArgumentException("A question needs at least one correct answer option");
+        }
+      }
+      // An ordering question's correct answer is the order of its options, so it has no flags.
+      case ORDERING -> {
+        requireAtLeastTwo(request, "answer options");
+        requireOptionTexts(request);
+      }
+      case MATCHING -> {
+        requireAtLeastTwo(request, "pairs");
+        requireOptionTexts(request);
+        for (AnswerOptionRequest option : request.options()) {
+          if (option.matchText() == null || option.matchText().isBlank()) {
+            throw new IllegalArgumentException("Every pair needs a right-hand item to match");
+          }
+        }
+      }
+      case FILL_IN -> {
+        if (request.options().size() > MAX_BLANKS) {
+          throw new IllegalArgumentException("A question can have at most " + MAX_BLANKS + " blanks");
+        }
+        requireOptionTexts(request);
+        if (Question.blankCount(request.text()) != request.options().size()) {
+          throw new IllegalArgumentException("The question text needs one " + Question.BLANK
+              + " for each blank, and each blank needs its accepted answers ("
+              + request.options().size() + " given, "
+              + Question.blankCount(request.text()) + " in the text)");
+        }
+        for (AnswerOptionRequest option : request.options()) {
+          if (java.util.Arrays.stream(option.text().split("\\|")).allMatch(String::isBlank)) {
+            throw new IllegalArgumentException("Every blank needs at least one accepted answer");
+          }
+        }
+      }
     }
+  }
+
+  private static Question.Type typeOf(QuestionRequest request) {
+    return request.type() == null ? Question.Type.CHOICE : request.type();
+  }
+
+  private static void requireAtLeastTwo(QuestionRequest request, String what) {
+    if (request.options().size() < 2) {
+      throw new IllegalArgumentException("A question needs at least two " + what);
+    }
+  }
+
+  private static void requireOptionTexts(QuestionRequest request) {
     for (AnswerOptionRequest option : request.options()) {
       if (option.text() == null || option.text().isBlank()) {
         throw new IllegalArgumentException("Answer option text must not be blank");
@@ -182,10 +235,24 @@ public class QuizService {
     }
   }
 
+  /**
+   * Remembers where the teacher put each option ({@code position}). For ORDERING and MATCHING the
+   * options are created in a random order, because the database ids follow creation order: in
+   * authored order they would let a student read the answer off the ids the quiz serves.
+   */
   private static void addOptions(Question question, QuestionRequest request) {
-    boolean ordering = request.type() == Question.Type.ORDERING;
-    for (AnswerOptionRequest option : request.options()) {
-      question.addOption(option.text(), ordering || option.correct());
+    Question.Type type = typeOf(request);
+    List<Integer> creationOrder = new ArrayList<>();
+    for (int i = 0; i < request.options().size(); i++) {
+      creationOrder.add(i);
+    }
+    if (type == Question.Type.ORDERING || type == Question.Type.MATCHING) {
+      Collections.shuffle(creationOrder);
+    }
+    for (int index : creationOrder) {
+      AnswerOptionRequest option = request.options().get(index);
+      question.addOption(option.text(), type != Question.Type.CHOICE || option.correct(),
+          type == Question.Type.MATCHING ? option.matchText() : null, index);
     }
   }
 

@@ -162,7 +162,7 @@ class QuizGraderDataTests {
   }
 
   private static List<Long> authoredOrder(Quiz quiz) {
-    return quiz.getQuestions().getFirst().getOptions().stream().map(AnswerOption::getId).toList();
+    return quiz.getQuestions().getFirst().getOptionsInOrder().stream().map(AnswerOption::getId).toList();
   }
 
   @Test
@@ -193,5 +193,159 @@ class QuizGraderDataTests {
     assertEquals(0, missingOne.correctQuestions());
     assertEquals(0, duplicated.correctQuestions());
     assertEquals(0, unanswered.correctQuestions());
+  }
+
+  private Quiz quizWithMatchingQuestion(String[][] pairs) {
+    Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
+    Module module = moduleRepository.save(new Module(course, "Week 1"));
+    Quiz quiz = new Quiz(module, "Match quiz", 0, 1, false);
+    Question question = quiz.addQuestion("Match them");
+    question.setType(Question.Type.MATCHING);
+    // Created back to front, so the ids run opposite to the positions.
+    for (int i = pairs.length - 1; i >= 0; i--) {
+      question.addOption(pairs[i][0], true, pairs[i][1], i);
+    }
+    return (Quiz) contentRepository.save(quiz);
+  }
+
+  private static Question onlyQuestion(Quiz quiz) {
+    return quiz.getQuestions().getFirst();
+  }
+
+  private static List<Long> optionIdsByPosition(Quiz quiz) {
+    return onlyQuestion(quiz).getOptionsInOrder().stream().map(AnswerOption::getId).toList();
+  }
+
+  @Test
+  void gradesAMatchingQuestionCorrectOnlyWhenEveryPairIsRight() {
+    Quiz quiz = quizWithMatchingQuestion(new String[][] {
+        {"Norway", "Oslo"}, {"France", "Paris"}, {"Spain", "Madrid"}});
+    Long id = onlyQuestion(quiz).getId();
+    List<Long> byPosition = optionIdsByPosition(quiz);
+
+    QuizGrade right = grader.grade(quiz, "s@example.com", Map.of(id, byPosition));
+    QuizGrade swapped = grader.grade(quiz, "s@example.com",
+        Map.of(id, List.of(byPosition.get(1), byPosition.get(0), byPosition.get(2))));
+
+    assertEquals(1, right.correctQuestions());
+    assertEquals(0, swapped.correctQuestions());
+    assertEquals(List.of(id), swapped.incorrectQuestionIds());
+  }
+
+  @Test
+  void aMatchingAnswerMustChooseOneRightHandItemPerLeftHandItem() {
+    Quiz quiz = quizWithMatchingQuestion(new String[][] {
+        {"Norway", "Oslo"}, {"France", "Paris"}, {"Spain", "Madrid"}});
+    Long id = onlyQuestion(quiz).getId();
+    List<Long> byPosition = optionIdsByPosition(quiz);
+
+    assertEquals(0, grader.grade(quiz, "s@example.com", Map.of(id, byPosition.subList(0, 2))).correctQuestions());
+    assertEquals(0, grader.grade(quiz, "s@example.com", Map.of(id, List.of(
+        byPosition.get(0), byPosition.get(1), byPosition.get(2), byPosition.get(2)))).correctQuestions());
+    assertEquals(0, grader.grade(quiz, "s@example.com", Map.of(id, List.of(
+        byPosition.get(0), byPosition.get(1), 999_999L))).correctQuestions());
+    assertEquals(0, grader.grade(quiz, "s@example.com", Map.of()).correctQuestions());
+  }
+
+  @Test
+  void pairsWithTheSameRightHandTextAreInterchangeable() {
+    Quiz quiz = quizWithMatchingQuestion(new String[][] {
+        {"Cat", "Mammal"}, {"Dog", "Mammal"}, {"Trout", "Fish"}});
+    Long id = onlyQuestion(quiz).getId();
+    List<Long> byPosition = optionIdsByPosition(quiz);
+
+    // Cat -> the Dog pair's "Mammal" is just as right as its own.
+    QuizGrade grade = grader.grade(quiz, "s@example.com",
+        Map.of(id, List.of(byPosition.get(1), byPosition.get(0), byPosition.get(2))));
+
+    assertEquals(1, grade.correctQuestions());
+  }
+
+  private Quiz quizWithFillInQuestion(String text, String... blanks) {
+    Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
+    Module module = moduleRepository.save(new Module(course, "Week 1"));
+    Quiz quiz = new Quiz(module, "Fill-in quiz", 0, 1, false);
+    Question question = quiz.addQuestion(text);
+    question.setType(Question.Type.FILL_IN);
+    for (int i = 0; i < blanks.length; i++) {
+      question.addOption(blanks[i], true, null, i);
+    }
+    return (Quiz) contentRepository.save(quiz);
+  }
+
+  private QuizGrade gradeText(Quiz quiz, List<String> typed) {
+    return grader.grade(quiz, "s@example.com", 1, Map.of(), Map.of(onlyQuestion(quiz).getId(), typed));
+  }
+
+  @Test
+  void gradesAFillInQuestionIgnoringCaseAndSurroundingSpaces() {
+    Quiz quiz = quizWithFillInQuestion("The capital of ___ is ___.", "Norway", "Oslo");
+
+    assertEquals(1, gradeText(quiz, List.of("norway", "  OSLO ")).correctQuestions());
+    assertEquals(1, gradeText(quiz, List.of("Norway", "Oslo")).correctQuestions());
+  }
+
+  @Test
+  void aFillInBlankAcceptsAnyOfItsAlternatives() {
+    Quiz quiz = quizWithFillInQuestion("Capital of ___ is ___.", "Norway|Norge", "Oslo|Kristiania");
+
+    assertEquals(1, gradeText(quiz, List.of("Norge", "Kristiania")).correctQuestions());
+    assertEquals(1, gradeText(quiz, List.of("Norway", "Oslo")).correctQuestions());
+  }
+
+  @Test
+  void aFillInQuestionIsWrongIfAnyBlankIsWrongOrMissing() {
+    Quiz quiz = quizWithFillInQuestion("The capital of ___ is ___.", "Norway", "Oslo");
+
+    assertEquals(0, gradeText(quiz, List.of("Sweden", "Oslo")).correctQuestions());
+    assertEquals(0, gradeText(quiz, List.of("Norway")).correctQuestions());
+    assertEquals(0, gradeText(quiz, List.of("Norway", "Oslo", "extra")).correctQuestions());
+    assertEquals(0, gradeText(quiz, java.util.Arrays.asList("Norway", null)).correctQuestions());
+    assertEquals(0, grader.grade(quiz, "s@example.com", 1, Map.of(), null).correctQuestions());
+    assertEquals(0, grader.grade(quiz, "s@example.com", 1, Map.of(), Map.of()).correctQuestions());
+  }
+
+  @Test
+  void anEmptyAnswerNeverMatchesAnEmptyAlternative() {
+    Quiz quiz = quizWithFillInQuestion("A ___", "Oslo|");
+
+    assertEquals(0, gradeText(quiz, List.of("")).correctQuestions());
+    assertEquals(1, gradeText(quiz, List.of("oslo")).correctQuestions());
+  }
+
+  @Test
+  void aQuizCanMixAllFourQuestionTypes() {
+    Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
+    Module module = moduleRepository.save(new Module(course, "Week 1"));
+    Quiz quiz = new Quiz(module, "Mixed", 0, 1, false);
+    Question choice = quiz.addQuestion("Pick");
+    choice.addOption("Right", true);
+    choice.addOption("Wrong", false);
+    Question ordering = quiz.addQuestion("Order");
+    ordering.setType(Question.Type.ORDERING);
+    ordering.addOption("First", true);
+    ordering.addOption("Second", true);
+    Question pairs = quiz.addQuestion("Match");
+    pairs.setType(Question.Type.MATCHING);
+    pairs.addOption("a", true, "1", 0);
+    pairs.addOption("b", true, "2", 1);
+    Question blank = quiz.addQuestion("Type ___");
+    blank.setType(Question.Type.FILL_IN);
+    blank.addOption("answer", true, null, 0);
+    Quiz saved = (Quiz) contentRepository.save(quiz);
+    Question c = saved.getQuestions().get(0);
+    Question o = saved.getQuestions().get(1);
+    Question m = saved.getQuestions().get(2);
+    Question f = saved.getQuestions().get(3);
+
+    QuizGrade grade = grader.grade(saved, "s@example.com", 1,
+        Map.of(
+            c.getId(), List.of(c.getOptionsInOrder().getFirst().getId()),
+            o.getId(), o.getOptionsInOrder().stream().map(AnswerOption::getId).toList(),
+            m.getId(), m.getOptionsInOrder().stream().map(AnswerOption::getId).toList()),
+        Map.of(f.getId(), List.of("Answer")));
+
+    assertEquals(4, grade.correctQuestions());
+    assertEquals(1.0, grade.score());
   }
 }

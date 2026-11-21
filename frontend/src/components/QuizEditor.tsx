@@ -6,6 +6,7 @@ import ErrorMessage from './ui/ErrorMessage'
 import LoadingIndicator from './ui/LoadingIndicator'
 import QuizResults from './QuizResults'
 import type { ContentResponse } from '../types/content'
+import { BLANK } from '../types/quiz'
 import type { QuestionRequest, QuestionType, QuestionWithAnswers } from '../types/quiz'
 
 type EditorState =
@@ -152,9 +153,9 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
           {settings.showHints ? 'Hints are shown after a wrong answer.' : 'Hints are turned off.'}
         </span>
         <span>
-          Each question is worth 1 point. A choice question is right only when the student selects
-          every correct option and no wrong ones; an ordering question only when the whole order is
-          right. Partly correct answers give 0 points.
+          Each question is worth 1 point and is right or wrong as a whole: every correct option
+          selected and no wrong ones, the whole order right, every pair matched, or every blank
+          filled in correctly. Partly correct answers give 0 points.
         </span>
         {published && (
           <span>
@@ -200,6 +201,24 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
                         {question.options.map(option => <li key={option.id}>{option.text}</li>)}
                       </ol>
                     </>
+                  ) : question.type === 'MATCHING' ? (
+                    <>
+                      <p className="quiz-type-label">Matching question. Pairs (students see the right-hand side shuffled):</p>
+                      <ul className="quiz-option-list quiz-pair-answer">
+                        {question.options.map(option => (
+                          <li key={option.id}>{option.text} <span aria-hidden="true">→</span> {option.matchText}</li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : question.type === 'FILL_IN' ? (
+                    <>
+                      <p className="quiz-type-label">Fill-in question. Accepted answers per blank:</p>
+                      <ol className="quiz-option-list quiz-blank-answer">
+                        {question.options.map(option => (
+                          <li key={option.id}>{option.text.split('|').map(answer => answer.trim()).join(' | ')}</li>
+                        ))}
+                      </ol>
+                    </>
                   ) : (
                     <ul className="quiz-option-list">
                       {question.options.map(option => (
@@ -238,11 +257,29 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
 interface OptionDraft {
   text: string
   correct: boolean
+  matchText: string
 }
 
-const emptyOptions = (): OptionDraft[] => [{ text: '', correct: false }, { text: '', correct: false }]
+const emptyOption = (): OptionDraft => ({ text: '', correct: false, matchText: '' })
+const emptyOptions = (): OptionDraft[] => [emptyOption(), emptyOption()]
 
-/** Add/edit form for one question: text, optional hint, and 2+ options with the correct ones ticked. */
+const TYPE_LABELS: Record<QuestionType, string> = {
+  CHOICE: 'Choice: students select the correct answer(s)',
+  ORDERING: 'Ordering: students put the options in the right order',
+  MATCHING: 'Matching: students match each item with its partner',
+  FILL_IN: 'Fill in the blanks: students type the missing words',
+}
+
+const LEGENDS: Record<QuestionType, string> = {
+  CHOICE: 'Answer options (tick the correct ones)',
+  ORDERING: 'Options, in the correct order (students see them shuffled)',
+  MATCHING: 'Pairs (students see the right-hand side shuffled)',
+  FILL_IN: 'Blanks, in the order they appear in the question',
+}
+
+const blanksIn = (text: string) => text.split(BLANK).length - 1
+
+/** Add/edit form for one question. What the option rows mean depends on the question type. */
 function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSave = false }: {
   initial?: QuestionWithAnswers
   title: string
@@ -256,7 +293,11 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
   const [hint, setHint] = useState(initial?.hint ?? '')
   const [type, setType] = useState<QuestionType>(initial?.type ?? 'CHOICE')
   const [options, setOptions] = useState<OptionDraft[]>(
-    initial ? initial.options.map(option => ({ text: option.text, correct: option.correct })) : emptyOptions())
+    initial
+      ? initial.options.map(option => ({
+        text: option.text, correct: option.correct, matchText: option.matchText ?? '',
+      }))
+      : emptyOptions())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -264,22 +305,57 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
     setOptions(previous => previous.map((option, i) => (i === index ? { ...option, ...change } : option)))
   }
 
+  /** Checks the form for the chosen type and returns the request, or the message to show. */
+  function build(): QuestionRequest | string {
+    const trimmed = options.map(option => ({
+      ...option, text: option.text.trim(), matchText: option.matchText.trim(),
+    }))
+    const question = text.trim()
+    if (type === 'MATCHING') {
+      const rows = trimmed.filter(option => option.text || option.matchText)
+      if (rows.some(option => !option.text || !option.matchText)) {
+        return 'Fill in both sides of every pair.'
+      }
+      if (rows.length < 2) return 'Add at least two pairs.'
+      return {
+        text: question, hint: hint.trim() || null, type,
+        options: rows.map(option => ({ text: option.text, correct: false, matchText: option.matchText })),
+      }
+    }
+    const filled = trimmed.filter(option => option.text)
+    if (type === 'FILL_IN') {
+      if (filled.length === 0) return 'Add the accepted answer for each blank.'
+      const blanks = blanksIn(question)
+      if (blanks !== filled.length) {
+        return `The question has ${blanks} blank${blanks === 1 ? '' : 's'} (${BLANK}) but you gave `
+          + `${filled.length} answer${filled.length === 1 ? '' : 's'}. Use one ${BLANK} per blank.`
+      }
+      return {
+        text: question, hint: hint.trim() || null, type,
+        options: filled.map(option => ({ text: option.text, correct: false })),
+      }
+    }
+    if (filled.length < 2) return 'Add at least two answer options.'
+    if (type === 'CHOICE' && !filled.some(option => option.correct)) {
+      return 'Mark at least one option as correct.'
+    }
+    return {
+      text: question, hint: hint.trim() || null, type,
+      options: filled.map(option => ({ text: option.text, correct: option.correct })),
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    const filled = options.map(option => ({ ...option, text: option.text.trim() }))
-      .filter(option => option.text)
-    if (filled.length < 2) {
-      setError('Add at least two answer options.')
-      return
-    }
-    if (type === 'CHOICE' && !filled.some(option => option.correct)) {
-      setError('Mark at least one option as correct.')
+    const request = build()
+    if (typeof request === 'string') {
+      setError(request)
       return
     }
     setSaving(true)
     setError(null)
     try {
-      await onSave({ text: text.trim(), hint: hint.trim() || null, type, options: filled })
+      await onSave(request)
       if (resetOnSave) {
         setText('')
         setHint('')
@@ -307,24 +383,29 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
           onChange={event => setText(event.target.value)}
           required
         />
+        {type === 'FILL_IN' && (
+          <p className="ui-hint">
+            Type {BLANK} (three underscores) in the question wherever a word is missing, for example
+            "The capital of {BLANK} is {BLANK}."
+          </p>
+        )}
       </div>
       <fieldset className="quiz-type-fields">
         <legend className="ui-label">Question type</legend>
-        <label className="ui-checkbox-field">
-          <input type="radio" name={`${idPrefix}-type`} checked={type === 'CHOICE'} onChange={() => setType('CHOICE')} />
-          Choice: students select the correct answer(s)
-        </label>
-        <label className="ui-checkbox-field">
-          <input type="radio" name={`${idPrefix}-type`} checked={type === 'ORDERING'} onChange={() => setType('ORDERING')} />
-          Ordering: students put the options in the right order
-        </label>
+        {(Object.keys(TYPE_LABELS) as QuestionType[]).map(candidate => (
+          <label key={candidate} className="ui-checkbox-field">
+            <input
+              type="radio"
+              name={`${idPrefix}-type`}
+              checked={type === candidate}
+              onChange={() => setType(candidate)}
+            />
+            {TYPE_LABELS[candidate]}
+          </label>
+        ))}
       </fieldset>
       <fieldset className="quiz-option-fields">
-        <legend className="ui-label">
-          {type === 'ORDERING'
-            ? 'Options, in the correct order (students see them shuffled)'
-            : 'Answer options (tick the correct ones)'}
-        </legend>
+        <legend className="ui-label">{LEGENDS[type]}</legend>
         {options.map((option, index) => (
           <div key={index} className="quiz-option-field">
             {type === 'CHOICE' ? (
@@ -337,13 +418,31 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
             ) : (
               <span className="quiz-option-number" aria-hidden="true">{index + 1}.</span>
             )}
-            <input
-              className="ui-input"
-              aria-label={`Option ${index + 1}`}
-              value={option.text}
-              onChange={event => updateOption(index, { text: event.target.value })}
-            />
-            {options.length > 2 && (
+            {type === 'MATCHING' ? (
+              <>
+                <input
+                  className="ui-input"
+                  aria-label={`Pair ${index + 1} left`}
+                  value={option.text}
+                  onChange={event => updateOption(index, { text: event.target.value })}
+                />
+                <span aria-hidden="true">→</span>
+                <input
+                  className="ui-input"
+                  aria-label={`Pair ${index + 1} right`}
+                  value={option.matchText}
+                  onChange={event => updateOption(index, { matchText: event.target.value })}
+                />
+              </>
+            ) : (
+              <input
+                className="ui-input"
+                aria-label={type === 'FILL_IN' ? `Blank ${index + 1} accepted answers` : `Option ${index + 1}`}
+                value={option.text}
+                onChange={event => updateOption(index, { text: event.target.value })}
+              />
+            )}
+            {options.length > (type === 'FILL_IN' ? 1 : 2) && (
               <Button
                 variant="secondary"
                 onClick={() => setOptions(previous => previous.filter((_, i) => i !== index))}
@@ -353,8 +452,14 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
             )}
           </div>
         ))}
-        <Button variant="secondary" onClick={() => setOptions(previous => [...previous, { text: '', correct: false }])}>
-          Add option
+        {type === 'FILL_IN' && (
+          <p className="ui-hint">
+            Separate answers that are also accepted with | , for example "Norway | Norge". Capital
+            letters and extra spaces do not matter.
+          </p>
+        )}
+        <Button variant="secondary" onClick={() => setOptions(previous => [...previous, emptyOption()])}>
+          {type === 'MATCHING' ? 'Add pair' : type === 'FILL_IN' ? 'Add blank' : 'Add option'}
         </Button>
       </fieldset>
       <div className="ui-field">

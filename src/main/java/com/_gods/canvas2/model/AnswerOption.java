@@ -26,10 +26,28 @@ public class AnswerOption {
   @Column(nullable = false)
   private boolean correct;
 
+  /**
+   * Where the teacher put this option. For ORDERING it is the correct order; for MATCHING and
+   * FILL_IN it is the pair or blank number. Never rely on the database id for this: ids are handed
+   * out in a random order for the types where the order is the answer, so a student cannot read
+   * the answer off the ids. Existing options default to 0, which only matters for CHOICE.
+   */
+  @Column(nullable = false, columnDefinition = "integer default 0")
+  private int position;
+
+  /** MATCHING only: what {@link #getText()} (the left-hand item) is matched with. */
+  @Column(name = "match_text")
+  private String matchText;
+
   protected AnswerOption() {
   }
 
   public AnswerOption(Question question, String text, boolean correct) {
+    this(question, text, correct, null, 0);
+  }
+
+  public AnswerOption(Question question, String text, boolean correct, String matchText,
+      int position) {
     if (question == null) {
       throw new IllegalArgumentException("Question must not be null");
     }
@@ -40,6 +58,8 @@ public class AnswerOption {
     this.question = question;
     this.text = text.trim();
     this.correct = correct;
+    this.position = position;
+    this.matchText = matchText == null || matchText.isBlank() ? null : matchText.trim();
   }
 
   public Long getId() {
@@ -56,6 +76,14 @@ public class AnswerOption {
 
   public boolean isCorrect() {
     return correct;
+  }
+
+  public int getPosition() {
+    return position;
+  }
+
+  public String getMatchText() {
+    return matchText;
   }
 
   @Override

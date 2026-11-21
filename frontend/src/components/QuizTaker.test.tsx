@@ -29,6 +29,17 @@ const orderingQuestion = {
   options: [{ id: 30, text: 'Test' }, { id: 31, text: 'Plan' }, { id: 32, text: 'Build' }],
 }
 
+const matchingQuestion = {
+  id: 4, text: 'Match the capitals', position: 2, type: 'MATCHING',
+  // Left-hand items in order, ids are positions; right-hand items arrive shuffled.
+  options: [{ id: 0, text: 'Norway' }, { id: 1, text: 'France' }],
+  matches: [{ id: 41, text: 'Paris' }, { id: 40, text: 'Oslo' }],
+}
+
+const fillInQuestion = {
+  id: 5, text: 'The capital of ___ is ___.', position: 3, type: 'FILL_IN', options: [], matches: [],
+}
+
 const noAttempts = { attemptsUsed: 0, attemptsGraded: 0, resultsPublished: true, maxAttempts: 3, deadline: null, closed: false, best: null, latest: null, hints: {} }
 
 describe('QuizTaker', () => {
@@ -54,7 +65,7 @@ describe('QuizTaker', () => {
     render(<QuizTaker quizId={5} />)
 
     expect(await screen.findByText(/Each question is worth 1 point/)).toHaveTextContent(
-      'For choice questions, select every correct answer and no wrong ones. For ordering questions, get the whole order right. A partly correct answer gives 0 points.')
+      'counts only if it is completely right: every correct option selected and no wrong ones, the whole order right, every pair matched, or every blank filled in. A partly correct answer gives 0 points.')
   })
 
   it('offers no more attempts once the deadline has passed', async () => {
@@ -255,7 +266,7 @@ describe('QuizTaker', () => {
       getQuestions.mockResolvedValue([orderingQuestion])
       render(<QuizTaker quizId={5} />)
 
-      expect(await screen.findByText(/Each question is worth 1 point/)).toHaveTextContent(/get the whole order right/)
+      expect(await screen.findByText(/Each question is worth 1 point/)).toHaveTextContent(/the whole order right/)
     })
   })
 
@@ -306,6 +317,134 @@ describe('QuizTaker', () => {
       expect(await screen.findByRole('heading', { name: 'Hints for your next attempt' })).toBeInTheDocument()
       expect(screen.getByText('Count on your fingers')).toBeInTheDocument()
       expect(screen.queryByText('Incorrect:')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('matching questions', () => {
+    it('shows a dropdown of the right-hand items for every left-hand item', async () => {
+      getQuestions.mockResolvedValue([matchingQuestion])
+      render(<QuizTaker quizId={5} />)
+
+      const norway = await screen.findByLabelText('Norway')
+      expect(norway).toHaveValue('')
+      expect(screen.getByLabelText('France')).toBeInTheDocument()
+      expect(Array.from((norway as HTMLSelectElement).options).map(option => option.text))
+        .toEqual(['Choose…', 'Paris', 'Oslo'])
+    })
+
+    it('submits one chosen right-hand id per left-hand item, in order', async () => {
+      getQuestions.mockResolvedValue([matchingQuestion])
+      const user = userEvent.setup()
+      render(<QuizTaker quizId={5} />)
+
+      await user.selectOptions(await screen.findByLabelText('Norway'), 'Oslo')
+      await user.selectOptions(screen.getByLabelText('France'), 'Paris')
+      await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+
+      expect(submit).toHaveBeenCalledWith(5, { answers: { 4: [40, 41] } }, {})
+    })
+
+    it('lets the student change a choice before submitting', async () => {
+      getQuestions.mockResolvedValue([matchingQuestion])
+      const user = userEvent.setup()
+      render(<QuizTaker quizId={5} />)
+
+      await user.selectOptions(await screen.findByLabelText('Norway'), 'Paris')
+      await user.selectOptions(screen.getByLabelText('Norway'), 'Oslo')
+      await user.selectOptions(screen.getByLabelText('France'), 'Paris')
+      await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+
+      expect(submit).toHaveBeenCalledWith(5, { answers: { 4: [40, 41] } }, {})
+    })
+
+    it('sends no answer for a matching question that is only partly filled in', async () => {
+      getQuestions.mockResolvedValue([questions[0], matchingQuestion])
+      const user = userEvent.setup()
+      render(<QuizTaker quizId={5} />)
+
+      await user.click(await screen.findByLabelText('4'))
+      await user.selectOptions(screen.getByLabelText('Norway'), 'Oslo')
+      await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+
+      expect(submit).toHaveBeenCalledWith(5, { answers: { 1: [11] } }, {})
+    })
+
+    it('clears the chosen matches after submitting', async () => {
+      getQuestions.mockResolvedValue([matchingQuestion])
+      getOwnAttempts.mockResolvedValue({ ...noAttempts, maxAttempts: 3 })
+      const user = userEvent.setup()
+      render(<QuizTaker quizId={5} />)
+
+      await user.selectOptions(await screen.findByLabelText('Norway'), 'Oslo')
+      await user.selectOptions(screen.getByLabelText('France'), 'Paris')
+      getOwnAttempts.mockResolvedValue({
+        ...noAttempts, attemptsUsed: 1, attemptsGraded: 1, resultsPublished: false,
+      })
+      await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+      // Grading is polled once a second after submitting, so allow for one poll.
+      await user.click(await screen.findByRole('button', { name: 'Try again' }, { timeout: 4000 }))
+
+      expect(screen.getByLabelText('Norway')).toHaveValue('')
+    })
+  })
+
+  describe('fill-in questions', () => {
+    it('shows an input in place of every blank', async () => {
+      getQuestions.mockResolvedValue([fillInQuestion])
+      render(<QuizTaker quizId={5} />)
+
+      expect(await screen.findByLabelText('Question 4, blank 1')).toBeInTheDocument()
+      expect(screen.getByLabelText('Question 4, blank 2')).toBeInTheDocument()
+      expect(screen.getByText(/The capital of/)).toBeInTheDocument()
+      expect(screen.queryByText(/___/)).not.toBeInTheDocument()
+    })
+
+    it('submits what was typed, one entry per blank', async () => {
+      getQuestions.mockResolvedValue([fillInQuestion])
+      const user = userEvent.setup()
+      render(<QuizTaker quizId={5} />)
+
+      await user.type(await screen.findByLabelText('Question 4, blank 1'), 'Norway')
+      await user.type(screen.getByLabelText('Question 4, blank 2'), 'Oslo')
+      await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+
+      expect(submit).toHaveBeenCalledWith(5,
+        { answers: {}, textAnswers: { 5: ['Norway', 'Oslo'] } }, {})
+    })
+
+    it('sends an empty string for a blank that was left empty', async () => {
+      getQuestions.mockResolvedValue([fillInQuestion])
+      const user = userEvent.setup()
+      render(<QuizTaker quizId={5} />)
+
+      await user.type(await screen.findByLabelText('Question 4, blank 2'), 'Oslo')
+      await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+
+      expect(submit).toHaveBeenCalledWith(5,
+        { answers: {}, textAnswers: { 5: ['', 'Oslo'] } }, {})
+    })
+
+    it('sends choice and typed answers together', async () => {
+      getQuestions.mockResolvedValue([questions[0], fillInQuestion])
+      const user = userEvent.setup()
+      render(<QuizTaker quizId={5} />)
+
+      await user.click(await screen.findByLabelText('4'))
+      await user.type(screen.getByLabelText('Question 4, blank 1'), 'Norway')
+      await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+
+      expect(submit).toHaveBeenCalledWith(5,
+        { answers: { 1: [11] }, textAnswers: { 5: ['Norway', ''] } }, {})
+    })
+
+    it('never sends a typed-answers entry when the quiz has no fill-in question', async () => {
+      const user = userEvent.setup()
+      render(<QuizTaker quizId={5} />)
+
+      await user.click(await screen.findByLabelText('4'))
+      await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+
+      expect(submit.mock.calls[0][1]).not.toHaveProperty('textAnswers')
     })
   })
 })

@@ -207,16 +207,27 @@ come back on `ContentResponse` from `GET /contents/{contentId}`. Creating a quiz
 each question their latest attempt got wrong. Hints do not wait for the results to be published, so
 students can use them to retry; they reveal which questions were wrong, not the answers.
 
-**Question types.** Both types submit their answer as a list of option ids, so the submission API
-is the same. `type` is `CHOICE` (the default when left out) or `ORDERING`. Each question is worth
-one point and there is no partial credit.
+**Question types.** `type` is `CHOICE` (the default when left out), `ORDERING`, `MATCHING` or
+`FILL_IN`. Each question is worth one point and is right or wrong as a whole: there is no partial
+credit.
 
 | `type` | How it is authored | How a student answers | Correct when |
 | --- | --- | --- | --- |
 | `CHOICE` | Options with `correct` flags. One correct option makes it single choice, several make it multiple choice. | Selects options. | Exactly the correct options are selected, no more and no fewer. |
-| `ORDERING` | Options listed in the correct order; `correct` is ignored. | Puts every option in order. The options are always served shuffled, never in the correct order. | The submitted list is exactly the authored order. |
+| `ORDERING` | Options listed in the correct order; `correct` is ignored. | Puts every option in order. Options are served shuffled, never in the correct order. | The submitted list is exactly the authored order. |
+| `MATCHING` | Pairs: each option's `text` is the left-hand item and `matchText` its partner. | Chooses a right-hand item for every left-hand item. Left-hand items are served in order, right-hand items (`matches`) shuffled. | Every chosen right-hand item has the text that belongs to its left-hand item. Pairs with the same right-hand text are interchangeable. |
+| `FILL_IN` | The question `text` has one `___` per blank. Each option holds one blank's accepted answers, separated by `|` (for example `Norway|Norge`). | Types an answer for each blank. | Every blank matches one of its accepted answers, ignoring capital letters and extra spaces. |
 
-Fill-in-the-blank and matching questions from the course specification are not supported.
+Submissions carry two maps keyed by question id, and either may be left out:
+`answers` has option ids (`CHOICE`: the selected ones; `ORDERING`: every option in the chosen order;
+`MATCHING`: one right-hand id per left-hand item, in order) and `textAnswers` has the typed answer
+for each blank (`FILL_IN`, at most 20 blanks and 200 characters each). An unanswered question, or an
+answer with the wrong number of entries, is simply wrong.
+
+Students never receive the answers. For `ORDERING` and `MATCHING` the answer is the order the teacher
+typed, and database ids follow creation order, so the options are created in a random order and the
+teacher's order is kept in a separate `position`. Sorting the ids a student receives therefore
+reveals nothing. `FILL_IN` options are not sent to students at all.
 
 Quiz-related endpoints (all under `/api`, teacher-only writes unless noted):
 
@@ -224,13 +235,13 @@ Quiz-related endpoints (all under `/api`, teacher-only writes unless noted):
 | --- | --- | --- |
 | `POST` | `/modules/{moduleId}/quizzes` | Create a quiz: `title`, `maxAttempts`, optional `deadline` and `showHints` (teacher) |
 | `PUT` | `/quizzes/{quizId}/settings` | Change `maxAttempts` and/or `showHints`, at any time (teacher) |
-| `POST` | `/quizzes/{quizId}/questions` | Add a question: `text`, optional `hint`, `type`, `options` (teacher, draft only) |
+| `POST` | `/quizzes/{quizId}/questions` | Add a question: `text`, optional `hint`, `type`, `options` with `text`, `correct`, `matchText` (teacher, draft only) |
 | `PUT` | `/quizzes/{quizId}/questions/{questionId}` | Replace a question, including its type (teacher, draft only) |
 | `DELETE` | `/quizzes/{quizId}/questions/{questionId}` | Delete a question (teacher, draft only) |
 | `PUT` | `/quizzes/{quizId}/publication` | Publish the quiz to students and freeze its questions (teacher) |
-| `GET` | `/quizzes/{quizId}/questions` | List questions without correct answers or hints; `ORDERING` options are shuffled (any enrolled member) |
-| `GET` | `/quizzes/{quizId}/questions/with-answers` | List questions with correct answers and hints (teacher) |
-| `POST` | `/quizzes/{quizId}/submissions` | Submit answers for grading; returns 202, grading happens async (any enrolled member) |
+| `GET` | `/quizzes/{quizId}/questions` | List questions without answers or hints; `ORDERING` options and `MATCHING` right-hand items (`matches`) are shuffled (any enrolled member) |
+| `GET` | `/quizzes/{quizId}/questions/with-answers` | List questions with answers and hints, options in the order entered (teacher) |
+| `POST` | `/quizzes/{quizId}/submissions` | Submit `answers` and/or `textAnswers` for grading; returns 202, grading happens async (any enrolled member) |
 | `GET` | `/quizzes/{quizId}/attempts/mine` | Own attempts: `attemptsUsed`, `attemptsGraded`, `resultsPublished`, `best` and `latest` (null until published), `hints` |
 | `GET` | `/quizzes/{quizId}/grade` | Own best grade; 404 until it is graded and the results are published |
 | `GET` | `/quizzes/{quizId}/results` | Every student's attempts and best grade, always visible (teacher) |

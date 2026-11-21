@@ -8,7 +8,7 @@ import com._gods.canvas2.model.Question;
 public record QuestionWithAnswersResponse(Long id, String text, int position, String hint,
     Question.Type type, List<AnswerOptionWithCorrectnessResponse> options) {
   public static QuestionWithAnswersResponse from(Question question) {
-    List<AnswerOptionWithCorrectnessResponse> options = question.getOptions().stream()
+    List<AnswerOptionWithCorrectnessResponse> options = question.getOptionsInOrder().stream()
         .map(AnswerOptionWithCorrectnessResponse::from)
         .toList();
     return new QuestionWithAnswersResponse(question.getId(), question.getText(), question.getPosition(),

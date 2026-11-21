@@ -153,7 +153,7 @@ class QuizGradingPipelineIntegrationTests {
         new AnswerOptionRequest("Test", false)), Question.Type.ORDERING), teacher.getEmail());
     quizService.updateSettings(quiz.getId(), null, true, teacher.getEmail());
     var question = quizService.getQuestionsWithAnswers(quiz.getId(), teacher.getEmail()).get(0);
-    List<Long> authored = question.getOptions().stream().map(o -> o.getId()).toList();
+    List<Long> authored = question.getOptionsInOrder().stream().map(o -> o.getId()).toList();
     quizService.publishQuiz(quiz.getId(), teacher.getEmail());
 
     // A wrong order first: hints arrive right away, the grade does not.
@@ -184,6 +184,49 @@ class QuizGradingPipelineIntegrationTests {
     assertEquals(1.0, visible.best().score());
     assertEquals(2, visible.best().attemptNumber());
     assertEquals(Map.of(), visible.hints());
+  }
+
+  @Test
+  void matchingAndFillInAnswersTravelThroughTheQueueAndAreGraded() throws InterruptedException {
+    Course course = courseRepository.save(new Course("Types Test", "desc", Term.AUTUMN, 2026));
+    User teacher = userRepository.save(new User("types-teacher@example.com", "Teacher"));
+    enrollmentRepository.save(new Enrollment(teacher, course, Role.TEACHER));
+    User student = userRepository.save(new User("types-student@example.com", "Student"));
+    enrollmentRepository.save(new Enrollment(student, course, Role.STUDENT));
+    Module module = moduleRepository.save(new Module(course, "Week 1"));
+    Quiz quiz = contentRepository.save(new Quiz(module, "Types quiz", 0, 0, false));
+
+    quizService.addQuestion(quiz.getId(), new QuestionRequest("Match the capitals", null, List.of(
+        new AnswerOptionRequest("Norway", false, "Oslo"), new AnswerOptionRequest("France", false, "Paris"),
+        new AnswerOptionRequest("Spain", false, "Madrid")), Question.Type.MATCHING), teacher.getEmail());
+    quizService.addQuestion(quiz.getId(), new QuestionRequest("The capital of ___ is ___.", null, List.of(
+        new AnswerOptionRequest("Norway|Norge", false), new AnswerOptionRequest("Oslo", false)),
+        Question.Type.FILL_IN), teacher.getEmail());
+    var questions = quizService.getQuestionsWithAnswers(quiz.getId(), teacher.getEmail());
+    var matching = questions.get(0);
+    var fillIn = questions.get(1);
+    List<Long> pairIds = matching.getOptionsInOrder().stream().map(o -> o.getId()).toList();
+    quizService.publishQuiz(quiz.getId(), teacher.getEmail());
+
+    // Everything right, with the typed answers in different case and spacing.
+    quizSubmissionService.submit(quiz.getId(), new QuizSubmissionRequest(
+        Map.of(matching.getId(), pairIds),
+        Map.of(fillIn.getId(), List.of("  norge ", "OSLO"))), student.getEmail());
+    awaitGraded(quiz, student.getEmail(), 1);
+    var perfect = quizGradeStore.findLatest(quiz, student.getEmail()).orElseThrow();
+    assertEquals(2, perfect.correctQuestions());
+    assertEquals(List.of(), perfect.incorrectQuestionIds());
+
+    // Two pairs swapped and a wrong blank: both questions are wrong.
+    quizSubmissionService.submit(quiz.getId(), new QuizSubmissionRequest(
+        Map.of(matching.getId(), List.of(pairIds.get(1), pairIds.get(0), pairIds.get(2))),
+        Map.of(fillIn.getId(), List.of("Sweden", "Oslo"))), student.getEmail());
+    awaitGraded(quiz, student.getEmail(), 2);
+    var wrong = quizGradeStore.findLatest(quiz, student.getEmail()).orElseThrow();
+    assertEquals(0, wrong.correctQuestions());
+    assertEquals(List.of(matching.getId(), fillIn.getId()), wrong.incorrectQuestionIds());
+    // The best attempt still counts.
+    assertEquals(1.0, quizGradeStore.find(quiz, student.getEmail()).orElseThrow().score());
   }
 
   private void awaitGraded(Quiz quiz, String studentEmail, int attempt) throws InterruptedException {

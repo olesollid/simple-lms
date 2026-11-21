@@ -2,6 +2,7 @@ package com._gods.canvas2.model;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.hibernate.Hibernate;
@@ -25,19 +26,31 @@ import jakarta.persistence.Table;
 @Table(name = "questions")
 public class Question {
 
+  /** Marks a blank in the text of a FILL_IN question. */
+  public static final String BLANK = "___";
+
   /**
-   * How a question is answered and graded. Both types submit their answer as a list of option ids,
-   * so the quiz API is the same for each.
+   * How a question is answered and graded. Every question is worth one point, with no partial
+   * credit.
    * <ul>
    *   <li>{@code CHOICE}: the student selects options. One correct option makes it single choice,
-   *       several make it multiple choice. It is correct only when exactly the correct options
-   *       are selected.</li>
+   *       several make it multiple choice. Correct only when exactly the correct options are
+   *       selected.</li>
    *   <li>{@code ORDERING}: the student puts every option in order. The correct order is the order
-   *       the teacher entered the options in; students always see them shuffled. It is correct
-   *       only when the whole order matches.</li>
+   *       the teacher entered the options in; students always see them shuffled. Correct only when
+   *       the whole order matches.</li>
+   *   <li>{@code MATCHING}: each option is a pair, its text matched with its match text. Students
+   *       see the left-hand items in order and the right-hand items shuffled, and choose a
+   *       right-hand item for each left-hand one. Correct only when every pair is right (two pairs
+   *       with the same right-hand text are interchangeable).</li>
+   *   <li>{@code FILL_IN}: the question text contains one {@value #BLANK} per blank, and each
+   *       option holds the accepted answers for one blank, separated by {@code |}. Students type an
+   *       answer per blank. Correct only when every blank matches an accepted answer, ignoring case
+   *       and surrounding or repeated spaces.</li>
    * </ul>
+   * Choice, ordering and matching answers are lists of option ids; fill-in answers are text.
    */
-  public enum Type { CHOICE, ORDERING }
+  public enum Type { CHOICE, ORDERING, MATCHING, FILL_IN }
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -155,9 +168,27 @@ public class Question {
   }
 
   public AnswerOption addOption(String text, boolean correct) {
-    AnswerOption option = new AnswerOption(this, text, correct);
+    return addOption(text, correct, null, options.size());
+  }
+
+  public AnswerOption addOption(String text, boolean correct, String matchText, int position) {
+    AnswerOption option = new AnswerOption(this, text, correct, matchText, position);
     options.add(option);
     return option;
+  }
+
+  /** The options in the order the teacher entered them (see {@link AnswerOption#getPosition()}). */
+  public List<AnswerOption> getOptionsInOrder() {
+    return options.stream().sorted(Comparator.comparingInt(AnswerOption::getPosition)).toList();
+  }
+
+  /** How many blanks a FILL_IN question text has. */
+  public static int blankCount(String text) {
+    int count = 0;
+    for (int from = text.indexOf(BLANK); from >= 0; from = text.indexOf(BLANK, from + BLANK.length())) {
+      count++;
+    }
+    return count;
   }
 
   @Override

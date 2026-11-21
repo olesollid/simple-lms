@@ -52,6 +52,7 @@ public class QuizSubmissionService {
     if (request.answers() == null) {
       throw new IllegalArgumentException("Answers must not be null");
     }
+    validateTextAnswers(request.textAnswers());
 
     Quiz quiz = requireOpenQuiz(quizId, requesterEmail);
     if (quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE))) {
@@ -64,12 +65,33 @@ public class QuizSubmissionService {
 
     try {
       submissionPublisher.publish(new SubmissionCreatedEvent(quizId, studentEmail, attempt,
-          request.answers(), LocalDateTime.now()));
+          request.answers(), request.textAnswers(), LocalDateTime.now()));
     } catch (RuntimeException e) {
       quizGradeStore.releaseAttempt(quiz, studentEmail);
       throw e;
     }
     return attempt;
+  }
+
+  private static final int MAX_BLANKS_PER_QUESTION = 20;
+  private static final int MAX_TEXT_ANSWER_LENGTH = 200;
+
+  /** Typed answers come from the browser, so bound their size before they go on the queue. */
+  private static void validateTextAnswers(Map<Long, List<String>> textAnswers) {
+    if (textAnswers == null) {
+      return;
+    }
+    for (List<String> typed : textAnswers.values()) {
+      if (typed == null || typed.size() > MAX_BLANKS_PER_QUESTION) {
+        throw new IllegalArgumentException("Too many answers for one question");
+      }
+      for (String answer : typed) {
+        if (answer != null && answer.length() > MAX_TEXT_ANSWER_LENGTH) {
+          throw new IllegalArgumentException(
+              "An answer may be at most " + MAX_TEXT_ANSWER_LENGTH + " characters");
+        }
+      }
+    }
   }
 
   /**

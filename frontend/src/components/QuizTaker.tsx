@@ -4,6 +4,7 @@ import { ApiError, ApiResponseError } from '../services/apiClient'
 import Button from './ui/Button'
 import ErrorMessage from './ui/ErrorMessage'
 import LoadingIndicator from './ui/LoadingIndicator'
+import { BLANK } from '../types/quiz'
 import type { Question, QuizAttempts, QuizGrade } from '../types/quiz'
 
 type TakerState =
@@ -40,6 +41,10 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
   const [selected, setSelected] = useState<Record<number, number[]>>({})
   // Chosen order per ORDERING question; until the student moves something, the order shown is the one served.
   const [orders, setOrders] = useState<Record<number, number[]>>({})
+  // MATCHING: the right-hand item id chosen for each left-hand item (by position), per question.
+  const [matchChoices, setMatchChoices] = useState<Record<number, Record<number, number>>>({})
+  // FILL_IN: what was typed into each blank, per question.
+  const [typed, setTyped] = useState<Record<number, string[]>>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [polls, setPolls] = useState(0)
@@ -102,24 +107,54 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
     })
   }
 
+  function choose(question: Question, index: number, rightId: number | null) {
+    setMatchChoices(previous => {
+      const current = { ...(previous[question.id] ?? {}) }
+      if (rightId == null) delete current[index]
+      else current[index] = rightId
+      return { ...previous, [question.id]: current }
+    })
+  }
+
+  function type(question: Question, blank: number, value: string) {
+    setTyped(previous => {
+      const current = [...(previous[question.id] ?? [])]
+      current[blank] = value
+      return { ...previous, [question.id]: current }
+    })
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setSubmitting(true)
     setSubmitError(null)
     try {
       const answers: Record<number, number[]> = { ...selected }
+      const textAnswers: Record<number, string[]> = {}
       if (state.status === 'ready') {
         for (const question of state.questions) {
-          if (question.type === 'ORDERING') answers[question.id] = orderedIds(question)
+          if (question.type === 'ORDERING') {
+            answers[question.id] = orderedIds(question)
+          } else if (question.type === 'MATCHING') {
+            // A pair left unchosen makes the whole question wrong, so there is nothing to send.
+            const chosen = question.options.map((_, index) => matchChoices[question.id]?.[index])
+            if (chosen.every(rightId => rightId != null)) answers[question.id] = chosen as number[]
+          } else if (question.type === 'FILL_IN') {
+            textAnswers[question.id] = Array.from({ length: question.text.split(BLANK).length - 1 },
+              (_, blank) => typed[question.id]?.[blank] ?? '')
+          }
         }
       }
-      const { attemptNumber } = await quizzes.submit(quizId, { answers }, {})
+      const body = Object.keys(textAnswers).length > 0 ? { answers, textAnswers } : { answers }
+      const { attemptNumber } = await quizzes.submit(quizId, body, {})
       setState(previous => previous.status === 'ready'
         ? { ...previous, attempts: { ...previous.attempts, attemptsUsed: attemptNumber } }
         : previous)
       setAnswering(false)
       setSelected({})
       setOrders({})
+      setMatchChoices({})
+      setTyped({})
       setPolls(0)
     } catch (error) {
       setSubmitError(errorMessage(error))
@@ -171,15 +206,17 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
           Attempt {attemptsUsed + 1}{unlimited ? '' : ` of ${maxAttempts}`}.
         </p>
         <p className="quiz-scoring-note">
-          Each question is worth 1 point. For choice questions, select <strong>every</strong> correct
-          answer and no wrong ones. For ordering questions, get the <strong>whole</strong> order right.
-          A partly correct answer gives 0 points.
+          Each question is worth 1 point and counts only if it is <strong>completely</strong> right:
+          every correct option selected and no wrong ones, the whole order right, every pair
+          matched, or every blank filled in. A partly correct answer gives 0 points.
         </p>
         <ol className="quiz-question-list">
           {questions.map(question => (
             <li key={question.id} className="quiz-question">
               <fieldset>
-                <legend className="quiz-question-text">{question.text}</legend>
+                <legend className="quiz-question-text">
+                  {question.type === 'FILL_IN' ? `Question ${question.position + 1}: fill in the blanks` : question.text}
+                </legend>
                 {question.type === 'ORDERING' ? (
                   <>
                     <p className="quiz-type-label">
@@ -212,6 +249,45 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
                       })}
                     </ol>
                   </>
+                ) : question.type === 'MATCHING' ? (
+                  <>
+                    <p className="quiz-type-label">Choose the item that goes with each one.</p>
+                    <ul className="quiz-match-list">
+                      {question.options.map((left, index) => (
+                        <li key={left.id} className="quiz-match-item">
+                          <label htmlFor={`match-${question.id}-${index}`}>{left.text}</label>
+                          <select
+                            id={`match-${question.id}-${index}`}
+                            className="ui-input"
+                            value={matchChoices[question.id]?.[index] ?? ''}
+                            onChange={event => choose(question, index,
+                              event.target.value === '' ? null : Number(event.target.value))}
+                          >
+                            <option value="">Choose…</option>
+                            {(question.matches ?? []).map(right => (
+                              <option key={right.id} value={right.id}>{right.text}</option>
+                            ))}
+                          </select>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : question.type === 'FILL_IN' ? (
+                  <p className="quiz-fill-in">
+                    {question.text.split(BLANK).map((piece, blank, pieces) => (
+                      <span key={blank}>
+                        {piece}
+                        {blank < pieces.length - 1 && (
+                          <input
+                            className="ui-input quiz-blank"
+                            aria-label={`Question ${question.position + 1}, blank ${blank + 1}`}
+                            value={typed[question.id]?.[blank] ?? ''}
+                            onChange={event => type(question, blank, event.target.value)}
+                          />
+                        )}
+                      </span>
+                    ))}
+                  </p>
                 ) : (
                   question.options.map(option => (
                     <label key={option.id} className="ui-checkbox-field">

@@ -411,4 +411,160 @@ describe('QuizEditor', () => {
       expect(form.queryByLabelText('Option 1 is correct')).not.toBeInTheDocument()
     })
   })
+
+  describe('matching questions', () => {
+    async function openMatching(user: ReturnType<typeof userEvent.setup>) {
+      render(<QuizEditor quiz={draftQuiz} />)
+      const form = within(await screen.findByRole('form', { name: 'Add question' }))
+      await user.type(form.getByLabelText(/Question/), 'Match the capitals')
+      await user.click(form.getByLabelText(/Matching: students match/))
+      return form
+    }
+
+    it('shows a left and a right field for every pair', async () => {
+      const form = await openMatching(userEvent.setup())
+
+      expect(form.getByLabelText('Pair 1 left')).toBeInTheDocument()
+      expect(form.getByLabelText('Pair 1 right')).toBeInTheDocument()
+      expect(form.getByLabelText('Pair 2 left')).toBeInTheDocument()
+      expect(form.queryByLabelText('Option 1 is correct')).not.toBeInTheDocument()
+      expect(form.getByRole('button', { name: 'Add pair' })).toBeInTheDocument()
+    })
+
+    it('saves the pairs with the right-hand text as matchText', async () => {
+      addQuestion.mockResolvedValue({ ...existing, id: 2, type: 'MATCHING' })
+      const user = userEvent.setup()
+      const form = await openMatching(user)
+
+      await user.type(form.getByLabelText('Pair 1 left'), 'Norway')
+      await user.type(form.getByLabelText('Pair 1 right'), 'Oslo')
+      await user.type(form.getByLabelText('Pair 2 left'), 'France')
+      await user.type(form.getByLabelText('Pair 2 right'), 'Paris')
+      await user.click(form.getByRole('button', { name: 'Save question' }))
+
+      expect(addQuestion).toHaveBeenCalledWith(5, {
+        text: 'Match the capitals',
+        hint: null,
+        type: 'MATCHING',
+        options: [
+          { text: 'Norway', correct: false, matchText: 'Oslo' },
+          { text: 'France', correct: false, matchText: 'Paris' },
+        ],
+      }, {})
+    })
+
+    it('needs both sides of every pair and at least two pairs', async () => {
+      const user = userEvent.setup()
+      const form = await openMatching(user)
+
+      await user.type(form.getByLabelText('Pair 1 left'), 'Norway')
+      await user.type(form.getByLabelText('Pair 2 left'), 'France')
+      await user.type(form.getByLabelText('Pair 2 right'), 'Paris')
+      await user.click(form.getByRole('button', { name: 'Save question' }))
+      expect(form.getByText('Fill in both sides of every pair.')).toBeInTheDocument()
+
+      await user.clear(form.getByLabelText('Pair 1 left'))
+      await user.click(form.getByRole('button', { name: 'Save question' }))
+      expect(form.getByText('Add at least two pairs.')).toBeInTheDocument()
+      expect(addQuestion).not.toHaveBeenCalled()
+    })
+
+    it('shows an existing matching question as pairs and edits it in matching mode', async () => {
+      getQuestionsWithAnswers.mockResolvedValue([{
+        id: 4, text: 'Match the capitals', position: 0, hint: null, type: 'MATCHING',
+        options: [
+          { id: 40, text: 'Norway', correct: true, matchText: 'Oslo' },
+          { id: 41, text: 'France', correct: true, matchText: 'Paris' },
+        ],
+      }])
+      const user = userEvent.setup()
+      render(<QuizEditor quiz={draftQuiz} />)
+
+      expect(await screen.findByText(/Matching question/)).toBeInTheDocument()
+      expect(screen.getAllByRole('listitem').filter(item => item.closest('ul.quiz-pair-answer'))
+        .map(item => item.textContent)).toEqual(['Norway → Oslo', 'France → Paris'])
+
+      await user.click(screen.getByRole('button', { name: 'Edit' }))
+      const form = within(screen.getByRole('form', { name: 'Edit question' }))
+      expect(form.getByLabelText(/Matching: students match/)).toBeChecked()
+      expect(form.getByLabelText('Pair 1 left')).toHaveValue('Norway')
+      expect(form.getByLabelText('Pair 1 right')).toHaveValue('Oslo')
+    })
+  })
+
+  describe('fill-in questions', () => {
+    async function openFillIn(user: ReturnType<typeof userEvent.setup>, questionText: string) {
+      render(<QuizEditor quiz={draftQuiz} />)
+      const form = within(await screen.findByRole('form', { name: 'Add question' }))
+      await user.type(form.getByLabelText(/Question/), questionText)
+      await user.click(form.getByLabelText(/Fill in the blanks: students type/))
+      return form
+    }
+
+    it('explains how to mark blanks and separate alternative answers', async () => {
+      const form = await openFillIn(userEvent.setup(), 'x')
+
+      expect(form.getByText(/Type ___ \(three underscores\)/)).toBeInTheDocument()
+      expect(form.getByText(/Separate answers that are also accepted with \|/)).toBeInTheDocument()
+      expect(form.getByLabelText('Blank 1 accepted answers')).toBeInTheDocument()
+      expect(form.getByRole('button', { name: 'Add blank' })).toBeInTheDocument()
+    })
+
+    it('saves one entry per blank with its accepted answers', async () => {
+      addQuestion.mockResolvedValue({ ...existing, id: 2, type: 'FILL_IN' })
+      const user = userEvent.setup()
+      const form = await openFillIn(user, 'The capital of ___ is ___.')
+
+      await user.type(form.getByLabelText('Blank 1 accepted answers'), 'Norway | Norge')
+      await user.type(form.getByLabelText('Blank 2 accepted answers'), 'Oslo')
+      await user.click(form.getByRole('button', { name: 'Save question' }))
+
+      expect(addQuestion).toHaveBeenCalledWith(5, {
+        text: 'The capital of ___ is ___.',
+        hint: null,
+        type: 'FILL_IN',
+        options: [{ text: 'Norway | Norge', correct: false }, { text: 'Oslo', correct: false }],
+      }, {})
+    })
+
+    it('refuses a question whose number of blanks does not match the answers given', async () => {
+      const user = userEvent.setup()
+      const form = await openFillIn(user, 'The capital of ___ is ___.')
+
+      await user.type(form.getByLabelText('Blank 1 accepted answers'), 'Norway')
+      await user.type(form.getByLabelText('Blank 2 accepted answers'), 'Oslo')
+      await user.click(form.getByRole('button', { name: 'Add blank' }))
+      await user.type(form.getByLabelText('Blank 3 accepted answers'), 'extra')
+      await user.click(form.getByRole('button', { name: 'Save question' }))
+
+      expect(form.getByText(/The question has 2 blanks \(___\) but you gave 3 answers/)).toBeInTheDocument()
+      expect(addQuestion).not.toHaveBeenCalled()
+    })
+
+    it('needs at least one blank answer, and can go down to a single blank', async () => {
+      const user = userEvent.setup()
+      const form = await openFillIn(user, 'Capital of ___')
+
+      await user.click(form.getAllByRole('button', { name: 'Remove' })[0])
+      expect(form.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
+      await user.click(form.getByRole('button', { name: 'Save question' }))
+
+      expect(form.getByText('Add the accepted answer for each blank.')).toBeInTheDocument()
+      expect(addQuestion).not.toHaveBeenCalled()
+    })
+
+    it('shows an existing fill-in question with its accepted answers', async () => {
+      getQuestionsWithAnswers.mockResolvedValue([{
+        id: 5, text: 'The capital of ___ is ___.', position: 0, hint: null, type: 'FILL_IN',
+        options: [
+          { id: 50, text: 'Norway|Norge', correct: true }, { id: 51, text: 'Oslo', correct: true },
+        ],
+      }])
+      render(<QuizEditor quiz={draftQuiz} />)
+
+      expect(await screen.findByText(/Fill-in question/)).toBeInTheDocument()
+      expect(screen.getAllByRole('listitem').filter(item => item.closest('ol.quiz-blank-answer'))
+        .map(item => item.textContent)).toEqual(['Norway | Norge', 'Oslo'])
+    })
+  })
 })
