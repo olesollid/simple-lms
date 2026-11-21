@@ -150,6 +150,7 @@ function SubmissionReviewItem({ submission, onGraded }: {
         </span>
       </div>
       <p className="content-body">{submission.text}</p>
+      {submission.lateSubmission != null && <p>{submission.lateSubmission ? 'Submitted late' : 'Submitted on time'}</p>}
       <SubmissionAttachment submission={submission} />
 
       {isGraded && !editing ? (

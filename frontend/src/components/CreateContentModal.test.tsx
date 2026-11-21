@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CreateContentModal from './CreateContentModal'
@@ -18,6 +18,20 @@ const staticPageResponse = {
 }
 
 describe('CreateContentModal', () => {
+  it('includes a deadline and late policy for new coding exercises', async () => {
+    const user = userEvent.setup()
+    createCodingExercise.mockResolvedValue({ ...staticPageResponse, type: 'CodingExercise' })
+    render(<CreateContentModal moduleId={1} open onClose={vi.fn()} onCreated={vi.fn()} />)
+    await user.selectOptions(screen.getByLabelText('Type'), 'CodingExercise')
+    await user.type(screen.getByLabelText(/Title/), 'Code')
+    await user.type(screen.getByLabelText(/Repository URL/), 'https://example.com/repo')
+    fireEvent.change(screen.getByLabelText('Deadline (Europe/Oslo)'), { target: { value: '2026-11-30T12:00' } })
+    await user.click(screen.getByLabelText('Accept late submissions'))
+    await user.click(screen.getByRole('button', { name: 'Add content' }))
+    expect(createCodingExercise).toHaveBeenCalledWith(1, expect.objectContaining({
+      deadline: '2026-11-30T12:00', lateSubmissionsAccepted: true,
+    }), {})
+  })
   beforeEach(() => {
     createStaticPage.mockReset()
     createQuiz.mockReset()

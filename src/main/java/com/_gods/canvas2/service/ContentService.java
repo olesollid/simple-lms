@@ -136,6 +136,18 @@ public class ContentService {
     return contentRepository.save(staticPage);
   }
 
+  public Content updateSubmissionPolicy(Long id, LocalDateTime deadline, boolean acceptsLate,
+      String requesterEmail) {
+    Content content = getContentById(id);
+    requireTeacher(content.getModule().getCourse().getId(), requesterEmail);
+    switch (content) {
+      case Assignment assignment -> assignment.updateSubmissionPolicy(deadline, acceptsLate);
+      case CodingExercise exercise -> exercise.updateSubmissionPolicy(deadline, acceptsLate);
+      default -> throw new IllegalArgumentException("Only assignments and coding exercises have hand-in policies");
+    }
+    return contentRepository.save(content);
+  }
+
   /** Deleting content also removes submissions and interactions tied to it, which would
    * otherwise block the delete with a foreign-key violation. */
   public void deleteContent(Long id, String requesterEmail) {

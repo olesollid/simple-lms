@@ -48,6 +48,30 @@ import com._gods.canvas2.service.StudentInteractionService;
 @WebMvcTest(ContentController.class)
 @AutoConfigureMockMvc
 class ContentControllerTests {
+  private RequestPostProcessor as(String email) {
+    RequestPostProcessor login = oauth2Login().oauth2User(new DefaultOAuth2User(
+        Set.of(new SimpleGrantedAuthority("ROLE_USER")), Map.of("email", email), "email"));
+    return request -> csrf().postProcessRequest(login.postProcessRequest(request));
+  }
+  @Test
+  void updatesHandInPolicyAndRejectsNonTeachers() throws Exception {
+    var deadline = java.time.LocalDateTime.of(2026, 11, 30, 12, 0);
+    Assignment assignment = assignment(1L, module(1L), "Essay", "Write");
+    assignment.updateSubmissionPolicy(deadline, true);
+    when(contentService.updateSubmissionPolicy(1L, deadline, true, "teacher@example.com"))
+        .thenReturn(assignment);
+    when(contentService.updateSubmissionPolicy(1L, deadline, true, "student@example.com"))
+        .thenThrow(new com._gods.canvas2.service.ForbiddenException("not a teacher"));
+    String body = "{\"deadline\":\"2026-11-30T12:00:00\",\"lateSubmissionsAccepted\":true}";
+    mockMvc.perform(put("/api/contents/1/submission-policy").with(as("teacher@example.com"))
+        .contentType(MediaType.APPLICATION_JSON).content(body))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.deadline").value("2026-11-30T12:00:00"))
+        .andExpect(jsonPath("$.lateSubmissionsAccepted").value(true));
+    mockMvc.perform(put("/api/contents/1/submission-policy").with(as("student@example.com"))
+        .contentType(MediaType.APPLICATION_JSON).content(body))
+        .andExpect(status().isForbidden());
+  }
 
   @Autowired
   private MockMvc mockMvc;

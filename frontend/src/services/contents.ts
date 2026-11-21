@@ -4,6 +4,8 @@ import type { ApiCallOptions, ApiRequest } from './apiClient.ts'
 
 export function createContentService(request: ApiRequest) {
   return {
+    updateSubmissionPolicy: (id: number, body: { deadline: string | null; lateSubmissionsAccepted: boolean }, options?: ApiCallOptions) =>
+      request<ContentResponse>(`/contents/${id}/submission-policy`, { ...options, method: 'PUT', body }),
     getContentsByModule: (moduleId: number, options?: ApiCallOptions) =>
       request<ContentResponse[]>(`/modules/${moduleId}/contents`, options),
     getContent: (id: number, options?: ApiCallOptions) =>

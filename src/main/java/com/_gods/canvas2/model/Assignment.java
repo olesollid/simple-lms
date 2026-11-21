@@ -40,8 +40,7 @@ public class Assignment extends Content {
     }
 
     this.instructions = instructions;
-    this.deadline = deadline;
-    this.lateSubmissionsAccepted = lateSubmissionsAccepted;
+    updateSubmissionPolicy(deadline, lateSubmissionsAccepted);
     this.groupSubmission = groupSubmission;
   }
 
@@ -51,6 +50,12 @@ public class Assignment extends Content {
 
   public LocalDateTime getDeadline() {
     return deadline;
+  }
+
+  public void updateSubmissionPolicy(LocalDateTime deadline, boolean acceptsLate) {
+    HandInPolicy.validateDeadline(deadline);
+    this.deadline = deadline;
+    this.lateSubmissionsAccepted = acceptsLate;
   }
 
   public boolean isLateSubmissionsAccepted() {

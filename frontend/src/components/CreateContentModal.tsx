@@ -5,6 +5,7 @@ import Modal from './ui/Modal'
 import Input from './ui/Input'
 import Button from './ui/Button'
 import ErrorMessage from './ui/ErrorMessage'
+import SubmissionPolicyFields from './SubmissionPolicyFields'
 import type { ContentResponse, ContentType } from '../types/content'
 
 function submitError(error: unknown): string {
@@ -25,6 +26,8 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
   const [instructions, setInstructions] = useState('')
   const [repositoryUrl, setRepositoryUrl] = useState('')
   const [groupSubmission, setGroupSubmission] = useState(false)
+  const [deadline, setDeadline] = useState('')
+  const [acceptsLate, setAcceptsLate] = useState(false)
   const [maxAttempts, setMaxAttempts] = useState(1)
   const [showHints, setShowHints] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -37,6 +40,8 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
     setInstructions('')
     setRepositoryUrl('')
     setGroupSubmission(false)
+    setDeadline('')
+    setAcceptsLate(false)
     setMaxAttempts(1)
     setShowHints(false)
     setError(null)
@@ -61,11 +66,11 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
           { title, position: 0, maxAttempts, showHints, deadline: null }, {})
       } else if (type === 'Assignment') {
         content = await contents.createAssignment(moduleId,
-          { title, position: 0, instructions, deadline: null, lateSubmissionsAccepted: false,
+          { title, position: 0, instructions, deadline: deadline || null, lateSubmissionsAccepted: acceptsLate,
             groupSubmission }, {})
       } else {
         content = await contents.createCodingExercise(moduleId,
-          { title, position: 0, repositoryUrl, deadline: null, lateSubmissionsAccepted: false,
+          { title, position: 0, repositoryUrl, deadline: deadline || null, lateSubmissionsAccepted: acceptsLate,
             groupSubmission }, {})
       }
       reset()
@@ -166,6 +171,8 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
               />
               Group submission
             </label>
+            <SubmissionPolicyFields deadline={deadline} acceptsLate={acceptsLate}
+              onDeadline={setDeadline} onAcceptsLate={setAcceptsLate} />
           </>
         )}
 

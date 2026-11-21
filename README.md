@@ -196,6 +196,37 @@ Quiz-related endpoints (all under `/api`, teacher-only writes unless noted):
 | `POST` | `/quizzes/{quizId}/submissions` | Submit answers for grading; returns 202, grading happens async (any enrolled member) |
 | `GET` | `/quizzes/{quizId}/grade` | Read the caller's own grade; 404 until grading completes (any enrolled member) |
 
+### Assignment and coding-exercise deadlines
+
+Teachers can set an optional deadline and enable late hand-ins when creating an
+assignment or coding exercise. On its detail page, use **Edit deadline and late
+policy** to change or remove the deadline later. This feature does not change
+quiz submission rules.
+
+Deadlines are ISO local date-times interpreted in **Europe/Oslo**, including
+inside Docker; the browser sends the entered wall-clock value without converting
+it to the browser's time zone. The backend rejects nonexistent or ambiguous
+times during the daylight-saving clock change. A hand-in exactly at the deadline
+is on time. Later text/file hand-ins and resubmissions are rejected with HTTP 403
+unless late submissions are accepted. No deadline means submissions stay open.
+The server checks the time after upload receipt, so uploads must finish before
+the deadline if late submissions are disabled. These rules also apply to teacher
+hand-ins; teachers can reopen a deadline through the policy editor.
+
+Each accepted hand-in records its submission time in Europe/Oslo and its
+`lateSubmission` status. The student and teacher views show that status. Changing
+a deadline does not reclassify previous work; resubmitting updates the timestamp
+and late status for the replacement. Rejected hand-ins preserve existing work.
+Groups share the same status. Graded hand-ins remain locked regardless of policy.
+Existing submissions from before this feature have unknown (`null`) late status
+and are not retroactively labelled on time or late.
+
+API: teacher-only `PUT /api/contents/{id}/submission-policy` accepts
+`{"deadline":"2026-11-30T12:00:00","lateSubmissionsAccepted":true}`; use a null
+deadline to remove the limit. The response is the updated content. Existing JSON
+and multipart submission endpoints both enforce the policy and include
+`lateSubmission` in their response metadata.
+
 ### File hand-ins
 
 Assignment and coding-exercise submissions accept one PDF, DOC or DOCX attachment,
