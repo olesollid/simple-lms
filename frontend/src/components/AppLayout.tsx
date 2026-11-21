@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { users } from '../services'
 import { logout } from '../services/auth'
+import AiTutor from './tutor/AiTutor'
+import { clearAllTutorStorage } from './tutor/tutorStorage'
 
 export function AppHeader({ menuOpen, onToggle }: { menuOpen: boolean; onToggle: () => void }) {
   const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -19,6 +21,7 @@ export function AppHeader({ menuOpen, onToggle }: { menuOpen: boolean; onToggle:
   async function handleLogout() {
     setLoggingOut(true)
     await logout()
+    clearAllTutorStorage()
     window.location.href = '/'
   }
 
@@ -80,6 +83,7 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <AiTutor />
     </>
   )
 }
