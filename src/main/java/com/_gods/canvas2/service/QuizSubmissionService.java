@@ -52,6 +52,7 @@ public class QuizSubmissionService {
     if (request.answers() == null) {
       throw new IllegalArgumentException("Answers must not be null");
     }
+    validateTextAnswers(request.textAnswers());
 
     Quiz quiz = requireOpenQuiz(quizId, requesterEmail);
     if (quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE))) {
@@ -64,7 +65,7 @@ public class QuizSubmissionService {
 
     try {
       submissionPublisher.publish(new SubmissionCreatedEvent(quizId, studentEmail, attempt,
-          request.answers(), LocalDateTime.now()));
+          request.answers(), request.textAnswers(), LocalDateTime.now()));
     } catch (RuntimeException e) {
       quizGradeStore.releaseAttempt(quiz, studentEmail);
       throw e;
@@ -72,22 +73,50 @@ public class QuizSubmissionService {
     return attempt;
   }
 
-  /** The requester's own attempt count, best grade and latest grade for a quiz. */
+  private static final int MAX_BLANKS_PER_QUESTION = 20;
+  private static final int MAX_TEXT_ANSWER_LENGTH = 200;
+
+  /** Typed answers come from the browser, so bound their size before they go on the queue. */
+  private static void validateTextAnswers(Map<Long, List<String>> textAnswers) {
+    if (textAnswers == null) {
+      return;
+    }
+    for (List<String> typed : textAnswers.values()) {
+      if (typed == null || typed.size() > MAX_BLANKS_PER_QUESTION) {
+        throw new IllegalArgumentException("Too many answers for one question");
+      }
+      for (String answer : typed) {
+        if (answer != null && answer.length() > MAX_TEXT_ANSWER_LENGTH) {
+          throw new IllegalArgumentException(
+              "An answer may be at most " + MAX_TEXT_ANSWER_LENGTH + " characters");
+        }
+      }
+    }
+  }
+
+  /**
+   * The requester's own attempt count and, when the results are visible to students, their best
+   * and latest grade and the hints. Results are visible straight away unless the teacher turned
+   * that off, and then once the teacher publishes the grades
+   * ({@link Quiz#areResultsVisibleToStudents()}). Hints go with the results, because a hint gives
+   * away which questions were wrong.
+   */
   @Transactional(readOnly = true)
   public QuizAttemptsResponse getOwnAttempts(Long quizId, String requesterEmail) {
     Quiz quiz = requireOpenQuiz(quizId, requesterEmail);
     int attemptsUsed = quizGradeStore.attemptsUsed(quiz, requesterEmail);
     boolean closed = quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE));
-    if (!quiz.areResultsVisibleToStudents()) {
-      // Hidden until the teacher publishes: no score, and no hints either, since a hint gives
-      // away which questions were wrong.
-      return new QuizAttemptsResponse(attemptsUsed, quiz.getMaxAttempts(), quiz.getDeadline(),
-          closed, false, null, null, Map.of());
-    }
     QuizGrade latest = quizGradeStore.findLatest(quiz, requesterEmail).orElse(null);
+    // Always given, even while results are hidden, so a student can tell "still grading" from
+    // "graded, but not visible yet".
+    int attemptsGraded = latest == null ? 0 : latest.attemptNumber();
+    if (!quiz.areResultsVisibleToStudents()) {
+      return new QuizAttemptsResponse(attemptsUsed, quiz.getMaxAttempts(), quiz.getDeadline(),
+          closed, false, null, null, Map.of(), attemptsGraded);
+    }
     return new QuizAttemptsResponse(attemptsUsed, quiz.getMaxAttempts(), quiz.getDeadline(),
         closed, true, quizGradeStore.find(quiz, requesterEmail).orElse(null), latest,
-        hintsForWrongAnswers(quiz, latest));
+        hintsForWrongAnswers(quiz, latest), attemptsGraded);
   }
 
   /** Hints for exactly the questions the latest attempt got wrong; empty before any attempt. */

@@ -320,4 +320,206 @@ class QuizServiceTests {
 
     assertEquals(1, questions.size());
   }
+
+  private static QuestionRequest ordering(String... steps) {
+    List<AnswerOptionRequest> options = java.util.Arrays.stream(steps)
+        .map(step -> new AnswerOptionRequest(step, false)).toList();
+    return new QuestionRequest("Put these in order", null, options, Question.Type.ORDERING);
+  }
+
+  @Test
+  void questionsAreChoiceQuestionsUnlessTheyAskForAnotherType() {
+    Quiz quiz = quiz();
+
+    Question question = quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+
+    assertEquals(Question.Type.CHOICE, question.getType());
+  }
+
+  @Test
+  void storesAnOrderingQuestionWithItsOptionsInTheOrderEntered() {
+    Quiz quiz = quiz();
+
+    Question question = quizService.addQuestion(quiz.getId(), ordering("First", "Second", "Third"),
+        teacherEmail);
+    entityManager.flush();
+    entityManager.clear();
+
+    Question reloaded = quizService.getQuestionsWithAnswers(quiz.getId(), teacherEmail).getFirst();
+    assertEquals(Question.Type.ORDERING, reloaded.getType());
+    // The teacher's order is kept in the position, not in the ids.
+    assertEquals(List.of("First", "Second", "Third"),
+        reloaded.getOptionsInOrder().stream().map(AnswerOption::getText).toList());
+    assertEquals(question.getId(), reloaded.getId());
+  }
+
+  @Test
+  void anOrderingQuestionNeedsNoCorrectFlagsButStillTwoOptions() {
+    Quiz quiz = quiz();
+
+    assertThrows(IllegalArgumentException.class,
+        () -> quizService.addQuestion(quiz.getId(), ordering("Only one"), teacherEmail));
+    // A choice question without a correct option is still rejected.
+    assertThrows(IllegalArgumentException.class, () -> quizService.addQuestion(quiz.getId(),
+        new QuestionRequest("Q", null, List.of(new AnswerOptionRequest("A", false),
+            new AnswerOptionRequest("B", false))), teacherEmail));
+  }
+
+  @Test
+  void aQuestionCanBeChangedToAnotherTypeWhileTheQuizIsADraft() {
+    Quiz quiz = quiz();
+    Question question = quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+
+    Question updated = quizService.updateQuestion(quiz.getId(), question.getId(),
+        ordering("One", "Two", "Three"), teacherEmail);
+
+    assertEquals(Question.Type.ORDERING, updated.getType());
+    assertEquals(3, updated.getOptions().size());
+  }
+
+  private static QuestionRequest matching(String... pairs) {
+    List<AnswerOptionRequest> options = new java.util.ArrayList<>();
+    for (String pair : pairs) {
+      String[] sides = pair.split("=", 2);
+      options.add(new AnswerOptionRequest(sides[0], false, sides.length > 1 ? sides[1] : null));
+    }
+    return new QuestionRequest("Match the capitals", null, options, Question.Type.MATCHING);
+  }
+
+  private static QuestionRequest fillIn(String text, String... blanks) {
+    return new QuestionRequest(text, null,
+        java.util.Arrays.stream(blanks).map(blank -> new AnswerOptionRequest(blank, false)).toList(),
+        Question.Type.FILL_IN);
+  }
+
+  @Test
+  void storesMatchingPairsWithTheirRightHandTextInTheOrderEntered() {
+    Quiz quiz = quiz();
+
+    quizService.addQuestion(quiz.getId(), matching("Norway=Oslo", "France=Paris", "Spain=Madrid"),
+        teacherEmail);
+    entityManager.flush();
+    entityManager.clear();
+
+    Question reloaded = quizService.getQuestionsWithAnswers(quiz.getId(), teacherEmail).getFirst();
+    assertEquals(Question.Type.MATCHING, reloaded.getType());
+    assertEquals(List.of("Norway", "France", "Spain"),
+        reloaded.getOptionsInOrder().stream().map(AnswerOption::getText).toList());
+    assertEquals(List.of("Oslo", "Paris", "Madrid"),
+        reloaded.getOptionsInOrder().stream().map(AnswerOption::getMatchText).toList());
+  }
+
+  @Test
+  void aMatchingQuestionNeedsTwoPairsAndEveryRightHandItem() {
+    Quiz quiz = quiz();
+
+    assertThrows(IllegalArgumentException.class,
+        () -> quizService.addQuestion(quiz.getId(), matching("Norway=Oslo"), teacherEmail));
+    assertThrows(IllegalArgumentException.class,
+        () -> quizService.addQuestion(quiz.getId(), matching("Norway=Oslo", "France"), teacherEmail));
+    assertThrows(IllegalArgumentException.class,
+        () -> quizService.addQuestion(quiz.getId(), matching("Norway=Oslo", "France=  "), teacherEmail));
+    assertThrows(IllegalArgumentException.class,
+        () -> quizService.addQuestion(quiz.getId(), matching("Norway=Oslo", "=Paris"), teacherEmail));
+  }
+
+  @Test
+  void storesAFillInQuestionWithOneOptionPerBlank() {
+    Quiz quiz = quiz();
+
+    Question question = quizService.addQuestion(quiz.getId(),
+        fillIn("The capital of ___ is ___.", "Norway|Norge", "Oslo"), teacherEmail);
+
+    assertEquals(Question.Type.FILL_IN, question.getType());
+    assertEquals(List.of("Norway|Norge", "Oslo"),
+        question.getOptionsInOrder().stream().map(AnswerOption::getText).toList());
+  }
+
+  @Test
+  void aFillInQuestionNeedsOneBlankMarkerPerBlank() {
+    Quiz quiz = quiz();
+
+    assertThrows(IllegalArgumentException.class, () -> quizService.addQuestion(quiz.getId(),
+        fillIn("The capital of ___ is ___.", "Norway"), teacherEmail));
+    assertThrows(IllegalArgumentException.class, () -> quizService.addQuestion(quiz.getId(),
+        fillIn("There is no blank here.", "Norway"), teacherEmail));
+    assertThrows(IllegalArgumentException.class, () -> quizService.addQuestion(quiz.getId(),
+        fillIn("Only ___ blank.", "Norway", "Oslo"), teacherEmail));
+  }
+
+  @Test
+  void everyBlankNeedsAnAcceptedAnswer() {
+    Quiz quiz = quiz();
+
+    assertThrows(IllegalArgumentException.class, () -> quizService.addQuestion(quiz.getId(),
+        fillIn("A ___ B ___", "Norway", " | "), teacherEmail));
+    assertThrows(IllegalArgumentException.class, () -> quizService.addQuestion(quiz.getId(),
+        fillIn("A ___", "   "), teacherEmail));
+  }
+
+  /**
+   * The ids of ordering and matching options are what a student sees, and ids are handed out in
+   * creation order, so the service creates those options in a random order. If it did not, sorting
+   * by id would give the answer.
+   */
+  @Test
+  void theIdsOfOrderingAndMatchingOptionsDoNotRevealTheAuthoredOrder() {
+    Quiz quiz = quiz();
+    int idOrderMatchedAuthoredOrder = 0;
+    int questions = 30;
+
+    for (int i = 0; i < questions; i++) {
+      Question ordering = quizService.addQuestion(quiz.getId(), ordering("A", "B", "C", "D", "E"),
+          teacherEmail);
+      Question pairs = quizService.addQuestion(quiz.getId(),
+          matching("1=a", "2=b", "3=c", "4=d", "5=e"), teacherEmail);
+      for (Question question : List.of(ordering, pairs)) {
+        List<Long> authored = question.getOptionsInOrder().stream().map(AnswerOption::getId).toList();
+        if (authored.equals(authored.stream().sorted().toList())) {
+          idOrderMatchedAuthoredOrder++;
+        }
+      }
+    }
+
+    // Each of the 60 questions has a 1-in-120 chance of matching by luck; matching all is impossible.
+    assertTrue(idOrderMatchedAuthoredOrder < 10,
+        "ids followed the authored order in " + idOrderMatchedAuthoredOrder + " of " + (questions * 2));
+  }
+
+  @Test
+  void aChoiceQuestionIgnoresMatchTextAndKeepsItsCorrectFlags() {
+    Quiz quiz = quiz();
+
+    Question question = quizService.addQuestion(quiz.getId(), new QuestionRequest("Pick", null,
+        List.of(new AnswerOptionRequest("A", true, "ignored"), new AnswerOptionRequest("B", false))),
+        teacherEmail);
+
+    assertEquals(null, question.getOptionsInOrder().getFirst().getMatchText());
+    assertTrue(question.getOptionsInOrder().getFirst().isCorrect());
+    assertEquals(false, question.getOptionsInOrder().get(1).isCorrect());
+  }
+
+  @Test
+  void teacherChangesTheAttemptLimitAnyTime() {
+    Quiz quiz = quiz();
+    quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+    quizService.publishQuiz(quiz.getId(), teacherEmail);
+
+    Quiz updated = quizService.updateMaxAttempts(quiz.getId(), 5, teacherEmail);
+
+    assertEquals(5, updated.getMaxAttempts());
+    assertEquals(0, quizService.updateMaxAttempts(quiz.getId(), 0, teacherEmail).getMaxAttempts());
+  }
+
+  @Test
+  void rejectsAnInvalidAttemptLimitAndStudentsChangingIt() {
+    Quiz quiz = quiz();
+    String student = studentOf(quiz);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> quizService.updateMaxAttempts(quiz.getId(), -1, teacherEmail));
+    assertThrows(ForbiddenException.class,
+        () -> quizService.updateMaxAttempts(quiz.getId(), 3, student));
+    assertEquals(1, quizService.getQuiz(quiz.getId()).getMaxAttempts());
+  }
 }

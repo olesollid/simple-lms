@@ -12,10 +12,12 @@ import com._gods.canvas2.grading.QuizGrade;
  * passed; computed on the server so the browser's time zone does not matter. {@code hints} maps
  * question id to hint, only for questions the latest attempt got wrong (and that have a hint), so a
  * student never sees a hint before answering. When {@code resultsVisible} is false the teacher
- * has not published the results yet, so {@code best}, {@code latest} and {@code hints} are empty. When {@code attemptsUsed} is ahead of
- * {@code latest.attemptNumber()}, the newest attempt is still being graded.
+ * has not published the results yet, so {@code best}, {@code latest} and {@code hints} are empty.
+ * {@code attemptsGraded} is how many attempts have finished grading and is always given, so a
+ * student can tell "still grading" ({@code attemptsUsed} is ahead of it) from "graded, but the
+ * results are not visible yet".
  */
 public record QuizAttemptsResponse(int attemptsUsed, int maxAttempts, LocalDateTime deadline,
     boolean closed, boolean resultsVisible, QuizGrade best, QuizGrade latest,
-    Map<Long, String> hints) {
+    Map<Long, String> hints, int attemptsGraded) {
 }

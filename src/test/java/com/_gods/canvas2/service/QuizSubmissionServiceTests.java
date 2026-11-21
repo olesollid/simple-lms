@@ -351,4 +351,97 @@ class QuizSubmissionServiceTests {
     assertThrows(QuizNotFoundException.class,
         () -> quizSubmissionService.submit(page.getId(), ANSWERS, student));
   }
+
+  @Test
+  void showsThatTheNewestAttemptIsStillBeingGraded() {
+    Quiz quiz = quiz(0);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    QuizGrade first = new QuizGrade(quiz.getId(), student, 1, 1, 1, 1.0, List.of(), LocalDateTime.now());
+    when(quizGradeStore.attemptsUsed(any(Quiz.class), eq(student))).thenReturn(2);
+    when(quizGradeStore.findLatest(any(Quiz.class), eq(student))).thenReturn(Optional.of(first));
+
+    QuizAttemptsResponse attempts = quizSubmissionService.getOwnAttempts(quiz.getId(), student);
+
+    assertEquals(2, attempts.attemptsUsed());
+    assertEquals(1, attempts.attemptsGraded());
+  }
+
+  @Test
+  void sendsTypedAnswersAlongWithTheSelectedOptions() {
+    Quiz quiz = quiz(3);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    when(quizGradeStore.reserveAttempt(any(Quiz.class), eq(student))).thenReturn(Optional.of(1));
+
+    quizSubmissionService.submit(quiz.getId(),
+        new QuizSubmissionRequest(Map.of(1L, List.of(10L)), Map.of(2L, List.of("Oslo", "Norway"))), student);
+
+    ArgumentCaptor<SubmissionCreatedEvent> event = ArgumentCaptor.forClass(SubmissionCreatedEvent.class);
+    verify(submissionPublisher).publish(event.capture());
+    assertEquals(Map.of(1L, List.of(10L)), event.getValue().answers());
+    assertEquals(Map.of(2L, List.of("Oslo", "Norway")), event.getValue().textAnswers());
+  }
+
+  @Test
+  void typedAnswersAreOptional() {
+    Quiz quiz = quiz(3);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    when(quizGradeStore.reserveAttempt(any(Quiz.class), eq(student))).thenReturn(Optional.of(1));
+
+    quizSubmissionService.submit(quiz.getId(), ANSWERS, student);
+
+    ArgumentCaptor<SubmissionCreatedEvent> event = ArgumentCaptor.forClass(SubmissionCreatedEvent.class);
+    verify(submissionPublisher).publish(event.capture());
+    assertEquals(null, event.getValue().textAnswers());
+  }
+
+  @Test
+  void rejectsOversizedTypedAnswersWithoutUsingAnAttempt() {
+    Quiz quiz = quiz(3);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+
+    assertThrows(IllegalArgumentException.class, () -> quizSubmissionService.submit(quiz.getId(),
+        new QuizSubmissionRequest(Map.of(), Map.of(1L, List.of("x".repeat(201)))), student));
+    assertThrows(IllegalArgumentException.class, () -> quizSubmissionService.submit(quiz.getId(),
+        new QuizSubmissionRequest(Map.of(), Map.of(1L, java.util.Collections.nCopies(21, "a"))), student));
+    verify(quizGradeStore, never()).reserveAttempt(any(Quiz.class), any());
+    verify(submissionPublisher, never()).publish(any());
+  }
+
+  @Test
+  void saysHowManyAttemptsAreGradedEvenWhileTheResultsAreHidden() {
+    Quiz quiz = quiz(0);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    quizService.setShowResultsImmediately(quiz.getId(), false, teacher);
+    String student = enrol(Role.STUDENT);
+    QuizGrade grade = new QuizGrade(quiz.getId(), student, 2, 1, 1, 1.0, List.of(), LocalDateTime.now());
+    when(quizGradeStore.attemptsUsed(any(Quiz.class), eq(student))).thenReturn(2);
+    when(quizGradeStore.find(any(Quiz.class), eq(student))).thenReturn(Optional.of(grade));
+    when(quizGradeStore.findLatest(any(Quiz.class), eq(student))).thenReturn(Optional.of(grade));
+
+    QuizAttemptsResponse hidden = quizSubmissionService.getOwnAttempts(quiz.getId(), student);
+
+    assertEquals(false, hidden.resultsVisible());
+    assertEquals(null, hidden.best());
+    assertEquals(null, hidden.latest());
+    // Grading itself is finished, so a student can tell "graded, not visible yet" from "still grading".
+    assertEquals(2, hidden.attemptsGraded());
+    assertEquals(2, hidden.attemptsUsed());
+  }
+
+  @Test
+  void attemptsGradedIsZeroBeforeAnythingIsGraded() {
+    Quiz quiz = quiz(0);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    when(quizGradeStore.attemptsUsed(any(Quiz.class), eq(student))).thenReturn(1);
+
+    QuizAttemptsResponse attempts = quizSubmissionService.getOwnAttempts(quiz.getId(), student);
+
+    assertEquals(1, attempts.attemptsUsed());
+    assertEquals(0, attempts.attemptsGraded());
+  }
 }

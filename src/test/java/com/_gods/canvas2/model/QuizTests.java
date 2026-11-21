@@ -123,4 +123,22 @@ class QuizTests {
     assertThrows(UnsupportedOperationException.class,
         () -> quiz.getQuestions().add(null));
   }
+
+  @Test
+  void changesTheAttemptLimit() {
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+
+    quiz.updateMaxAttempts(0);
+
+    assertEquals(0, quiz.getMaxAttempts());
+    assertTrue(quiz.hasUnlimitedAttempts());
+  }
+
+  @Test
+  void rejectsANegativeAttemptLimitWhenChangingIt() {
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+
+    assertThrows(IllegalArgumentException.class, () -> quiz.updateMaxAttempts(-1));
+    assertEquals(1, quiz.getMaxAttempts());
+  }
 }

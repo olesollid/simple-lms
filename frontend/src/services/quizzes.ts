@@ -1,7 +1,7 @@
 import type { ContentResponse } from '../types/content.ts'
 import type {
   Question, QuestionRequest, QuestionWithAnswers, QuizAttempts, QuizStudentResult,
-  QuizSubmissionRequest, QuizSubmissionResponse,
+  QuizSettingsRequest, QuizSubmissionRequest, QuizSubmissionResponse,
 } from '../types/quiz.ts'
 import type { ApiCallOptions, ApiRequest } from './apiClient.ts'
 
@@ -28,6 +28,8 @@ export function createQuizService(request: ApiRequest) {
       }),
     publish: (quizId: number, options?: ApiCallOptions) =>
       request<ContentResponse>(`/quizzes/${quizId}/publication`, { ...options, method: 'PUT' }),
+    updateSettings: (quizId: number, body: QuizSettingsRequest, options?: ApiCallOptions) =>
+      request<ContentResponse>(`/quizzes/${quizId}/settings`, { ...options, method: 'PUT', body }),
     submit: (quizId: number, body: QuizSubmissionRequest, options?: ApiCallOptions) =>
       request<QuizSubmissionResponse>(`/quizzes/${quizId}/submissions`, {
         ...options, method: 'POST', body,

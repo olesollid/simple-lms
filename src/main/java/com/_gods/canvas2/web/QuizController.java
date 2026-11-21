@@ -93,6 +93,24 @@ public class QuizController {
     return ContentResponse.from(quizService.publishQuiz(quizId, authentication.getName()));
   }
 
+  public record Settings(Integer maxAttempts) {
+  }
+
+  /**
+   * Teacher-only: the maximum number of attempts ({@code 0} = unlimited), changeable at any time.
+   * The deadline is changed via the submission policy and result visibility via
+   * {@code /result-visibility}.
+   */
+  @PutMapping("/settings")
+  public ContentResponse updateSettings(@PathVariable Long quizId, @RequestBody Settings request,
+      Authentication authentication) {
+    if (request.maxAttempts() == null) {
+      throw new IllegalArgumentException("maxAttempts is required");
+    }
+    return ContentResponse.from(
+        quizService.updateMaxAttempts(quizId, request.maxAttempts(), authentication.getName()));
+  }
+
   /** Grading is asynchronous: poll {@code GET /attempts/mine} for the result of this attempt. */
   @PostMapping("/submissions")
   public ResponseEntity<QuizSubmissionResponse> submit(@PathVariable Long quizId,
@@ -114,7 +132,7 @@ public class QuizController {
     return quizSubmissionService.getResults(quizId, authentication.getName());
   }
 
-  /** The requester's best graded attempt -- the grade that counts. 404 until one is graded. */
+  /** The requester's best graded attempt -- the grade that counts. 404 until it is graded and visible to students. */
   @GetMapping("/grade")
   public QuizGrade getGrade(@PathVariable Long quizId, Authentication authentication) {
     QuizAttemptsResponse attempts =

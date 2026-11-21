@@ -10,5 +10,6 @@ import java.util.Map;
  * {@code RabbitConfig}), so this must stay a plain data carrier.
  */
 public record SubmissionCreatedEvent(Long quizId, String studentEmail, int attemptNumber,
-    Map<Long, List<Long>> answers, LocalDateTime submittedAt) implements Serializable {
+    Map<Long, List<Long>> answers, Map<Long, List<String>> textAnswers,
+    LocalDateTime submittedAt) implements Serializable {
 }
