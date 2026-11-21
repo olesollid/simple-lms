@@ -20,12 +20,12 @@ export interface ContentResponse {
   published?: boolean | null
   /** Quizzes only: true once the Europe/Oslo deadline has passed (decided by the server). */
   closed?: boolean | null
-  /** Quizzes only: whether a question's hint is shown after an attempt got it wrong. */
-  showHints?: boolean | null
-  /** Quizzes only: true once the teacher has published the results, so students can see grades. */
-  gradesPublished?: boolean | null
   /** False while students can't see it: outside its visibility window, or a draft quiz. */
   visibleToStudents?: boolean
+  /** Quizzes only: students see results right after grading (otherwise once published). */
+  showResultsImmediately?: boolean | null
+  /** Quizzes only: the teacher has published the results. */
+  resultsPublished?: boolean | null
 }
 
 /** Title and visibility window (Europe/Oslo wall-clock times, or null for no limit). */
@@ -49,6 +49,8 @@ export interface QuizRequest {
   position: number
   /** 0 means unlimited attempts. */
   maxAttempts: number
+  /** Defaults to true on the server when left out. */
+  showResultsImmediately?: boolean
   deadline: string | null
 }
 

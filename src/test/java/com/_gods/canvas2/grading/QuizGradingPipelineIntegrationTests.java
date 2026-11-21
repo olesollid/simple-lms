@@ -1,5 +1,7 @@
 package com._gods.canvas2.grading;
 
+import java.time.Duration;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,7 +54,10 @@ import com._gods.canvas2.web.dto.QuizSubmissionRequest;
 class QuizGradingPipelineIntegrationTests {
 
   @Container
-  static RabbitMQContainer rabbitMQContainer = new RabbitMQContainer("rabbitmq:4");
+  // RabbitMQ can take close to a minute to boot on a slow laptop or a busy CI runner, which is
+  // right at Testcontainers' default limit, so give it more room before calling it a failure.
+  static RabbitMQContainer rabbitMQContainer = new RabbitMQContainer("rabbitmq:4")
+      .withStartupTimeout(Duration.ofMinutes(3));
 
   @Container
   static GenericContainer<?> redisContainer =
@@ -138,7 +143,7 @@ class QuizGradingPipelineIntegrationTests {
   }
 
   @Test
-  void anOrderingAttemptIsGradedButStaysHiddenUntilTheTeacherPublishesTheResults()
+  void anOrderingAttemptIsGradedAndItsResultsFollowTheQuizsVisibilitySetting()
       throws InterruptedException {
     Course course = courseRepository.save(new Course("Ordering Test", "desc", Term.AUTUMN, 2026));
     User teacher = userRepository.save(new User("order-teacher@example.com", "Teacher"));
@@ -151,39 +156,41 @@ class QuizGradingPipelineIntegrationTests {
     quizService.addQuestion(quiz.getId(), new QuestionRequest("Order the steps", "Plan first", List.of(
         new AnswerOptionRequest("Plan", false), new AnswerOptionRequest("Build", false),
         new AnswerOptionRequest("Test", false)), Question.Type.ORDERING), teacher.getEmail());
-    quizService.updateSettings(quiz.getId(), null, true, teacher.getEmail());
     var question = quizService.getQuestionsWithAnswers(quiz.getId(), teacher.getEmail()).get(0);
     List<Long> authored = question.getOptionsInOrder().stream().map(o -> o.getId()).toList();
     quizService.publishQuiz(quiz.getId(), teacher.getEmail());
 
-    // A wrong order first: hints arrive right away, the grade does not.
+    // By default results show as soon as an attempt is graded, hints included.
     quizSubmissionService.submit(quiz.getId(),
         new QuizSubmissionRequest(Map.of(question.getId(), authored.reversed())), student.getEmail());
     awaitGraded(quiz, student.getEmail(), 1);
     var afterWrong = quizSubmissionService.getOwnAttempts(quiz.getId(), student.getEmail());
+    assertEquals(true, afterWrong.resultsVisible());
     assertEquals(1, afterWrong.attemptsGraded());
-    assertEquals(false, afterWrong.resultsPublished());
-    assertEquals(null, afterWrong.best());
+    assertEquals(0.0, afterWrong.best().score());
     assertEquals(Map.of(question.getId(), "Plan first"), afterWrong.hints());
 
+    // The teacher holds the results back: the next attempt is graded but not shown.
+    quizService.setShowResultsImmediately(quiz.getId(), false, teacher.getEmail());
     quizSubmissionService.submit(quiz.getId(),
         new QuizSubmissionRequest(Map.of(question.getId(), authored)), student.getEmail());
     awaitGraded(quiz, student.getEmail(), 2);
 
     var hidden = quizSubmissionService.getOwnAttempts(quiz.getId(), student.getEmail());
+    assertEquals(false, hidden.resultsVisible());
     assertEquals(2, hidden.attemptsGraded());
     assertEquals(null, hidden.best());
     assertEquals(null, hidden.latest());
+    assertEquals(Map.of(), hidden.hints());
 
-    // Reload first: the local copy predates publishQuiz and would overwrite the published flag.
+    // Publishing the grades reveals them. Reload first: the local copy predates the changes above.
     Quiz current = quizService.getQuiz(quiz.getId());
     current.publishGrades();
     contentRepository.saveAndFlush(current);
     var visible = quizSubmissionService.getOwnAttempts(quiz.getId(), student.getEmail());
-    assertEquals(true, visible.resultsPublished());
+    assertEquals(true, visible.resultsVisible());
     assertEquals(1.0, visible.best().score());
     assertEquals(2, visible.best().attemptNumber());
-    assertEquals(Map.of(), visible.hints());
   }
 
   @Test

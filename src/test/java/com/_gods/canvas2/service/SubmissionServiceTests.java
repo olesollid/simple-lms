@@ -19,6 +19,7 @@ import com._gods.canvas2.model.Enrollment;
 import com._gods.canvas2.model.Group;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Role;
+import com._gods.canvas2.model.Quiz;
 import com._gods.canvas2.model.Submission;
 import com._gods.canvas2.model.Term;
 import com._gods.canvas2.model.User;
@@ -457,6 +458,25 @@ class SubmissionServiceTests {
     assertEquals(bob, afterBob.getLastSubmittedBy().getEmail());
     List<Submission> all = submissionService.getSubmissionsByContent(assignment.getId(), teacher);
     assertEquals(1, all.size());
+  }
+
+  @Test
+  void resultsOfADraftQuizCannotBePublishedButAPublishedQuizAndAssignmentsCan() {
+    Course course = course();
+    String teacher = teacherOf(course);
+    Assignment assignment = assignmentIn(course, teacher);
+    Quiz quiz = contentService.createQuiz(assignment.getModule().getId(), "Quiz", 0, 1, false, null,
+        teacher);
+
+    ConflictException refused = assertThrows(ConflictException.class,
+        () -> submissionService.publishGrades(quiz.getId(), teacher));
+    assertEquals("Publish the quiz before publishing its results.", refused.getMessage());
+
+    quiz.addQuestion("Q").addOption("A", true);
+    quiz.publish();
+    entityManager.flush();
+    assertTrue(submissionService.publishGrades(quiz.getId(), teacher));
+    assertTrue(submissionService.publishGrades(assignment.getId(), teacher));
   }
 
   @Test

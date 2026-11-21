@@ -170,14 +170,14 @@ class ContentControllerTests {
         .andExpect(status().isNotFound());
   }
 
-  /** Exactly the body the frontend sends: showHints is left out, which means on. */
+  /** Exactly the body the frontend sends: no showHints (hints are per question now). */
   @Test
   void createQuizReturns201AsADraft() throws Exception {
     Module module = module(1L);
     Quiz quiz = new Quiz(module, "Week 1 quiz", 0, 0, false);
     setField(quiz, "id", 1L);
     when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
-        anyString())).thenReturn(quiz);
+        eq(true), anyString())).thenReturn(quiz);
 
     mockMvc.perform(post("/api/modules/1/quizzes")
             .with(asTeacher())
@@ -189,7 +189,27 @@ class ContentControllerTests {
         .andExpect(jsonPath("$.type").value("Quiz"))
         .andExpect(jsonPath("$.maxAttempts").value(0))
         .andExpect(jsonPath("$.published").value(false))
-        .andExpect(jsonPath("$.closed").value(false));
+        .andExpect(jsonPath("$.closed").value(false))
+        .andExpect(jsonPath("$.showResultsImmediately").value(true))
+        .andExpect(jsonPath("$.resultsPublished").value(false));
+  }
+
+  @Test
+  void createQuizCanHideResultsUntilTheyArePublished() throws Exception {
+    Quiz quiz = new Quiz(module(1L), "Exam", 0, 1, false);
+    quiz.setShowResultsImmediately(false);
+    setField(quiz, "id", 2L);
+    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
+        eq(false), anyString())).thenReturn(quiz);
+
+    mockMvc.perform(post("/api/modules/1/quizzes")
+            .with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"title":"Exam","position":0,"maxAttempts":1,"deadline":null,"showResultsImmediately":false}
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.showResultsImmediately").value(false));
   }
 
   @Test
@@ -384,37 +404,5 @@ class ContentControllerTests {
 
     mockMvc.perform(post("/api/contents/999/interactions").with(asTeacher()))
         .andExpect(status().isNotFound());
-  }
-
-  @Test
-  void createQuizTurnsHintsOnWhenTheRequestDoesNotSay() throws Exception {
-    Quiz quiz = new Quiz(module(1L), "Quiz", 0, 0, true);
-    setField(quiz, "id", 1L);
-    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
-        anyString())).thenReturn(quiz);
-
-    mockMvc.perform(post("/api/modules/1/quizzes").with(asTeacher())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"title\":\"Quiz\",\"position\":0,\"maxAttempts\":0,\"deadline\":null}"))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.showHints").value(true));
-
-    verify(contentService).createQuiz(eq(1L), eq("Quiz"), eq(0), eq(0), eq(true), any(), anyString());
-  }
-
-  @Test
-  void createQuizHonoursAnExplicitShowHintsFalse() throws Exception {
-    Quiz quiz = new Quiz(module(1L), "Quiz", 0, 2, false);
-    setField(quiz, "id", 1L);
-    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
-        anyString())).thenReturn(quiz);
-
-    mockMvc.perform(post("/api/modules/1/quizzes").with(asTeacher())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"title\":\"Quiz\",\"position\":0,\"maxAttempts\":2,\"deadline\":null,\"showHints\":false}"))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.showHints").value(false));
-
-    verify(contentService).createQuiz(eq(1L), eq("Quiz"), eq(0), eq(2), eq(false), any(), anyString());
   }
 }

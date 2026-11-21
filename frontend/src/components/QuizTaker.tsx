@@ -30,9 +30,9 @@ const percent = (grade: QuizGrade) => `${Math.round(grade.score * 100)}%`
 
 /**
  * Student view of a quiz. Attempts are graded automatically (asynchronously, via the grading
- * queue), so after submitting it polls until grading has finished. The grade itself stays hidden
- * until the teacher publishes the results; until then the student sees that the attempt was
- * submitted. The best attempt counts.
+ * queue), so after submitting it polls until grading has finished. Scores and hints show right
+ * away unless the teacher holds the results back; then the student sees that the attempt was
+ * submitted, until the teacher publishes the results. The best attempt counts.
  */
 export default function QuizTaker({ quizId }: { quizId: number }) {
   const [state, setState] = useState<TakerState>({ status: 'loading' })
@@ -64,6 +64,7 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
   }, [quizId, attempt])
 
   const attempts = state.status === 'ready' ? state.attempts : null
+  // Always known, even while results are hidden, so we can wait for grading to finish either way.
   const gradingPending = attempts != null
     && attempts.attemptsUsed > (attempts.attemptsGraded ?? attempts.latest?.attemptNumber ?? 0)
 
@@ -186,8 +187,6 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
 
   const { questions, attempts: { attemptsUsed, maxAttempts, closed, best, latest } } = state
   const hints = state.attempts.hints ?? {}
-  const resultsPublished = state.attempts.resultsPublished === true
-  const questionsWithHints = questions.filter(question => hints[question.id])
   const unlimited = maxAttempts === 0
   const attemptsLeft = unlimited ? Infinity : Math.max(0, maxAttempts - attemptsUsed)
   const wrongLastTime = new Set(latest?.incorrectQuestionIds ?? [])
@@ -330,6 +329,11 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
         </div>
       )}
       <p className="module-placeholder">{attemptsText}</p>
+      {state.attempts.resultsVisible === false && attemptsUsed > 0 && !gradingPending && (
+        <p className="quiz-results-pending" role="status">
+          Your answers are submitted. Your teacher will publish the results later.
+        </p>
+      )}
 
       {gradingPending ? (
         polls >= GRADING_POLL_LIMIT ? (
@@ -356,27 +360,6 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
             </ul>
           )}
         </div>
-      )}
-
-      {!gradingPending && attemptsUsed > 0 && !resultsPublished && (
-        <>
-          <p role="status" className="quiz-pending">
-            Submitted. Your result will appear here once your teacher publishes the results.
-          </p>
-          {questionsWithHints.length > 0 && (
-            <div className="quiz-latest">
-              <h3>Hints for your next attempt</h3>
-              <ul className="quiz-wrong-list">
-                {questionsWithHints.map(question => (
-                  <li key={question.id}>
-                    {question.text}
-                    <p className="quiz-hint"><strong>Hint:</strong> {hints[question.id]}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
       )}
 
       {!gradingPending && (closed ? (

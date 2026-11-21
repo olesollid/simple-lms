@@ -2,8 +2,10 @@ package com._gods.canvas2.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -117,8 +119,8 @@ class QuizControllerTests {
     QuizGrade best = new QuizGrade(5L, "student@example.com", 1, 2, 2, 1.0, List.of(),
         LocalDateTime.of(2026, 11, 21, 10, 0));
     when(quizSubmissionService.getOwnAttempts(5L, "student@example.com"))
-        .thenReturn(new QuizAttemptsResponse(1, 0, LocalDateTime.of(2026, 12, 1, 12, 0), false, best, best,
-            Map.of(7L, "Count on your fingers"), true, 1));
+        .thenReturn(new QuizAttemptsResponse(1, 0, LocalDateTime.of(2026, 12, 1, 12, 0), false, true, best, best,
+            Map.of(7L, "Count on your fingers"), 1));
 
     mockMvc.perform(get("/api/quizzes/5/attempts/mine").with(as("student@example.com")))
         .andExpect(status().isOk())
@@ -126,10 +128,11 @@ class QuizControllerTests {
         .andExpect(jsonPath("$.maxAttempts").value(0))
         .andExpect(jsonPath("$.deadline").value("2026-12-01T12:00:00"))
         .andExpect(jsonPath("$.closed").value(false))
+        .andExpect(jsonPath("$.resultsVisible").value(true))
         .andExpect(jsonPath("$.best.score").value(1.0))
         .andExpect(jsonPath("$.latest.incorrectQuestionIds").isEmpty())
         .andExpect(jsonPath("$.hints.7").value("Count on your fingers"))
-        .andExpect(jsonPath("$.resultsPublished").value(true))
+        .andExpect(jsonPath("$.resultsVisible").value(true))
         .andExpect(jsonPath("$.attemptsGraded").value(1));
   }
 
@@ -175,59 +178,55 @@ class QuizControllerTests {
   }
 
   @Test
-  void aStudentSeesPendingGradingWithNoScoresUntilResultsArePublished() throws Exception {
+  void aStudentSeesNoScoresWhileResultsAreHiddenButStillSeesHowManyAttemptsAreGraded() throws Exception {
     when(quizSubmissionService.getOwnAttempts(5L, "student@example.com"))
-        .thenReturn(new QuizAttemptsResponse(1, 3, null, false, null, null, Map.of(), false, 1));
+        .thenReturn(new QuizAttemptsResponse(1, 3, null, false, false, null, null, Map.of(), 1));
 
     mockMvc.perform(get("/api/quizzes/5/attempts/mine").with(as("student@example.com")))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.resultsPublished").value(false))
+        .andExpect(jsonPath("$.resultsVisible").value(false))
         .andExpect(jsonPath("$.attemptsGraded").value(1))
         .andExpect(jsonPath("$.best").isEmpty())
         .andExpect(jsonPath("$.latest").isEmpty());
   }
 
   @Test
-  void theGradeEndpointIs404UntilTheResultsArePublished() throws Exception {
+  void theGradeEndpointIs404WhileResultsAreHidden() throws Exception {
     when(quizSubmissionService.getOwnAttempts(5L, "student@example.com"))
-        .thenReturn(new QuizAttemptsResponse(1, 3, null, false, null, null, Map.of(), false, 1));
+        .thenReturn(new QuizAttemptsResponse(1, 3, null, false, false, null, null, Map.of(), 1));
 
     mockMvc.perform(get("/api/quizzes/5/grade").with(as("student@example.com")))
         .andExpect(status().isNotFound());
   }
 
   @Test
-  void teachersUpdateTheQuizSettingsAndGetThemBack() throws Exception {
+  void teachersChangeTheAttemptLimitAndGetTheQuizBack() throws Exception {
     Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
-        "Quiz", 0, 3, true);
-    when(quizService.updateSettings(eq(5L), eq(3), eq(true), eq("teacher@example.com"))).thenReturn(quiz);
+        "Quiz", 0, 3, false);
+    when(quizService.updateMaxAttempts(eq(5L), eq(3), eq("teacher@example.com"))).thenReturn(quiz);
 
     mockMvc.perform(put("/api/quizzes/5/settings").with(as("teacher@example.com"))
             .contentType(MediaType.APPLICATION_JSON).content("""
-                {"maxAttempts":3,"showHints":true}
+                {"maxAttempts":3}
                 """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.maxAttempts").value(3))
-        .andExpect(jsonPath("$.showHints").value(true))
-        .andExpect(jsonPath("$.gradesPublished").value(false));
+        .andExpect(jsonPath("$.showResultsImmediately").value(true))
+        .andExpect(jsonPath("$.resultsPublished").value(false));
   }
 
   @Test
-  void settingsCanBeSentOneAtATime() throws Exception {
-    Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
-        "Quiz", 0, 1, false);
-    when(quizService.updateSettings(eq(5L), isNull(), eq(false), anyString())).thenReturn(quiz);
-
+  void theAttemptLimitIsRequired() throws Exception {
     mockMvc.perform(put("/api/quizzes/5/settings").with(as("teacher@example.com"))
-            .contentType(MediaType.APPLICATION_JSON).content("{\"showHints\":false}"))
-        .andExpect(status().isOk());
+            .contentType(MediaType.APPLICATION_JSON).content("{}"))
+        .andExpect(status().isBadRequest());
 
-    verify(quizService).updateSettings(5L, null, false, "teacher@example.com");
+    verify(quizService, never()).updateMaxAttempts(anyLong(), anyInt(), anyString());
   }
 
   @Test
   void studentsCannotChangeQuizSettings() throws Exception {
-    when(quizService.updateSettings(eq(5L), any(), any(), eq("student@example.com")))
+    when(quizService.updateMaxAttempts(eq(5L), eq(9), eq("student@example.com")))
         .thenThrow(new ForbiddenException("Only a teacher may change this"));
 
     mockMvc.perform(put("/api/quizzes/5/settings").with(as("student@example.com"))

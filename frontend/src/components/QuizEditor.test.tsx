@@ -9,14 +9,16 @@ const addQuestion = vi.hoisted(() => vi.fn())
 const updateQuestion = vi.hoisted(() => vi.fn())
 const deleteQuestion = vi.hoisted(() => vi.fn())
 const publish = vi.hoisted(() => vi.fn())
-const publishResults = vi.hoisted(() => vi.fn())
 const updateSettings = vi.hoisted(() => vi.fn())
 const getResults = vi.hoisted(() => vi.fn())
+const setResultVisibility = vi.hoisted(() => vi.fn())
+const publishGrades = vi.hoisted(() => vi.fn())
 vi.mock('../services', () => ({
   quizzes: {
-    getQuestionsWithAnswers, addQuestion, updateQuestion, deleteQuestion, publish, publishResults,
-    updateSettings, getResults,
+    getQuestionsWithAnswers, addQuestion, updateQuestion, deleteQuestion, publish, updateSettings,
+    getResults, setResultVisibility,
   },
+  submissions: { publishGrades },
 }))
 
 const draftQuiz = {
@@ -47,9 +49,10 @@ describe('QuizEditor', () => {
     updateQuestion.mockReset()
     deleteQuestion.mockReset().mockResolvedValue(undefined)
     publish.mockReset().mockResolvedValue({ ...publishedQuiz })
-    publishResults.mockReset().mockResolvedValue(true)
     updateSettings.mockReset().mockResolvedValue({ ...draftQuiz })
     getResults.mockReset().mockResolvedValue([])
+    setResultVisibility.mockReset().mockResolvedValue({})
+    publishGrades.mockReset().mockResolvedValue(true)
     vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
 
@@ -68,7 +71,6 @@ describe('QuizEditor', () => {
     expect(screen.getByText(/Students cannot see this quiz yet/)).toBeInTheDocument()
     expect(screen.getByText(/3 attempts per student/)).toBeInTheDocument()
     expect(screen.getByText(/Each question is worth 1 point/)).toBeInTheDocument()
-    expect(screen.getByText(/Hints are turned off/)).toBeInTheDocument()
   })
 
   it('adds a question with a hint and clears the form', async () => {
@@ -215,6 +217,38 @@ describe('QuizEditor', () => {
     expect(screen.queryByText(/Students can take this quiz/)).not.toBeInTheDocument()
   })
 
+  it('lets the teacher hide results until they are published, then publish them', async () => {
+    getQuestionsWithAnswers.mockResolvedValue([existing])
+    const user = userEvent.setup()
+    render(<QuizEditor quiz={publishedQuiz} />)
+
+    const toggle = await screen.findByLabelText('Show results to students immediately')
+    expect(toggle).toBeChecked()
+    await user.click(toggle)
+
+    expect(setResultVisibility).toHaveBeenCalledWith(5, false, {})
+    expect(await screen.findByText(/Students can't see their scores yet/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Publish results' }))
+
+    expect(publishGrades).toHaveBeenCalledWith(5)
+    expect(await screen.findByText(/Results are published/)).toBeInTheDocument()
+  })
+
+  it('does not offer to publish results before the quiz itself is published', async () => {
+    render(<QuizEditor quiz={{ ...draftQuiz, showResultsImmediately: false }} />)
+
+    expect(await screen.findByText(/won't see their scores until you publish the results/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publish results' })).not.toBeInTheDocument()
+  })
+
+  it('shows a quiz whose results are already published as published', async () => {
+    render(<QuizEditor quiz={{ ...publishedQuiz, showResultsImmediately: false, resultsPublished: true }} />)
+
+    expect(await screen.findByLabelText('Show results to students immediately')).not.toBeChecked()
+    expect(screen.getByText(/Results are published/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publish results' })).not.toBeInTheDocument()
+  })
+
   it('shows the server error when saving fails', async () => {
     addQuestion.mockRejectedValue(new ApiError(409, 'This quiz is published', null))
     const user = userEvent.setup()
@@ -228,28 +262,26 @@ describe('QuizEditor', () => {
   })
 
   describe('quiz settings', () => {
-    it('starts from the quiz\'s current attempt limit and hint setting', async () => {
-      render(<QuizEditor quiz={{ ...draftQuiz, maxAttempts: 3, showHints: true }} />)
+    it('starts from the quiz\'s current attempt limit', async () => {
+      render(<QuizEditor quiz={{ ...draftQuiz, maxAttempts: 3 }} />)
 
       const form = within(await screen.findByRole('form', { name: 'Quiz settings' }))
       expect(form.getByLabelText('Maximum attempts')).toHaveValue(3)
-      expect(form.getByLabelText(/Show a question's hint/)).toBeChecked()
+      expect(form.queryByLabelText(/hint/i)).not.toBeInTheDocument()
     })
 
-    it('saves the attempt limit and hints and shows them in the status', async () => {
+    it('saves the attempt limit and shows it in the status', async () => {
       const user = userEvent.setup()
       render(<QuizEditor quiz={publishedQuiz} />)
 
       const form = within(await screen.findByRole('form', { name: 'Quiz settings' }))
       await user.clear(form.getByLabelText('Maximum attempts'))
       await user.type(form.getByLabelText('Maximum attempts'), '5')
-      await user.click(form.getByLabelText(/Show a question's hint/))
       await user.click(form.getByRole('button', { name: 'Save settings' }))
 
-      expect(updateSettings).toHaveBeenCalledWith(5, { maxAttempts: 5, showHints: true }, {})
+      expect(updateSettings).toHaveBeenCalledWith(5, { maxAttempts: 5 }, {})
       expect(await screen.findByText('Settings saved.')).toBeInTheDocument()
       expect(screen.getByText(/5 attempts per student/)).toBeInTheDocument()
-      expect(screen.getByText(/Hints are shown after a wrong answer/)).toBeInTheDocument()
     })
 
     it('treats 0 as unlimited attempts', async () => {
@@ -261,7 +293,7 @@ describe('QuizEditor', () => {
       await user.type(form.getByLabelText('Maximum attempts'), '0')
       await user.click(form.getByRole('button', { name: 'Save settings' }))
 
-      expect(updateSettings).toHaveBeenCalledWith(5, { maxAttempts: 0, showHints: false }, {})
+      expect(updateSettings).toHaveBeenCalledWith(5, { maxAttempts: 0 }, {})
       expect(await screen.findByText(/Unlimited attempts per student/)).toBeInTheDocument()
     })
 
@@ -287,62 +319,12 @@ describe('QuizEditor', () => {
       expect(await screen.findByText('Settings could not be changed')).toBeInTheDocument()
       expect(screen.queryByText('Settings saved.')).not.toBeInTheDocument()
     })
-  })
 
-  describe('publishing results', () => {
-    it('offers to publish the results of a published quiz and explains the hidden grades', async () => {
+    it('keeps the result visibility controls next to the attempt limit', async () => {
       render(<QuizEditor quiz={publishedQuiz} />)
 
-      expect(await screen.findByRole('button', { name: 'Publish results' })).toBeInTheDocument()
-      expect(screen.getByText(/students only see their grade after you publish the results/)).toBeInTheDocument()
-    })
-
-    it('publishes the results after confirmation', async () => {
-      const user = userEvent.setup()
-      render(<QuizEditor quiz={publishedQuiz} />)
-
-      await user.click(await screen.findByRole('button', { name: 'Publish results' }))
-
-      expect(window.confirm).toHaveBeenCalled()
-      expect(publishResults).toHaveBeenCalledWith(5, {})
-      expect(await screen.findByText(/Results are published: students can see their grades/)).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Publish results' })).not.toBeInTheDocument()
-    })
-
-    it('does nothing when the teacher cancels the confirmation', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false)
-      const user = userEvent.setup()
-      render(<QuizEditor quiz={publishedQuiz} />)
-
-      await user.click(await screen.findByRole('button', { name: 'Publish results' }))
-
-      expect(publishResults).not.toHaveBeenCalled()
-      expect(screen.getByRole('button', { name: 'Publish results' })).toBeInTheDocument()
-    })
-
-    it('does not offer it for a draft quiz', async () => {
-      render(<QuizEditor quiz={draftQuiz} />)
-
-      await screen.findByRole('form', { name: 'Quiz settings' })
-      expect(screen.queryByRole('button', { name: 'Publish results' })).not.toBeInTheDocument()
-    })
-
-    it('shows results that were already published and offers no second publish', async () => {
-      render(<QuizEditor quiz={{ ...publishedQuiz, gradesPublished: true }} />)
-
-      expect(await screen.findByText(/Results are published: students can see their grades/)).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Publish results' })).not.toBeInTheDocument()
-    })
-
-    it('shows the server error when publishing fails', async () => {
-      publishResults.mockRejectedValue(new ApiError(409, 'Results could not be published', null))
-      const user = userEvent.setup()
-      render(<QuizEditor quiz={publishedQuiz} />)
-
-      await user.click(await screen.findByRole('button', { name: 'Publish results' }))
-
-      expect(await screen.findByText('Results could not be published')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Publish results' })).toBeInTheDocument()
+      expect(await screen.findByRole('form', { name: 'Quiz settings' })).toBeInTheDocument()
+      expect(screen.getByLabelText('Show results to students immediately')).toBeChecked()
     })
   })
 

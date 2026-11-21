@@ -22,13 +22,14 @@ export function createQuizService(request: ApiRequest) {
       }),
     deleteQuestion: (quizId: number, questionId: number, options?: ApiCallOptions) =>
       request<void>(`/quizzes/${quizId}/questions/${questionId}`, { ...options, method: 'DELETE' }),
+    setResultVisibility: (quizId: number, showResultsImmediately: boolean, options?: ApiCallOptions) =>
+      request<ContentResponse>(`/quizzes/${quizId}/result-visibility`, {
+        ...options, method: 'PUT', body: { showResultsImmediately },
+      }),
     publish: (quizId: number, options?: ApiCallOptions) =>
       request<ContentResponse>(`/quizzes/${quizId}/publication`, { ...options, method: 'PUT' }),
     updateSettings: (quizId: number, body: QuizSettingsRequest, options?: ApiCallOptions) =>
       request<ContentResponse>(`/quizzes/${quizId}/settings`, { ...options, method: 'PUT', body }),
-    /** Lets students see their grades. Same endpoint as publishing grades for any graded content. */
-    publishResults: (quizId: number, options?: ApiCallOptions) =>
-      request<boolean>(`/contents/${quizId}/grades/publication`, { ...options, method: 'PUT' }),
     submit: (quizId: number, body: QuizSubmissionRequest, options?: ApiCallOptions) =>
       request<QuizSubmissionResponse>(`/quizzes/${quizId}/submissions`, {
         ...options, method: 'POST', body,

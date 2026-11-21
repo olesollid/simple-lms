@@ -27,6 +27,7 @@ import com._gods.canvas2.web.dto.QuizAttemptsResponse;
 import com._gods.canvas2.web.dto.QuizStudentResultResponse;
 import com._gods.canvas2.web.dto.QuizSubmissionRequest;
 import com._gods.canvas2.web.dto.QuizSubmissionResponse;
+import com._gods.canvas2.web.dto.ResultVisibilityRequest;
 
 @RestController
 @RequestMapping("/api/quizzes/{quizId}")
@@ -79,21 +80,35 @@ public class QuizController {
     return ResponseEntity.noContent().build();
   }
 
+  /** Teacher-only: show results as soon as attempts are graded, or only once published. */
+  @PutMapping("/result-visibility")
+  public ContentResponse setResultVisibility(@PathVariable Long quizId,
+      @RequestBody ResultVisibilityRequest request, Authentication authentication) {
+    return ContentResponse.from(quizService.setShowResultsImmediately(quizId,
+        request.showResultsImmediately(), authentication.getName()));
+  }
+
   @PutMapping("/publication")
   public ContentResponse publish(@PathVariable Long quizId, Authentication authentication) {
     return ContentResponse.from(quizService.publishQuiz(quizId, authentication.getName()));
   }
 
-  /** Optional fields: send only what changes. The deadline is changed via the submission policy. */
-  public record Settings(Integer maxAttempts, Boolean showHints) {
+  public record Settings(Integer maxAttempts) {
   }
 
-  /** Teacher-only: maximum attempts ({@code 0} = unlimited) and whether hints are shown. */
+  /**
+   * Teacher-only: the maximum number of attempts ({@code 0} = unlimited), changeable at any time.
+   * The deadline is changed via the submission policy and result visibility via
+   * {@code /result-visibility}.
+   */
   @PutMapping("/settings")
   public ContentResponse updateSettings(@PathVariable Long quizId, @RequestBody Settings request,
       Authentication authentication) {
-    return ContentResponse.from(quizService.updateSettings(quizId, request.maxAttempts(),
-        request.showHints(), authentication.getName()));
+    if (request.maxAttempts() == null) {
+      throw new IllegalArgumentException("maxAttempts is required");
+    }
+    return ContentResponse.from(
+        quizService.updateMaxAttempts(quizId, request.maxAttempts(), authentication.getName()));
   }
 
   /** Grading is asynchronous: poll {@code GET /attempts/mine} for the result of this attempt. */
@@ -117,7 +132,7 @@ public class QuizController {
     return quizSubmissionService.getResults(quizId, authentication.getName());
   }
 
-  /** The requester's best graded attempt -- the grade that counts. 404 until it is graded and the results are published. */
+  /** The requester's best graded attempt -- the grade that counts. 404 until it is graded and visible to students. */
   @GetMapping("/grade")
   public QuizGrade getGrade(@PathVariable Long quizId, Authentication authentication) {
     QuizAttemptsResponse attempts =

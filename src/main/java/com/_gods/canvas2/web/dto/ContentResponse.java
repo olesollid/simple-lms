@@ -13,7 +13,7 @@ public record ContentResponse(Long id, Long moduleId, String type, String title,
     LocalDateTime visibleFrom, LocalDateTime visibleUntil, String body, String instructions,
     String repositoryUrl, LocalDateTime deadline, Boolean lateSubmissionsAccepted,
     Boolean groupSubmission, Integer maxAttempts, Boolean published, Boolean closed,
-    Boolean showHints, Boolean gradesPublished, boolean visibleToStudents) {
+    boolean visibleToStudents, Boolean showResultsImmediately, Boolean resultsPublished) {
 
   public static ContentResponse from(Content content) {
     String body = content instanceof StaticPage staticPage ? staticPage.getBody() : null;
@@ -44,8 +44,8 @@ public record ContentResponse(Long id, Long moduleId, String type, String title,
         content instanceof Quiz quiz ? quiz.getMaxAttempts() : null,
         content instanceof Quiz quiz ? quiz.isPublished() : null,
         content instanceof Quiz quiz ? quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE)) : null,
-        content instanceof Quiz quiz ? quiz.isShowHints() : null,
-        content instanceof Quiz quiz ? quiz.isGradesPublished() : null,
-        content.isVisibleAt(LocalDateTime.now(HandInPolicy.ZONE)));
+        content.isVisibleAt(LocalDateTime.now(HandInPolicy.ZONE)),
+        content instanceof Quiz quiz ? quiz.isShowResultsImmediately() : null,
+        content instanceof Quiz quiz ? quiz.isGradesPublished() : null);
   }
 }

@@ -40,7 +40,7 @@ const fillInQuestion = {
   id: 5, text: 'The capital of ___ is ___.', position: 3, type: 'FILL_IN', options: [], matches: [],
 }
 
-const noAttempts = { attemptsUsed: 0, attemptsGraded: 0, resultsPublished: true, maxAttempts: 3, deadline: null, closed: false, best: null, latest: null, hints: {} }
+const noAttempts = { attemptsUsed: 0, attemptsGraded: 0, maxAttempts: 3, deadline: null, closed: false, resultsVisible: true, best: null, latest: null, hints: {} }
 
 describe('QuizTaker', () => {
   beforeEach(() => {
@@ -70,7 +70,7 @@ describe('QuizTaker', () => {
 
   it('offers no more attempts once the deadline has passed', async () => {
     getOwnAttempts.mockResolvedValue({
-      attemptsUsed: 1, attemptsGraded: 1, resultsPublished: true, maxAttempts: 3, deadline: '2026-11-01T12:00:00', closed: true,
+      attemptsUsed: 1, attemptsGraded: 1, resultsVisible: true, maxAttempts: 3, deadline: '2026-11-01T12:00:00', closed: true,
       best: grade(1, 1, [2]), latest: grade(1, 1, [2]),
     })
     render(<QuizTaker quizId={5} />)
@@ -113,7 +113,7 @@ describe('QuizTaker', () => {
     expect(await screen.findByText('Grading attempt 1…')).toBeInTheDocument()
 
     getOwnAttempts.mockResolvedValue({
-      attemptsUsed: 1, attemptsGraded: 1, resultsPublished: true, maxAttempts: 3, best: grade(1, 1, [2]), latest: grade(1, 1, [2]),
+      attemptsUsed: 1, attemptsGraded: 1, resultsVisible: true, maxAttempts: 3, best: grade(1, 1, [2]), latest: grade(1, 1, [2]),
     })
     await act(() => vi.advanceTimersByTimeAsync(1100))
 
@@ -125,7 +125,7 @@ describe('QuizTaker', () => {
 
   it('shows hints for the questions answered wrong, and again when retrying', async () => {
     getOwnAttempts.mockResolvedValue({
-      attemptsUsed: 1, attemptsGraded: 1, resultsPublished: true, maxAttempts: 3, best: grade(1, 1, [1]), latest: grade(1, 1, [1]),
+      attemptsUsed: 1, attemptsGraded: 1, resultsVisible: true, maxAttempts: 3, best: grade(1, 1, [1]), latest: grade(1, 1, [1]),
       hints: { 1: 'Count on your fingers' },
     })
     const user = userEvent.setup()
@@ -141,7 +141,7 @@ describe('QuizTaker', () => {
 
   it('keeps the best attempt as the grade', async () => {
     getOwnAttempts.mockResolvedValue({
-      attemptsUsed: 2, attemptsGraded: 2, resultsPublished: true, maxAttempts: 3, best: grade(1, 2, []), latest: grade(2, 1, [2]),
+      attemptsUsed: 2, attemptsGraded: 2, resultsVisible: true, maxAttempts: 3, best: grade(1, 2, []), latest: grade(2, 1, [2]),
     })
     render(<QuizTaker quizId={5} />)
 
@@ -151,7 +151,7 @@ describe('QuizTaker', () => {
 
   it('stops offering new attempts when they are used up', async () => {
     getOwnAttempts.mockResolvedValue({
-      attemptsUsed: 3, attemptsGraded: 3, resultsPublished: true, maxAttempts: 3, best: grade(3, 2, []), latest: grade(3, 2, []),
+      attemptsUsed: 3, attemptsGraded: 3, resultsVisible: true, maxAttempts: 3, best: grade(3, 2, []), latest: grade(3, 2, []),
     })
     render(<QuizTaker quizId={5} />)
 
@@ -162,7 +162,7 @@ describe('QuizTaker', () => {
 
   it('always offers another attempt when attempts are unlimited', async () => {
     getOwnAttempts.mockResolvedValue({
-      attemptsUsed: 7, attemptsGraded: 7, resultsPublished: true, maxAttempts: 0, best: grade(7, 2, []), latest: grade(7, 2, []),
+      attemptsUsed: 7, attemptsGraded: 7, resultsVisible: true, maxAttempts: 0, best: grade(7, 2, []), latest: grade(7, 2, []),
     })
     render(<QuizTaker quizId={5} />)
 
@@ -205,6 +205,39 @@ describe('QuizTaker', () => {
     await user.click(await screen.findByRole('button', { name: 'Submit quiz' }))
 
     expect(await screen.findByText('Only enrolled students may take this quiz')).toBeInTheDocument()
+  })
+
+  it('tells the student their results come later when the teacher keeps them hidden', async () => {
+    getOwnAttempts.mockResolvedValue({ ...noAttempts, attemptsUsed: 1, attemptsGraded: 1, resultsVisible: false })
+    render(<QuizTaker quizId={5} />)
+
+    expect(await screen.findByText('Your answers are submitted. Your teacher will publish the results later.'))
+      .toBeInTheDocument()
+    expect(screen.queryByText(/Grading attempt/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Your grade')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('waits for grading after a submit even while results are hidden, then says the results come later', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    getOwnAttempts.mockResolvedValue({ ...noAttempts, resultsVisible: false })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<QuizTaker quizId={5} />)
+
+    await user.click(await screen.findByLabelText('4'))
+    await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
+    expect(await screen.findByText('Grading attempt 1…')).toBeInTheDocument()
+    expect(screen.queryByText(/publish the results later/)).not.toBeInTheDocument()
+
+    getOwnAttempts.mockResolvedValue({
+      ...noAttempts, attemptsUsed: 1, attemptsGraded: 1, resultsVisible: false,
+    })
+    await act(() => vi.advanceTimersByTimeAsync(1100))
+
+    expect(await screen.findByText('Your answers are submitted. Your teacher will publish the results later.'))
+      .toBeInTheDocument()
+    expect(screen.queryByText(/Grading attempt/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Your grade')).not.toBeInTheDocument()
   })
 
   it('shows a message when the quiz has no questions', async () => {
@@ -270,53 +303,26 @@ describe('QuizTaker', () => {
     })
   })
 
-  describe('pending grading and published results', () => {
-    it('shows that an attempt is being graded while grading has not finished', async () => {
+  describe('grading while results are hidden', () => {
+    it('shows that an attempt is being graded, without the "results come later" message yet', async () => {
       getOwnAttempts.mockResolvedValue({
-        ...noAttempts, attemptsUsed: 1, attemptsGraded: 0, resultsPublished: false,
+        ...noAttempts, attemptsUsed: 1, attemptsGraded: 0, resultsVisible: false,
       })
       render(<QuizTaker quizId={5} />)
 
       expect(await screen.findByText('Grading attempt 1…')).toBeInTheDocument()
-      expect(screen.queryByText(/publishes the results/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/publish the results later/)).not.toBeInTheDocument()
     })
 
-    it('shows no grade, only that the attempt was submitted, until the results are published', async () => {
+    it('never shows hints or scores while the results are hidden', async () => {
       getOwnAttempts.mockResolvedValue({
-        ...noAttempts, attemptsUsed: 1, attemptsGraded: 1, resultsPublished: false, best: null, latest: null,
+        ...noAttempts, attemptsUsed: 1, attemptsGraded: 1, resultsVisible: false,
       })
       render(<QuizTaker quizId={5} />)
 
-      expect(await screen.findByText(
-        'Submitted. Your result will appear here once your teacher publishes the results.')).toBeInTheDocument()
-      expect(screen.queryByText('Your grade')).not.toBeInTheDocument()
+      expect(await screen.findByText(/publish the results later/)).toBeInTheDocument()
+      expect(screen.queryByText(/Hint:/)).not.toBeInTheDocument()
       expect(screen.queryByText(/%/)).not.toBeInTheDocument()
-      expect(screen.getByText('1 of 3 attempts used')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
-    })
-
-    it('shows the grade once the results are published', async () => {
-      getOwnAttempts.mockResolvedValue({
-        ...noAttempts, attemptsUsed: 1, attemptsGraded: 1, resultsPublished: true,
-        best: grade(1, 1, [2]), latest: grade(1, 1, [2]),
-      })
-      render(<QuizTaker quizId={5} />)
-
-      expect(await screen.findByText('Your grade')).toBeInTheDocument()
-      expect(screen.getByText('50%')).toBeInTheDocument()
-      expect(screen.queryByText(/publishes the results/)).not.toBeInTheDocument()
-    })
-
-    it('still shows hints for the next attempt before the results are published', async () => {
-      getOwnAttempts.mockResolvedValue({
-        ...noAttempts, attemptsUsed: 1, attemptsGraded: 1, resultsPublished: false, best: null, latest: null,
-        hints: { 1: 'Count on your fingers' },
-      })
-      render(<QuizTaker quizId={5} />)
-
-      expect(await screen.findByRole('heading', { name: 'Hints for your next attempt' })).toBeInTheDocument()
-      expect(screen.getByText('Count on your fingers')).toBeInTheDocument()
-      expect(screen.queryByText('Incorrect:')).not.toBeInTheDocument()
     })
   })
 
@@ -378,7 +384,7 @@ describe('QuizTaker', () => {
       await user.selectOptions(await screen.findByLabelText('Norway'), 'Oslo')
       await user.selectOptions(screen.getByLabelText('France'), 'Paris')
       getOwnAttempts.mockResolvedValue({
-        ...noAttempts, attemptsUsed: 1, attemptsGraded: 1, resultsPublished: false,
+        ...noAttempts, attemptsUsed: 1, attemptsGraded: 1, resultsVisible: false,
       })
       await user.click(screen.getByRole('button', { name: 'Submit quiz' }))
       // Grading is polled once a second after submitting, so allow for one poll.

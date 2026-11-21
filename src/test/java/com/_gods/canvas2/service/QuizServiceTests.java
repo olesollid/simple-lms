@@ -377,43 +377,6 @@ class QuizServiceTests {
     assertEquals(3, updated.getOptions().size());
   }
 
-  @Test
-  void teacherChangesTheAttemptLimitAndHintsAnyTime() {
-    Quiz quiz = quiz();
-    quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
-    quizService.publishQuiz(quiz.getId(), teacherEmail);
-
-    Quiz updated = quizService.updateSettings(quiz.getId(), 5, true, teacherEmail);
-
-    assertEquals(5, updated.getMaxAttempts());
-    assertTrue(updated.isShowHints());
-  }
-
-  @Test
-  void updatingSettingsKeepsWhatWasNotSent() {
-    Quiz quiz = quiz();
-    quizService.updateSettings(quiz.getId(), 4, true, teacherEmail);
-
-    Quiz onlyAttempts = quizService.updateSettings(quiz.getId(), 2, null, teacherEmail);
-    assertEquals(2, onlyAttempts.getMaxAttempts());
-    assertTrue(onlyAttempts.isShowHints());
-
-    Quiz onlyHints = quizService.updateSettings(quiz.getId(), null, false, teacherEmail);
-    assertEquals(2, onlyHints.getMaxAttempts());
-    assertEquals(false, onlyHints.isShowHints());
-  }
-
-  @Test
-  void rejectsInvalidSettingsAndStudentsChangingThem() {
-    Quiz quiz = quiz();
-    String student = studentOf(quiz);
-
-    assertThrows(IllegalArgumentException.class,
-        () -> quizService.updateSettings(quiz.getId(), -1, null, teacherEmail));
-    assertThrows(ForbiddenException.class,
-        () -> quizService.updateSettings(quiz.getId(), 3, true, student));
-  }
-
   private static QuestionRequest matching(String... pairs) {
     List<AnswerOptionRequest> options = new java.util.ArrayList<>();
     for (String pair : pairs) {
@@ -534,5 +497,29 @@ class QuizServiceTests {
     assertEquals(null, question.getOptionsInOrder().getFirst().getMatchText());
     assertTrue(question.getOptionsInOrder().getFirst().isCorrect());
     assertEquals(false, question.getOptionsInOrder().get(1).isCorrect());
+  }
+
+  @Test
+  void teacherChangesTheAttemptLimitAnyTime() {
+    Quiz quiz = quiz();
+    quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+    quizService.publishQuiz(quiz.getId(), teacherEmail);
+
+    Quiz updated = quizService.updateMaxAttempts(quiz.getId(), 5, teacherEmail);
+
+    assertEquals(5, updated.getMaxAttempts());
+    assertEquals(0, quizService.updateMaxAttempts(quiz.getId(), 0, teacherEmail).getMaxAttempts());
+  }
+
+  @Test
+  void rejectsAnInvalidAttemptLimitAndStudentsChangingIt() {
+    Quiz quiz = quiz();
+    String student = studentOf(quiz);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> quizService.updateMaxAttempts(quiz.getId(), -1, teacherEmail));
+    assertThrows(ForbiddenException.class,
+        () -> quizService.updateMaxAttempts(quiz.getId(), 3, student));
+    assertEquals(1, quizService.getQuiz(quiz.getId()).getMaxAttempts());
   }
 }

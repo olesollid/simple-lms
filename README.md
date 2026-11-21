@@ -187,25 +187,28 @@ test doesn't need RabbitMQ or Redis at all.
 
 ### Quiz workflow
 
-A quiz moves through three stages, all controlled by the teacher:
+A quiz moves through these stages, all controlled by the teacher:
 
 1. **Draft.** Students cannot see it. The teacher adds, edits and deletes questions.
 2. **Published.** Students can take it; the questions are frozen so every attempt is graded against
    the same answers. Attempts are graded automatically (see above).
-3. **Results published.** Students only see their grade once the teacher publishes the results.
-   Until then an attempt shows as submitted ("pending grading" while the grader is still working,
-   then "submitted"). Publishing is one-way and uses the same endpoint as other graded content.
+3. **Results.** By default a student sees their score and hints as soon as an attempt is graded
+   (`showResultsImmediately`, on by default). A teacher can turn that off per quiz and publish the
+   grades later. Until they do, an attempt shows as pending while the grader is still working, and
+   then as submitted, with no score and no hints. Publishing is one-way, needs the quiz to be
+   published, and uses the same endpoint as other graded content.
 
-**Settings.** `maxAttempts` (`0` = unlimited) and `showHints` can be changed at any time with
-`PUT /quizzes/{quizId}/settings` (send only what changes). The `deadline` is changed through
+**Settings.** `maxAttempts` (`0` = unlimited) can be changed at any time with
+`PUT /quizzes/{quizId}/settings`. Result visibility is changed with
+`PUT /quizzes/{quizId}/result-visibility`, and the `deadline` through
 `PUT /contents/{contentId}/submission-policy`. A quiz closes at its deadline: no new attempts after
-it (exactly at the deadline is fine). All settings, plus `published`, `closed` and `gradesPublished`,
-come back on `ContentResponse` from `GET /contents/{contentId}`. Creating a quiz without
-`showHints` turns hints on.
+it (exactly at the deadline is fine). All settings, plus `published`, `closed`,
+`showResultsImmediately` and `resultsPublished`, come back on `ContentResponse` from
+`GET /contents/{contentId}`.
 
-**Hints.** A question can have a hint. When the quiz has `showHints` on, a student sees the hint of
-each question their latest attempt got wrong. Hints do not wait for the results to be published, so
-students can use them to retry; they reveal which questions were wrong, not the answers.
+**Hints.** Hints are written per question; there is no quiz-wide switch. A student sees the hint of
+each question their latest attempt got wrong, together with the results, so a hint never reveals
+which answers were wrong before the results are visible.
 
 **Question types.** `type` is `CHOICE` (the default when left out), `ORDERING`, `MATCHING` or
 `FILL_IN`. Each question is worth one point and is right or wrong as a whole: there is no partial
@@ -233,8 +236,9 @@ Quiz-related endpoints (all under `/api`, teacher-only writes unless noted):
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/modules/{moduleId}/quizzes` | Create a quiz: `title`, `maxAttempts`, optional `deadline` and `showHints` (teacher) |
-| `PUT` | `/quizzes/{quizId}/settings` | Change `maxAttempts` and/or `showHints`, at any time (teacher) |
+| `POST` | `/modules/{moduleId}/quizzes` | Create a quiz: `title`, `maxAttempts`, optional `deadline` and `showResultsImmediately` (teacher) |
+| `PUT` | `/quizzes/{quizId}/settings` | Change `maxAttempts`, at any time (teacher) |
+| `PUT` | `/quizzes/{quizId}/result-visibility` | Show results as soon as attempts are graded, or only once published (teacher) |
 | `POST` | `/quizzes/{quizId}/questions` | Add a question: `text`, optional `hint`, `type`, `options` with `text`, `correct`, `matchText` (teacher, draft only) |
 | `PUT` | `/quizzes/{quizId}/questions/{questionId}` | Replace a question, including its type (teacher, draft only) |
 | `DELETE` | `/quizzes/{quizId}/questions/{questionId}` | Delete a question (teacher, draft only) |
@@ -242,10 +246,10 @@ Quiz-related endpoints (all under `/api`, teacher-only writes unless noted):
 | `GET` | `/quizzes/{quizId}/questions` | List questions without answers or hints; `ORDERING` options and `MATCHING` right-hand items (`matches`) are shuffled (any enrolled member) |
 | `GET` | `/quizzes/{quizId}/questions/with-answers` | List questions with answers and hints, options in the order entered (teacher) |
 | `POST` | `/quizzes/{quizId}/submissions` | Submit `answers` and/or `textAnswers` for grading; returns 202, grading happens async (any enrolled member) |
-| `GET` | `/quizzes/{quizId}/attempts/mine` | Own attempts: `attemptsUsed`, `attemptsGraded`, `resultsPublished`, `best` and `latest` (null until published), `hints` |
-| `GET` | `/quizzes/{quizId}/grade` | Own best grade; 404 until it is graded and the results are published |
+| `GET` | `/quizzes/{quizId}/attempts/mine` | Own attempts: `attemptsUsed`, `attemptsGraded`, `resultsVisible`, and `best`, `latest` and `hints` (empty while results are hidden) |
+| `GET` | `/quizzes/{quizId}/grade` | Own best grade; 404 until it is graded and visible to students |
 | `GET` | `/quizzes/{quizId}/results` | Every student's attempts and best grade, always visible (teacher) |
-| `PUT` | `/contents/{contentId}/grades/publication` | Publish the results so students see their grades (teacher) |
+| `PUT` | `/contents/{contentId}/grades/publication` | Publish the grades so students see them when results are not immediate (teacher) |
 
 ### Assignment and coding-exercise deadlines
 

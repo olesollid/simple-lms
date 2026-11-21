@@ -95,30 +95,33 @@ public class QuizSubmissionService {
   }
 
   /**
-   * The requester's own attempt count and, once the teacher has published the results, their best
-   * and latest grade. Hints do not wait for publication: they are a teacher's opt-in
-   * ({@link Quiz#isShowHints()}) to help students retry.
+   * The requester's own attempt count and, when the results are visible to students, their best
+   * and latest grade and the hints. Results are visible straight away unless the teacher turned
+   * that off, and then once the teacher publishes the grades
+   * ({@link Quiz#areResultsVisibleToStudents()}). Hints go with the results, because a hint gives
+   * away which questions were wrong.
    */
   @Transactional(readOnly = true)
   public QuizAttemptsResponse getOwnAttempts(Long quizId, String requesterEmail) {
     Quiz quiz = requireOpenQuiz(quizId, requesterEmail);
+    int attemptsUsed = quizGradeStore.attemptsUsed(quiz, requesterEmail);
+    boolean closed = quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE));
     QuizGrade latest = quizGradeStore.findLatest(quiz, requesterEmail).orElse(null);
-    boolean published = quiz.isGradesPublished();
-    return new QuizAttemptsResponse(
-        quizGradeStore.attemptsUsed(quiz, requesterEmail),
-        quiz.getMaxAttempts(),
-        quiz.getDeadline(),
-        quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE)),
-        published ? quizGradeStore.find(quiz, requesterEmail).orElse(null) : null,
-        published ? latest : null,
-        hintsForWrongAnswers(quiz, latest),
-        published,
-        latest == null ? 0 : latest.attemptNumber());
+    // Always given, even while results are hidden, so a student can tell "still grading" from
+    // "graded, but not visible yet".
+    int attemptsGraded = latest == null ? 0 : latest.attemptNumber();
+    if (!quiz.areResultsVisibleToStudents()) {
+      return new QuizAttemptsResponse(attemptsUsed, quiz.getMaxAttempts(), quiz.getDeadline(),
+          closed, false, null, null, Map.of(), attemptsGraded);
+    }
+    return new QuizAttemptsResponse(attemptsUsed, quiz.getMaxAttempts(), quiz.getDeadline(),
+        closed, true, quizGradeStore.find(quiz, requesterEmail).orElse(null), latest,
+        hintsForWrongAnswers(quiz, latest), attemptsGraded);
   }
 
-  /** Hints for exactly the questions the latest attempt got wrong; none unless the quiz shows hints. */
+  /** Hints for exactly the questions the latest attempt got wrong; empty before any attempt. */
   private static Map<Long, String> hintsForWrongAnswers(Quiz quiz, QuizGrade latest) {
-    if (!quiz.isShowHints() || latest == null || latest.incorrectQuestionIds() == null) {
+    if (latest == null || latest.incorrectQuestionIds() == null) {
       return Map.of();
     }
     quiz.initializeQuestions();

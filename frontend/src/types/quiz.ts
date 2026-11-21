@@ -64,12 +64,10 @@ export interface QuestionRequest {
   options: { text: string; correct: boolean; matchText?: string | null }[]
 }
 
-/** Send only what changes. The deadline is changed through the submission policy. */
+/** The attempt limit can be changed at any time. The deadline goes through the submission policy. */
 export interface QuizSettingsRequest {
   /** 0 means unlimited attempts. */
-  maxAttempts?: number
-  /** Whether each question's hint is shown after an attempt got it wrong. */
-  showHints?: boolean
+  maxAttempts: number
 }
 
 /**
@@ -106,14 +104,17 @@ export interface QuizAttempts {
   deadline: string | null
   /** True once the deadline has passed (decided by the server, so time zones don't matter). */
   closed: boolean
-  /** The grade that counts. Null until the attempt is graded AND the teacher publishes the results. */
+  /** False while the teacher keeps results hidden; best, latest and hints are then empty. */
+  resultsVisible: boolean
+  /** The grade that counts. Null while the results are hidden. */
   best: QuizGrade | null
   latest: QuizGrade | null
-  /** Grades stay hidden until the teacher publishes the results. */
-  resultsPublished: boolean
-  /** How many attempts have finished grading; below attemptsUsed means one is still being graded. */
+  /**
+   * How many attempts have finished grading, given even while results are hidden. Below
+   * attemptsUsed means one is still being graded.
+   */
   attemptsGraded: number
-  /** Hints by question id, only for questions the latest attempt got wrong, and only if the quiz shows hints. */
+  /** Hints by question id, only for questions the latest attempt got wrong, and only while results are visible. */
   hints: Record<number, string>
 }
 

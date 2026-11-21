@@ -125,21 +125,20 @@ class QuizTests {
   }
 
   @Test
-  void updatesAttemptLimitAndHints() {
+  void changesTheAttemptLimit() {
     Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
 
-    quiz.updateSettings(0, true);
+    quiz.updateMaxAttempts(0);
 
     assertEquals(0, quiz.getMaxAttempts());
     assertTrue(quiz.hasUnlimitedAttempts());
-    assertTrue(quiz.isShowHints());
   }
 
   @Test
-  void rejectsNegativeAttemptLimitWhenUpdatingSettings() {
+  void rejectsANegativeAttemptLimitWhenChangingIt() {
     Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
 
-    assertThrows(IllegalArgumentException.class, () -> quiz.updateSettings(-1, true));
+    assertThrows(IllegalArgumentException.class, () -> quiz.updateMaxAttempts(-1));
     assertEquals(1, quiz.getMaxAttempts());
   }
 }

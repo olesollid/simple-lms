@@ -1,8 +1,10 @@
 package com._gods.canvas2.web;
 
+import org.springframework.http.HttpHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.AmqpException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -10,10 +12,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import com._gods.canvas2.aitutor.RateLimitExceededException;
+import com._gods.canvas2.aitutor.TutorChatService;
 import com._gods.canvas2.service.ConflictException;
 import com._gods.canvas2.service.ForbiddenException;
 import com._gods.canvas2.service.NotFoundException;
 import com._gods.canvas2.web.dto.ErrorResponse;
+import com._gods.canvas2.web.dto.RateLimitErrorResponse;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -46,6 +51,19 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ForbiddenException.class)
   public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException exception) {
     return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .body(new ErrorResponse(exception.getMessage()));
+  }
+
+  @ExceptionHandler(RateLimitExceededException.class)
+  public ResponseEntity<RateLimitErrorResponse> handleRateLimited(RateLimitExceededException exception) {
+    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+        .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getRetryAfterSeconds()))
+        .body(new RateLimitErrorResponse(exception.getMessage(), exception.getRetryAfterSeconds()));
+  }
+
+  @ExceptionHandler(TutorChatService.Unavailable.class)
+  public ResponseEntity<ErrorResponse> handleTutorUnavailable(TutorChatService.Unavailable exception) {
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
         .body(new ErrorResponse(exception.getMessage()));
   }
 

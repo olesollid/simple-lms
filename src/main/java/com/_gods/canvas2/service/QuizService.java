@@ -88,16 +88,26 @@ public class QuizService {
   }
 
   /**
-   * Teacher-only, any time: changes the attempt limit and whether hints are shown. Both are
-   * optional, so a caller can change one without sending the other. The deadline has its own
-   * endpoint (the submission policy), shared with the other graded content.
+   * Teacher-only, any time: changes the attempt limit ({@code 0} = unlimited). Lowering it below what
+   * a student has already used simply ends their attempts. The deadline has its own endpoint (the
+   * submission policy), shared with the other graded content.
    */
-  public Quiz updateSettings(Long quizId, Integer maxAttempts, Boolean showHints,
+  public Quiz updateMaxAttempts(Long quizId, int maxAttempts, String requesterEmail) {
+    Quiz quiz = getQuiz(quizId);
+    requireTeacher(quiz.getModule().getCourse().getId(), requesterEmail);
+    quiz.updateMaxAttempts(maxAttempts);
+    return quiz;
+  }
+
+  /**
+   * Teacher-only: whether students see their score and hints as soon as an attempt is graded,
+   * or only after the teacher publishes the quiz's grades. Can be changed at any time.
+   */
+  public Quiz setShowResultsImmediately(Long quizId, boolean showResultsImmediately,
       String requesterEmail) {
     Quiz quiz = getQuiz(quizId);
     requireTeacher(quiz.getModule().getCourse().getId(), requesterEmail);
-    quiz.updateSettings(maxAttempts != null ? maxAttempts : quiz.getMaxAttempts(),
-        showHints != null ? showHints : quiz.isShowHints());
+    quiz.setShowResultsImmediately(showResultsImmediately);
     return quiz;
   }
 

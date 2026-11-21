@@ -30,6 +30,7 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
   const [acceptsLate, setAcceptsLate] = useState(false)
   const [maxAttempts, setMaxAttempts] = useState(1)
   const [unlimitedAttempts, setUnlimitedAttempts] = useState(false)
+  const [showResultsImmediately, setShowResultsImmediately] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,6 +45,7 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
     setAcceptsLate(false)
     setMaxAttempts(1)
     setUnlimitedAttempts(false)
+    setShowResultsImmediately(true)
     setError(null)
   }
 
@@ -63,7 +65,8 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
           { title, position: 0, body, visibleFrom: null, visibleUntil: null }, {})
       } else if (type === 'Quiz') {
         content = await contents.createQuiz(moduleId,
-          { title, position: 0, maxAttempts: unlimitedAttempts ? 0 : maxAttempts, deadline: deadline || null }, {})
+          { title, position: 0, maxAttempts: unlimitedAttempts ? 0 : maxAttempts, deadline: deadline || null,
+            showResultsImmediately }, {})
       } else if (type === 'Assignment') {
         content = await contents.createAssignment(moduleId,
           { title, position: 0, instructions, deadline: deadline || null, lateSubmissionsAccepted: acceptsLate,
@@ -137,6 +140,14 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
                 onChange={event => setUnlimitedAttempts(event.target.checked)}
               />
               Unlimited attempts
+            </label>
+            <label className="ui-checkbox-field">
+              <input
+                type="checkbox"
+                checked={showResultsImmediately}
+                onChange={event => setShowResultsImmediately(event.target.checked)}
+              />
+              Show results to students immediately
             </label>
             <SubmissionPolicyFields deadline={deadline} onDeadline={setDeadline} />
             <p className="module-placeholder">

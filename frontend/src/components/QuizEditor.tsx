@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { quizzes } from '../services'
+import { quizzes, submissions } from '../services'
 import { ApiError, ApiResponseError } from '../services/apiClient'
 import Button from './ui/Button'
 import ErrorMessage from './ui/ErrorMessage'
@@ -31,21 +31,19 @@ function attemptsLabel(maxAttempts: number | null | undefined): string {
 /**
  * Teacher view of a quiz. While it is a draft, questions can be added, edited and removed, and
  * students cannot see it. Publishing makes it available and freezes the questions, so every
- * attempt is graded against the same answers. Attempts are graded automatically, but students
- * only see their grades once the teacher publishes the results. The attempt limit and hints can
- * be changed at any time.
+ * attempt is graded against the same answers. Attempts are graded automatically. Students see their
+ * score and hints straight away unless the teacher turns that off, and then once the teacher
+ * publishes the results. The attempt limit can be changed at any time.
  */
 export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
   const [state, setState] = useState<EditorState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [published, setPublished] = useState(quiz.published === true)
-  const [resultsPublished, setResultsPublished] = useState(quiz.gradesPublished === true)
-  const [settings, setSettings] = useState({
-    maxAttempts: quiz.maxAttempts ?? 0,
-    showHints: quiz.showHints === true,
-  })
-  const [publishingResults, setPublishingResults] = useState(false)
+  const [maxAttempts, setMaxAttempts] = useState(quiz.maxAttempts ?? 0)
   const closed = quiz.closed === true
+  const [showImmediately, setShowImmediately] = useState(quiz.showResultsImmediately !== false)
+  const [resultsPublished, setResultsPublished] = useState(quiz.resultsPublished === true)
+  const [savingVisibility, setSavingVisibility] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -111,17 +109,29 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
     }
   }
 
-  async function publishResults() {
-    if (!window.confirm('Publish the results? Students will be able to see their grades. This cannot be undone.')) return
-    setPublishingResults(true)
+  async function changeResultVisibility(immediately: boolean) {
+    setSavingVisibility(true)
     setActionError(null)
     try {
-      await quizzes.publishResults(quiz.id, {})
+      await quizzes.setResultVisibility(quiz.id, immediately, {})
+      setShowImmediately(immediately)
+    } catch (error) {
+      setActionError(errorMessage(error))
+    } finally {
+      setSavingVisibility(false)
+    }
+  }
+
+  async function publishResults() {
+    setSavingVisibility(true)
+    setActionError(null)
+    try {
+      await submissions.publishGrades(quiz.id)
       setResultsPublished(true)
     } catch (error) {
       setActionError(errorMessage(error))
     } finally {
-      setPublishingResults(false)
+      setSavingVisibility(false)
     }
   }
 
@@ -148,33 +158,42 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
               ? 'The deadline has passed. Students can no longer submit attempts.'
               : 'Students can take this quiz. The questions are locked so every attempt is graded the same way.'}
         </span>
-        <span>
-          {attemptsLabel(settings.maxAttempts)} per student.{' '}
-          {settings.showHints ? 'Hints are shown after a wrong answer.' : 'Hints are turned off.'}
-        </span>
+        <span>{attemptsLabel(maxAttempts)} per student.</span>
+        <label className="ui-checkbox-field">
+          <input
+            type="checkbox"
+            checked={showImmediately}
+            disabled={savingVisibility}
+            onChange={event => changeResultVisibility(event.target.checked)}
+          />
+          Show results to students immediately
+        </label>
+        {!showImmediately && !published && (
+          <span>Students won't see their scores until you publish the results, which you can do once the quiz is published.</span>
+        )}
+        {!showImmediately && published && (resultsPublished ? (
+          <span>Results are published: students can see their scores and hints.</span>
+        ) : (
+          <span className="quiz-results-hidden">
+            Students can't see their scores yet.{' '}
+            <Button variant="secondary" onClick={publishResults} loading={savingVisibility}>
+              Publish results
+            </Button>
+          </span>
+        ))}
         <span>
           Each question is worth 1 point and is right or wrong as a whole: every correct option
           selected and no wrong ones, the whole order right, every pair matched, or every blank
           filled in correctly. Partly correct answers give 0 points.
         </span>
-        {published && (
-          <span>
-            {resultsPublished
-              ? 'Results are published: students can see their grades.'
-              : 'Attempts are graded automatically, but students only see their grade after you publish the results.'}
-          </span>
-        )}
         {!published && (
           <Button onClick={publish} loading={publishing} disabled={questions.length === 0}>
             Publish quiz
           </Button>
         )}
-        {published && !resultsPublished && (
-          <Button onClick={publishResults} loading={publishingResults}>Publish results</Button>
-        )}
       </div>
       {actionError && <ErrorMessage message={actionError} />}
-      <QuizSettingsForm quiz={quiz} settings={settings} onSaved={setSettings} />
+      <QuizSettingsForm quiz={quiz} maxAttempts={maxAttempts} onSaved={setMaxAttempts} />
 
       <h2>Questions ({questions.length})</h2>
       {questions.length === 0 ? (
@@ -471,7 +490,7 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
           value={hint}
           onChange={event => setHint(event.target.value)}
         />
-        <p className="ui-hint">Shown to students who answer this question wrong, when hints are turned on for the quiz.</p>
+        <p className="ui-hint">Shown to students who answer this question wrong, together with their results.</p>
       </div>
       {error && <ErrorMessage message={error} />}
       <div className="page-heading-actions">
@@ -482,14 +501,16 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
   )
 }
 
-/** Attempt limit and hints. These can be changed at any time, even after the quiz is published. */
-function QuizSettingsForm({ quiz, settings, onSaved }: {
+/**
+ * The attempt limit, which can be changed at any time, even after the quiz is published. The
+ * deadline is changed through the submission policy and result visibility in the status box.
+ */
+function QuizSettingsForm({ quiz, maxAttempts: current, onSaved }: {
   quiz: ContentResponse
-  settings: { maxAttempts: number; showHints: boolean }
-  onSaved: (settings: { maxAttempts: number; showHints: boolean }) => void
+  maxAttempts: number
+  onSaved: (maxAttempts: number) => void
 }) {
-  const [maxAttempts, setMaxAttempts] = useState(String(settings.maxAttempts))
-  const [showHints, setShowHints] = useState(settings.showHints)
+  const [maxAttempts, setMaxAttempts] = useState(String(current))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -505,8 +526,8 @@ function QuizSettingsForm({ quiz, settings, onSaved }: {
     setSaving(true)
     setError(null)
     try {
-      await quizzes.updateSettings(quiz.id, { maxAttempts: attempts, showHints }, {})
-      onSaved({ maxAttempts: attempts, showHints })
+      await quizzes.updateSettings(quiz.id, { maxAttempts: attempts }, {})
+      onSaved(attempts)
       setSaved(true)
     } catch (saveError) {
       setError(errorMessage(saveError))
@@ -530,14 +551,6 @@ function QuizSettingsForm({ quiz, settings, onSaved }: {
         />
         <p className="ui-hint">0 means unlimited. The deadline is set above.</p>
       </div>
-      <label className="ui-checkbox-field">
-        <input
-          type="checkbox"
-          checked={showHints}
-          onChange={event => { setShowHints(event.target.checked); setSaved(false) }}
-        />
-        Show a question's hint after a wrong answer
-      </label>
       {error && <ErrorMessage message={error} />}
       {saved && <p role="status" className="quiz-settings-saved">Settings saved.</p>}
       <Button type="submit" loading={saving}>Save settings</Button>

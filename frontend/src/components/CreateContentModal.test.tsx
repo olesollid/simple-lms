@@ -103,7 +103,7 @@ describe('CreateContentModal', () => {
     await user.click(screen.getByRole('button', { name: 'Add content' }))
 
     expect(createQuiz).toHaveBeenCalledWith(1,
-      { title: 'Week 1 Quiz', position: 0, maxAttempts: 3, deadline: null }, {})
+      { title: 'Week 1 Quiz', position: 0, maxAttempts: 3, deadline: null, showResultsImmediately: true }, {})
   })
 
   it('creates a quiz with unlimited attempts', async () => {
@@ -120,7 +120,7 @@ describe('CreateContentModal', () => {
     await user.click(screen.getByRole('button', { name: 'Add content' }))
 
     expect(createQuiz).toHaveBeenCalledWith(1,
-      { title: 'Practice quiz', position: 0, maxAttempts: 0, deadline: null }, {})
+      { title: 'Practice quiz', position: 0, maxAttempts: 0, deadline: null, showResultsImmediately: true }, {})
   })
 
   it('creates a quiz with a deadline and no late-submission option', async () => {
@@ -136,6 +136,22 @@ describe('CreateContentModal', () => {
     await user.click(screen.getByRole('button', { name: 'Add content' }))
 
     expect(createQuiz).toHaveBeenCalledWith(1,
-      { title: 'Exam quiz', position: 0, maxAttempts: 1, deadline: '2026-12-01T12:00' }, {})
+      { title: 'Exam quiz', position: 0, maxAttempts: 1, deadline: '2026-12-01T12:00', showResultsImmediately: true }, {})
+  })
+
+  it('creates a quiz whose results stay hidden until the teacher publishes them', async () => {
+    const user = userEvent.setup()
+    createQuiz.mockResolvedValue({ ...staticPageResponse, type: 'Quiz' })
+
+    render(<CreateContentModal moduleId={1} open={true} onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('Type'), 'Quiz')
+    await user.type(screen.getByLabelText(/Title/), 'Exam')
+    expect(screen.getByLabelText('Show results to students immediately')).toBeChecked()
+    await user.click(screen.getByLabelText('Show results to students immediately'))
+    await user.click(screen.getByRole('button', { name: 'Add content' }))
+
+    expect(createQuiz).toHaveBeenCalledWith(1,
+      { title: 'Exam', position: 0, maxAttempts: 1, deadline: null, showResultsImmediately: false }, {})
   })
 })
