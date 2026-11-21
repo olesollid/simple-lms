@@ -219,6 +219,7 @@ class QuizSubmissionServiceTests {
         List.of(new AnswerOptionRequest("A", true), new AnswerOptionRequest("B", false))), teacher);
     var right = quizService.addQuestion(quiz.getId(), new QuestionRequest("Right one", "Not needed",
         List.of(new AnswerOptionRequest("A", true), new AnswerOptionRequest("B", false))), teacher);
+    quizService.updateSettings(quiz.getId(), null, true, teacher);
     quizService.publishQuiz(quiz.getId(), teacher);
     String student = enrol(Role.STUDENT);
 
@@ -246,6 +247,8 @@ class QuizSubmissionServiceTests {
   void reportsTheStudentsOwnAttemptsAndGrades() {
     Quiz quiz = quiz(0);
     quizService.publishQuiz(quiz.getId(), teacher);
+    quiz.publishGrades();
+    contentRepository.saveAndFlush(quiz);
     String student = enrol(Role.STUDENT);
     QuizGrade best = new QuizGrade(quiz.getId(), student, 1, 1, 1, 1.0, List.of(), LocalDateTime.now());
     QuizGrade latest = new QuizGrade(quiz.getId(), student, 2, 0, 1, 0.0, List.of(7L), LocalDateTime.now());
@@ -308,5 +311,81 @@ class QuizSubmissionServiceTests {
 
     assertThrows(QuizNotFoundException.class,
         () -> quizSubmissionService.submit(page.getId(), ANSWERS, student));
+  }
+
+  @Test
+  void hidesGradesUntilTheTeacherPublishesTheResults() {
+    Quiz quiz = quiz(0);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    QuizGrade grade = new QuizGrade(quiz.getId(), student, 2, 1, 1, 1.0, List.of(), LocalDateTime.now());
+    when(quizGradeStore.attemptsUsed(any(Quiz.class), eq(student))).thenReturn(2);
+    when(quizGradeStore.find(any(Quiz.class), eq(student))).thenReturn(Optional.of(grade));
+    when(quizGradeStore.findLatest(any(Quiz.class), eq(student))).thenReturn(Optional.of(grade));
+
+    QuizAttemptsResponse hidden = quizSubmissionService.getOwnAttempts(quiz.getId(), student);
+
+    assertEquals(false, hidden.resultsPublished());
+    assertEquals(null, hidden.best());
+    assertEquals(null, hidden.latest());
+    // Grading itself is finished: the student can tell "graded, not published" from "still grading".
+    assertEquals(2, hidden.attemptsGraded());
+    assertEquals(2, hidden.attemptsUsed());
+
+    quiz.publishGrades();
+    contentRepository.saveAndFlush(quiz);
+    QuizAttemptsResponse visible = quizSubmissionService.getOwnAttempts(quiz.getId(), student);
+
+    assertEquals(true, visible.resultsPublished());
+    assertEquals(grade, visible.best());
+    assertEquals(grade, visible.latest());
+  }
+
+  @Test
+  void showsThatTheNewestAttemptIsStillBeingGraded() {
+    Quiz quiz = quiz(0);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    QuizGrade first = new QuizGrade(quiz.getId(), student, 1, 1, 1, 1.0, List.of(), LocalDateTime.now());
+    when(quizGradeStore.attemptsUsed(any(Quiz.class), eq(student))).thenReturn(2);
+    when(quizGradeStore.findLatest(any(Quiz.class), eq(student))).thenReturn(Optional.of(first));
+
+    QuizAttemptsResponse attempts = quizSubmissionService.getOwnAttempts(quiz.getId(), student);
+
+    assertEquals(2, attempts.attemptsUsed());
+    assertEquals(1, attempts.attemptsGraded());
+  }
+
+  @Test
+  void showsNoHintsWhenTheQuizHasHintsTurnedOff() {
+    Quiz quiz = quiz(3);
+    var question = quizService.addQuestion(quiz.getId(), new QuestionRequest("Wrong one", "Think again",
+        List.of(new AnswerOptionRequest("A", true), new AnswerOptionRequest("B", false))), teacher);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    QuizGrade latest = new QuizGrade(quiz.getId(), student, 1, 0, 2, 0.0, List.of(question.getId()),
+        LocalDateTime.now());
+    when(quizGradeStore.findLatest(any(Quiz.class), eq(student))).thenReturn(Optional.of(latest));
+
+    assertEquals(Map.of(), quizSubmissionService.getOwnAttempts(quiz.getId(), student).hints());
+  }
+
+  @Test
+  void hintsDoNotWaitForTheResultsToBePublished() {
+    Quiz quiz = quiz(3);
+    var question = quizService.addQuestion(quiz.getId(), new QuestionRequest("Wrong one", "Think again",
+        List.of(new AnswerOptionRequest("A", true), new AnswerOptionRequest("B", false))), teacher);
+    quizService.updateSettings(quiz.getId(), null, true, teacher);
+    quizService.publishQuiz(quiz.getId(), teacher);
+    String student = enrol(Role.STUDENT);
+    QuizGrade latest = new QuizGrade(quiz.getId(), student, 1, 0, 2, 0.0, List.of(question.getId()),
+        LocalDateTime.now());
+    when(quizGradeStore.findLatest(any(Quiz.class), eq(student))).thenReturn(Optional.of(latest));
+
+    QuizAttemptsResponse attempts = quizSubmissionService.getOwnAttempts(quiz.getId(), student);
+
+    assertEquals(Map.of(question.getId(), "Think again"), attempts.hints());
+    assertEquals(null, attempts.latest());
+    assertEquals(false, attempts.resultsPublished());
   }
 }

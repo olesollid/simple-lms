@@ -12,9 +12,10 @@ import com._gods.canvas2.model.Question;
 import com._gods.canvas2.model.Quiz;
 
 /**
- * Pure grading logic: no I/O, no messaging, no persistence. A question is correct only if the
- * submitted set of selected option ids exactly matches the set of correct option ids for that
- * question (required for multi-select questions, where a partial match is still wrong).
+ * Pure grading logic: no I/O, no messaging, no persistence. A choice question is correct only if
+ * the submitted set of selected option ids exactly matches the set of correct option ids (so a
+ * partial match on a multi-select question is still wrong). An ordering question is correct only if
+ * the submitted list of option ids is exactly the authored order.
  */
 @Component
 public class QuizGrader {
@@ -30,6 +31,16 @@ public class QuizGrader {
     List<Long> incorrectQuestionIds = new java.util.ArrayList<>();
 
     for (Question question : questions) {
+      if (question.getType() == Question.Type.ORDERING) {
+        List<Long> authored = question.getOptions().stream().map(AnswerOption::getId).toList();
+        List<Long> submitted = question.getId() == null ? null : answers.get(question.getId());
+        if (authored.equals(submitted)) {
+          correctCount++;
+        } else if (question.getId() != null) {
+          incorrectQuestionIds.add(question.getId());
+        }
+        continue;
+      }
       Set<Long> correctOptionIds = question.getOptions().stream()
           .filter(AnswerOption::isCorrect)
           .map(AnswerOption::getId)

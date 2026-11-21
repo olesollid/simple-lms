@@ -29,13 +29,17 @@ const percent = (grade: QuizGrade) => `${Math.round(grade.score * 100)}%`
 
 /**
  * Student view of a quiz. Attempts are graded automatically (asynchronously, via the grading
- * queue), so after submitting it polls until the attempt's grade arrives. The best attempt counts.
+ * queue), so after submitting it polls until grading has finished. The grade itself stays hidden
+ * until the teacher publishes the results; until then the student sees that the attempt was
+ * submitted. The best attempt counts.
  */
 export default function QuizTaker({ quizId }: { quizId: number }) {
   const [state, setState] = useState<TakerState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [answering, setAnswering] = useState(false)
   const [selected, setSelected] = useState<Record<number, number[]>>({})
+  // Chosen order per ORDERING question; until the student moves something, the order shown is the one served.
+  const [orders, setOrders] = useState<Record<number, number[]>>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [polls, setPolls] = useState(0)
@@ -55,7 +59,8 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
   }, [quizId, attempt])
 
   const attempts = state.status === 'ready' ? state.attempts : null
-  const gradingPending = attempts != null && attempts.attemptsUsed > (attempts.latest?.attemptNumber ?? 0)
+  const gradingPending = attempts != null
+    && attempts.attemptsUsed > (attempts.attemptsGraded ?? attempts.latest?.attemptNumber ?? 0)
 
   useEffect(() => {
     if (!gradingPending || polls >= GRADING_POLL_LIMIT) return
@@ -85,17 +90,36 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
     })
   }
 
+  const orderedIds = (question: Question): number[] =>
+    orders[question.id] ?? question.options.map(option => option.id)
+
+  function move(question: Question, from: number, to: number) {
+    setOrders(previous => {
+      const current = [...(previous[question.id] ?? question.options.map(option => option.id))]
+      const [moved] = current.splice(from, 1)
+      current.splice(to, 0, moved)
+      return { ...previous, [question.id]: current }
+    })
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const { attemptNumber } = await quizzes.submit(quizId, { answers: selected }, {})
+      const answers: Record<number, number[]> = { ...selected }
+      if (state.status === 'ready') {
+        for (const question of state.questions) {
+          if (question.type === 'ORDERING') answers[question.id] = orderedIds(question)
+        }
+      }
+      const { attemptNumber } = await quizzes.submit(quizId, { answers }, {})
       setState(previous => previous.status === 'ready'
         ? { ...previous, attempts: { ...previous.attempts, attemptsUsed: attemptNumber } }
         : previous)
       setAnswering(false)
       setSelected({})
+      setOrders({})
       setPolls(0)
     } catch (error) {
       setSubmitError(errorMessage(error))
@@ -127,6 +151,8 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
 
   const { questions, attempts: { attemptsUsed, maxAttempts, closed, best, latest } } = state
   const hints = state.attempts.hints ?? {}
+  const resultsPublished = state.attempts.resultsPublished === true
+  const questionsWithHints = questions.filter(question => hints[question.id])
   const unlimited = maxAttempts === 0
   const attemptsLeft = unlimited ? Infinity : Math.max(0, maxAttempts - attemptsUsed)
   const wrongLastTime = new Set(latest?.incorrectQuestionIds ?? [])
@@ -145,24 +171,59 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
           Attempt {attemptsUsed + 1}{unlimited ? '' : ` of ${maxAttempts}`}.
         </p>
         <p className="quiz-scoring-note">
-          Each question is worth 1 point. Select <strong>every</strong> correct answer and no wrong
-          ones to get the point. A partly correct answer gives 0 points.
+          Each question is worth 1 point. For choice questions, select <strong>every</strong> correct
+          answer and no wrong ones. For ordering questions, get the <strong>whole</strong> order right.
+          A partly correct answer gives 0 points.
         </p>
         <ol className="quiz-question-list">
           {questions.map(question => (
             <li key={question.id} className="quiz-question">
               <fieldset>
                 <legend className="quiz-question-text">{question.text}</legend>
-                {question.options.map(option => (
-                  <label key={option.id} className="ui-checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={selected[question.id]?.includes(option.id) ?? false}
-                      onChange={event => toggle(question.id, option.id, event.target.checked)}
-                    />
-                    {option.text}
-                  </label>
-                ))}
+                {question.type === 'ORDERING' ? (
+                  <>
+                    <p className="quiz-type-label">
+                      Put these in the right order, first to last. Use the buttons to move an item.
+                    </p>
+                    <ol className="quiz-order-list">
+                      {orderedIds(question).map((optionId, index, ids) => {
+                        const option = question.options.find(candidate => candidate.id === optionId)!
+                        return (
+                          <li key={optionId} className="quiz-order-item">
+                            <span>{option.text}</span>
+                            <Button
+                              variant="secondary"
+                              aria-label={`Move ${option.text} up`}
+                              disabled={index === 0}
+                              onClick={() => move(question, index, index - 1)}
+                            >
+                              <span aria-hidden="true">↑</span>
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              aria-label={`Move ${option.text} down`}
+                              disabled={index === ids.length - 1}
+                              onClick={() => move(question, index, index + 1)}
+                            >
+                              <span aria-hidden="true">↓</span>
+                            </Button>
+                          </li>
+                        )
+                      })}
+                    </ol>
+                  </>
+                ) : (
+                  question.options.map(option => (
+                    <label key={option.id} className="ui-checkbox-field">
+                      <input
+                        type="checkbox"
+                        checked={selected[question.id]?.includes(option.id) ?? false}
+                        onChange={event => toggle(question.id, option.id, event.target.checked)}
+                      />
+                      {option.text}
+                    </label>
+                  ))
+                )}
                 {hints[question.id] && (
                   <p className="quiz-hint"><strong>Hint:</strong> {hints[question.id]}</p>
                 )}
@@ -219,6 +280,27 @@ export default function QuizTaker({ quizId }: { quizId: number }) {
             </ul>
           )}
         </div>
+      )}
+
+      {!gradingPending && attemptsUsed > 0 && !resultsPublished && (
+        <>
+          <p role="status" className="quiz-pending">
+            Submitted. Your result will appear here once your teacher publishes the results.
+          </p>
+          {questionsWithHints.length > 0 && (
+            <div className="quiz-latest">
+              <h3>Hints for your next attempt</h3>
+              <ul className="quiz-wrong-list">
+                {questionsWithHints.map(question => (
+                  <li key={question.id}>
+                    {question.text}
+                    <p className="quiz-hint"><strong>Hint:</strong> {hints[question.id]}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
 
       {!gradingPending && (closed ? (

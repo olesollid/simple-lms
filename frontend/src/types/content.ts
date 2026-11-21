@@ -20,6 +20,10 @@ export interface ContentResponse {
   published?: boolean | null
   /** Quizzes only: true once the Europe/Oslo deadline has passed (decided by the server). */
   closed?: boolean | null
+  /** Quizzes only: whether a question's hint is shown after an attempt got it wrong. */
+  showHints?: boolean | null
+  /** Quizzes only: true once the teacher has published the results, so students can see grades. */
+  gradesPublished?: boolean | null
   /** False while students can't see it: outside its visibility window, or a draft quiz. */
   visibleToStudents?: boolean
 }

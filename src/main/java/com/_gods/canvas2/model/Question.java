@@ -9,6 +9,8 @@ import org.hibernate.Hibernate;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -22,6 +24,20 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "questions")
 public class Question {
+
+  /**
+   * How a question is answered and graded. Both types submit their answer as a list of option ids,
+   * so the quiz API is the same for each.
+   * <ul>
+   *   <li>{@code CHOICE}: the student selects options. One correct option makes it single choice,
+   *       several make it multiple choice. It is correct only when exactly the correct options
+   *       are selected.</li>
+   *   <li>{@code ORDERING}: the student puts every option in order. The correct order is the order
+   *       the teacher entered the options in; students always see them shuffled. It is correct
+   *       only when the whole order matches.</li>
+   * </ul>
+   */
+  public enum Type { CHOICE, ORDERING }
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -40,6 +56,11 @@ public class Question {
   /** Optional hint shown to a student who answered this question wrong. */
   @Lob
   private String hint;
+
+  /** Existing databases get CHOICE for questions that were created before types existed. */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "question_type", nullable = false, columnDefinition = "varchar(20) default 'CHOICE'")
+  private Type type = Type.CHOICE;
 
   @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
   @OrderBy("id")
@@ -95,6 +116,15 @@ public class Question {
 
   void setPosition(int position) {
     this.position = position;
+  }
+
+  public Type getType() {
+    return type;
+  }
+
+  /** A missing type means a plain choice question. */
+  public void setType(Type type) {
+    this.type = type == null ? Type.CHOICE : type;
   }
 
   /** Replaces the text and hint. Options are replaced separately via {@link #clearOptions()}. */

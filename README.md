@@ -185,16 +185,56 @@ grading with disposable data; `prod` enables quiz grading with persistent data
 and no H2 console. `h2console` is console-only, used by `H2DatabaseTests` so that
 test doesn't need RabbitMQ or Redis at all.
 
+### Quiz workflow
+
+A quiz moves through three stages, all controlled by the teacher:
+
+1. **Draft.** Students cannot see it. The teacher adds, edits and deletes questions.
+2. **Published.** Students can take it; the questions are frozen so every attempt is graded against
+   the same answers. Attempts are graded automatically (see above).
+3. **Results published.** Students only see their grade once the teacher publishes the results.
+   Until then an attempt shows as submitted ("pending grading" while the grader is still working,
+   then "submitted"). Publishing is one-way and uses the same endpoint as other graded content.
+
+**Settings.** `maxAttempts` (`0` = unlimited) and `showHints` can be changed at any time with
+`PUT /quizzes/{quizId}/settings` (send only what changes). The `deadline` is changed through
+`PUT /contents/{contentId}/submission-policy`. A quiz closes at its deadline: no new attempts after
+it (exactly at the deadline is fine). All settings, plus `published`, `closed` and `gradesPublished`,
+come back on `ContentResponse` from `GET /contents/{contentId}`. Creating a quiz without
+`showHints` turns hints on.
+
+**Hints.** A question can have a hint. When the quiz has `showHints` on, a student sees the hint of
+each question their latest attempt got wrong. Hints do not wait for the results to be published, so
+students can use them to retry; they reveal which questions were wrong, not the answers.
+
+**Question types.** Both types submit their answer as a list of option ids, so the submission API
+is the same. `type` is `CHOICE` (the default when left out) or `ORDERING`. Each question is worth
+one point and there is no partial credit.
+
+| `type` | How it is authored | How a student answers | Correct when |
+| --- | --- | --- | --- |
+| `CHOICE` | Options with `correct` flags. One correct option makes it single choice, several make it multiple choice. | Selects options. | Exactly the correct options are selected, no more and no fewer. |
+| `ORDERING` | Options listed in the correct order; `correct` is ignored. | Puts every option in order. The options are always served shuffled, never in the correct order. | The submitted list is exactly the authored order. |
+
+Fill-in-the-blank and matching questions from the course specification are not supported.
+
 Quiz-related endpoints (all under `/api`, teacher-only writes unless noted):
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/modules/{moduleId}/quizzes` | Create a quiz (teacher) |
-| `POST` | `/quizzes/{quizId}/questions` | Add a question with answer options, supports multi-select (teacher) |
-| `GET` | `/quizzes/{quizId}/questions` | List questions without correct-answer flags (any enrolled member) |
-| `GET` | `/quizzes/{quizId}/questions/with-answers` | List questions including correct-answer flags (teacher) |
+| `POST` | `/modules/{moduleId}/quizzes` | Create a quiz: `title`, `maxAttempts`, optional `deadline` and `showHints` (teacher) |
+| `PUT` | `/quizzes/{quizId}/settings` | Change `maxAttempts` and/or `showHints`, at any time (teacher) |
+| `POST` | `/quizzes/{quizId}/questions` | Add a question: `text`, optional `hint`, `type`, `options` (teacher, draft only) |
+| `PUT` | `/quizzes/{quizId}/questions/{questionId}` | Replace a question, including its type (teacher, draft only) |
+| `DELETE` | `/quizzes/{quizId}/questions/{questionId}` | Delete a question (teacher, draft only) |
+| `PUT` | `/quizzes/{quizId}/publication` | Publish the quiz to students and freeze its questions (teacher) |
+| `GET` | `/quizzes/{quizId}/questions` | List questions without correct answers or hints; `ORDERING` options are shuffled (any enrolled member) |
+| `GET` | `/quizzes/{quizId}/questions/with-answers` | List questions with correct answers and hints (teacher) |
 | `POST` | `/quizzes/{quizId}/submissions` | Submit answers for grading; returns 202, grading happens async (any enrolled member) |
-| `GET` | `/quizzes/{quizId}/grade` | Read the caller's own grade; 404 until grading completes (any enrolled member) |
+| `GET` | `/quizzes/{quizId}/attempts/mine` | Own attempts: `attemptsUsed`, `attemptsGraded`, `resultsPublished`, `best` and `latest` (null until published), `hints` |
+| `GET` | `/quizzes/{quizId}/grade` | Own best grade; 404 until it is graded and the results are published |
+| `GET` | `/quizzes/{quizId}/results` | Every student's attempts and best grade, always visible (teacher) |
+| `PUT` | `/contents/{contentId}/grades/publication` | Publish the results so students see their grades (teacher) |
 
 ### Assignment and coding-exercise deadlines
 

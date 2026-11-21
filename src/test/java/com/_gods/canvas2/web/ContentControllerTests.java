@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
@@ -169,7 +170,7 @@ class ContentControllerTests {
         .andExpect(status().isNotFound());
   }
 
-  /** Exactly the body the frontend sends: no showHints (hints are per question now). */
+  /** Exactly the body the frontend sends: showHints is left out, which means on. */
   @Test
   void createQuizReturns201AsADraft() throws Exception {
     Module module = module(1L);
@@ -383,5 +384,37 @@ class ContentControllerTests {
 
     mockMvc.perform(post("/api/contents/999/interactions").with(asTeacher()))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void createQuizTurnsHintsOnWhenTheRequestDoesNotSay() throws Exception {
+    Quiz quiz = new Quiz(module(1L), "Quiz", 0, 0, true);
+    setField(quiz, "id", 1L);
+    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
+        anyString())).thenReturn(quiz);
+
+    mockMvc.perform(post("/api/modules/1/quizzes").with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"title\":\"Quiz\",\"position\":0,\"maxAttempts\":0,\"deadline\":null}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.showHints").value(true));
+
+    verify(contentService).createQuiz(eq(1L), eq("Quiz"), eq(0), eq(0), eq(true), any(), anyString());
+  }
+
+  @Test
+  void createQuizHonoursAnExplicitShowHintsFalse() throws Exception {
+    Quiz quiz = new Quiz(module(1L), "Quiz", 0, 2, false);
+    setField(quiz, "id", 1L);
+    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
+        anyString())).thenReturn(quiz);
+
+    mockMvc.perform(post("/api/modules/1/quizzes").with(asTeacher())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"title\":\"Quiz\",\"position\":0,\"maxAttempts\":2,\"deadline\":null,\"showHints\":false}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.showHints").value(false));
+
+    verify(contentService).createQuiz(eq(1L), eq("Quiz"), eq(0), eq(2), eq(false), any(), anyString());
   }
 }

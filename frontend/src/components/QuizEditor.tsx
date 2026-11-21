@@ -6,7 +6,7 @@ import ErrorMessage from './ui/ErrorMessage'
 import LoadingIndicator from './ui/LoadingIndicator'
 import QuizResults from './QuizResults'
 import type { ContentResponse } from '../types/content'
-import type { QuestionRequest, QuestionWithAnswers } from '../types/quiz'
+import type { QuestionRequest, QuestionType, QuestionWithAnswers } from '../types/quiz'
 
 type EditorState =
   | { status: 'loading' }
@@ -30,12 +30,20 @@ function attemptsLabel(maxAttempts: number | null | undefined): string {
 /**
  * Teacher view of a quiz. While it is a draft, questions can be added, edited and removed, and
  * students cannot see it. Publishing makes it available and freezes the questions, so every
- * attempt is graded against the same answers.
+ * attempt is graded against the same answers. Attempts are graded automatically, but students
+ * only see their grades once the teacher publishes the results. The attempt limit and hints can
+ * be changed at any time.
  */
 export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
   const [state, setState] = useState<EditorState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [published, setPublished] = useState(quiz.published === true)
+  const [resultsPublished, setResultsPublished] = useState(quiz.gradesPublished === true)
+  const [settings, setSettings] = useState({
+    maxAttempts: quiz.maxAttempts ?? 0,
+    showHints: quiz.showHints === true,
+  })
+  const [publishingResults, setPublishingResults] = useState(false)
   const closed = quiz.closed === true
   const [editingId, setEditingId] = useState<number | null>(null)
   const [publishing, setPublishing] = useState(false)
@@ -102,6 +110,20 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
     }
   }
 
+  async function publishResults() {
+    if (!window.confirm('Publish the results? Students will be able to see their grades. This cannot be undone.')) return
+    setPublishingResults(true)
+    setActionError(null)
+    try {
+      await quizzes.publishResults(quiz.id, {})
+      setResultsPublished(true)
+    } catch (error) {
+      setActionError(errorMessage(error))
+    } finally {
+      setPublishingResults(false)
+    }
+  }
+
   if (state.status === 'loading') return <LoadingIndicator message="Loading questions…" />
 
   if (state.status === 'error') {
@@ -125,18 +147,33 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
               ? 'The deadline has passed. Students can no longer submit attempts.'
               : 'Students can take this quiz. The questions are locked so every attempt is graded the same way.'}
         </span>
-        <span>{attemptsLabel(quiz.maxAttempts)} per student. Results are shown as soon as an attempt is graded.</span>
         <span>
-          Each question is worth 1 point, given only when the student selects every correct option
-          and no wrong ones. Partly correct answers give 0 points.
+          {attemptsLabel(settings.maxAttempts)} per student.{' '}
+          {settings.showHints ? 'Hints are shown after a wrong answer.' : 'Hints are turned off.'}
         </span>
+        <span>
+          Each question is worth 1 point. A choice question is right only when the student selects
+          every correct option and no wrong ones; an ordering question only when the whole order is
+          right. Partly correct answers give 0 points.
+        </span>
+        {published && (
+          <span>
+            {resultsPublished
+              ? 'Results are published: students can see their grades.'
+              : 'Attempts are graded automatically, but students only see their grade after you publish the results.'}
+          </span>
+        )}
         {!published && (
           <Button onClick={publish} loading={publishing} disabled={questions.length === 0}>
             Publish quiz
           </Button>
         )}
+        {published && !resultsPublished && (
+          <Button onClick={publishResults} loading={publishingResults}>Publish results</Button>
+        )}
       </div>
       {actionError && <ErrorMessage message={actionError} />}
+      <QuizSettingsForm quiz={quiz} settings={settings} onSaved={setSettings} />
 
       <h2>Questions ({questions.length})</h2>
       {questions.length === 0 ? (
@@ -156,14 +193,23 @@ export default function QuizEditor({ quiz }: { quiz: ContentResponse }) {
               ) : (
                 <>
                   <p className="quiz-question-text">{question.text}</p>
-                  <ul className="quiz-option-list">
-                    {question.options.map(option => (
-                      <li key={option.id} className={option.correct ? 'quiz-option-correct' : undefined}>
-                        {option.text}
-                        {option.correct && <span className="quiz-correct-badge"> ✓ Correct</span>}
-                      </li>
-                    ))}
-                  </ul>
+                  {question.type === 'ORDERING' ? (
+                    <>
+                      <p className="quiz-type-label">Ordering question. Correct order (students see the options shuffled):</p>
+                      <ol className="quiz-option-list quiz-order-answer">
+                        {question.options.map(option => <li key={option.id}>{option.text}</li>)}
+                      </ol>
+                    </>
+                  ) : (
+                    <ul className="quiz-option-list">
+                      {question.options.map(option => (
+                        <li key={option.id} className={option.correct ? 'quiz-option-correct' : undefined}>
+                          {option.text}
+                          {option.correct && <span className="quiz-correct-badge"> ✓ Correct</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {question.hint && <p className="quiz-hint"><strong>Hint:</strong> {question.hint}</p>}
                   {!published && (
                     <div className="page-heading-actions">
@@ -208,6 +254,7 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
   const idPrefix = initial ? `question-${initial.id}` : 'new-question'
   const [text, setText] = useState(initial?.text ?? '')
   const [hint, setHint] = useState(initial?.hint ?? '')
+  const [type, setType] = useState<QuestionType>(initial?.type ?? 'CHOICE')
   const [options, setOptions] = useState<OptionDraft[]>(
     initial ? initial.options.map(option => ({ text: option.text, correct: option.correct })) : emptyOptions())
   const [saving, setSaving] = useState(false)
@@ -225,14 +272,14 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
       setError('Add at least two answer options.')
       return
     }
-    if (!filled.some(option => option.correct)) {
+    if (type === 'CHOICE' && !filled.some(option => option.correct)) {
       setError('Mark at least one option as correct.')
       return
     }
     setSaving(true)
     setError(null)
     try {
-      await onSave({ text: text.trim(), hint: hint.trim() || null, options: filled })
+      await onSave({ text: text.trim(), hint: hint.trim() || null, type, options: filled })
       if (resetOnSave) {
         setText('')
         setHint('')
@@ -261,16 +308,35 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
           required
         />
       </div>
+      <fieldset className="quiz-type-fields">
+        <legend className="ui-label">Question type</legend>
+        <label className="ui-checkbox-field">
+          <input type="radio" name={`${idPrefix}-type`} checked={type === 'CHOICE'} onChange={() => setType('CHOICE')} />
+          Choice: students select the correct answer(s)
+        </label>
+        <label className="ui-checkbox-field">
+          <input type="radio" name={`${idPrefix}-type`} checked={type === 'ORDERING'} onChange={() => setType('ORDERING')} />
+          Ordering: students put the options in the right order
+        </label>
+      </fieldset>
       <fieldset className="quiz-option-fields">
-        <legend className="ui-label">Answer options (tick the correct ones)</legend>
+        <legend className="ui-label">
+          {type === 'ORDERING'
+            ? 'Options, in the correct order (students see them shuffled)'
+            : 'Answer options (tick the correct ones)'}
+        </legend>
         {options.map((option, index) => (
           <div key={index} className="quiz-option-field">
-            <input
-              type="checkbox"
-              aria-label={`Option ${index + 1} is correct`}
-              checked={option.correct}
-              onChange={event => updateOption(index, { correct: event.target.checked })}
-            />
+            {type === 'CHOICE' ? (
+              <input
+                type="checkbox"
+                aria-label={`Option ${index + 1} is correct`}
+                checked={option.correct}
+                onChange={event => updateOption(index, { correct: event.target.checked })}
+              />
+            ) : (
+              <span className="quiz-option-number" aria-hidden="true">{index + 1}.</span>
+            )}
             <input
               className="ui-input"
               aria-label={`Option ${index + 1}`}
@@ -300,13 +366,76 @@ function QuestionForm({ initial, title, submitLabel, onSave, onCancel, resetOnSa
           value={hint}
           onChange={event => setHint(event.target.value)}
         />
-        <p className="ui-hint">Shown to students who answer this question wrong.</p>
+        <p className="ui-hint">Shown to students who answer this question wrong, when hints are turned on for the quiz.</p>
       </div>
       {error && <ErrorMessage message={error} />}
       <div className="page-heading-actions">
         <Button type="submit" loading={saving}>{submitLabel}</Button>
         {onCancel && <Button variant="secondary" onClick={onCancel} disabled={saving}>Cancel</Button>}
       </div>
+    </form>
+  )
+}
+
+/** Attempt limit and hints. These can be changed at any time, even after the quiz is published. */
+function QuizSettingsForm({ quiz, settings, onSaved }: {
+  quiz: ContentResponse
+  settings: { maxAttempts: number; showHints: boolean }
+  onSaved: (settings: { maxAttempts: number; showHints: boolean }) => void
+}) {
+  const [maxAttempts, setMaxAttempts] = useState(String(settings.maxAttempts))
+  const [showHints, setShowHints] = useState(settings.showHints)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setSaved(false)
+    if (!/^\d+$/.test(maxAttempts.trim())) {
+      setError('Maximum attempts must be a whole number, 0 or more (0 means unlimited).')
+      return
+    }
+    const attempts = Number(maxAttempts.trim())
+    setSaving(true)
+    setError(null)
+    try {
+      await quizzes.updateSettings(quiz.id, { maxAttempts: attempts, showHints }, {})
+      onSaved({ maxAttempts: attempts, showHints })
+      setSaved(true)
+    } catch (saveError) {
+      setError(errorMessage(saveError))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="quiz-settings" onSubmit={handleSubmit} aria-label="Quiz settings">
+      <h3>Settings</h3>
+      <div className="ui-field">
+        <label className="ui-label" htmlFor="quiz-max-attempts">Maximum attempts</label>
+        <input
+          id="quiz-max-attempts"
+          className="ui-input"
+          type="number"
+          min={0}
+          value={maxAttempts}
+          onChange={event => { setMaxAttempts(event.target.value); setSaved(false) }}
+        />
+        <p className="ui-hint">0 means unlimited. The deadline is set above.</p>
+      </div>
+      <label className="ui-checkbox-field">
+        <input
+          type="checkbox"
+          checked={showHints}
+          onChange={event => { setShowHints(event.target.checked); setSaved(false) }}
+        />
+        Show a question's hint after a wrong answer
+      </label>
+      {error && <ErrorMessage message={error} />}
+      {saved && <p role="status" className="quiz-settings-saved">Settings saved.</p>}
+      <Button type="submit" loading={saving}>Save settings</Button>
     </form>
   )
 }

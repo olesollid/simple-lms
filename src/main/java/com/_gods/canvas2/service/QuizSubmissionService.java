@@ -72,24 +72,31 @@ public class QuizSubmissionService {
     return attempt;
   }
 
-  /** The requester's own attempt count, best grade and latest grade for a quiz. */
+  /**
+   * The requester's own attempt count and, once the teacher has published the results, their best
+   * and latest grade. Hints do not wait for publication: they are a teacher's opt-in
+   * ({@link Quiz#isShowHints()}) to help students retry.
+   */
   @Transactional(readOnly = true)
   public QuizAttemptsResponse getOwnAttempts(Long quizId, String requesterEmail) {
     Quiz quiz = requireOpenQuiz(quizId, requesterEmail);
     QuizGrade latest = quizGradeStore.findLatest(quiz, requesterEmail).orElse(null);
+    boolean published = quiz.isGradesPublished();
     return new QuizAttemptsResponse(
         quizGradeStore.attemptsUsed(quiz, requesterEmail),
         quiz.getMaxAttempts(),
         quiz.getDeadline(),
         quiz.isClosedAt(LocalDateTime.now(HandInPolicy.ZONE)),
-        quizGradeStore.find(quiz, requesterEmail).orElse(null),
-        latest,
-        hintsForWrongAnswers(quiz, latest));
+        published ? quizGradeStore.find(quiz, requesterEmail).orElse(null) : null,
+        published ? latest : null,
+        hintsForWrongAnswers(quiz, latest),
+        published,
+        latest == null ? 0 : latest.attemptNumber());
   }
 
-  /** Hints for exactly the questions the latest attempt got wrong; empty before any attempt. */
+  /** Hints for exactly the questions the latest attempt got wrong; none unless the quiz shows hints. */
   private static Map<Long, String> hintsForWrongAnswers(Quiz quiz, QuizGrade latest) {
-    if (latest == null || latest.incorrectQuestionIds() == null) {
+    if (!quiz.isShowHints() || latest == null || latest.incorrectQuestionIds() == null) {
       return Map.of();
     }
     quiz.initializeQuestions();

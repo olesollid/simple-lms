@@ -43,6 +43,7 @@ public class QuizService {
     requireDraft(quiz);
 
     Question question = quiz.addQuestion(request.text(), request.hint());
+    question.setType(request.type());
     addOptions(question, request);
     entityManager.persist(question);
     for (AnswerOption option : question.getOptions()) {
@@ -62,6 +63,7 @@ public class QuizService {
 
     Question question = findQuestion(quiz, questionId);
     question.update(request.text(), request.hint());
+    question.setType(request.type());
     question.clearOptions();
     // Flush the orphan removals first, so the old options are gone before the new ones are added.
     entityManager.flush();
@@ -81,6 +83,20 @@ public class QuizService {
     quiz.initializeQuestions();
     quiz.removeQuestion(findQuestion(quiz, questionId));
     entityManager.flush();
+  }
+
+  /**
+   * Teacher-only, any time: changes the attempt limit and whether hints are shown. Both are
+   * optional, so a caller can change one without sending the other. The deadline has its own
+   * endpoint (the submission policy), shared with the other graded content.
+   */
+  public Quiz updateSettings(Long quizId, Integer maxAttempts, Boolean showHints,
+      String requesterEmail) {
+    Quiz quiz = getQuiz(quizId);
+    requireTeacher(quiz.getModule().getCourse().getId(), requesterEmail);
+    quiz.updateSettings(maxAttempts != null ? maxAttempts : quiz.getMaxAttempts(),
+        showHints != null ? showHints : quiz.isShowHints());
+    return quiz;
   }
 
   /** Teacher-only: makes the quiz available to students and freezes its questions. */
@@ -154,7 +170,9 @@ public class QuizService {
     if (request.options() == null || request.options().size() < 2) {
       throw new IllegalArgumentException("A question needs at least two answer options");
     }
-    if (request.options().stream().noneMatch(AnswerOptionRequest::correct)) {
+    // An ordering question's correct answer is the order of its options, so it has no flags.
+    boolean ordering = request.type() == Question.Type.ORDERING;
+    if (!ordering && request.options().stream().noneMatch(AnswerOptionRequest::correct)) {
       throw new IllegalArgumentException("A question needs at least one correct answer option");
     }
     for (AnswerOptionRequest option : request.options()) {
@@ -165,8 +183,9 @@ public class QuizService {
   }
 
   private static void addOptions(Question question, QuestionRequest request) {
+    boolean ordering = request.type() == Question.Type.ORDERING;
     for (AnswerOptionRequest option : request.options()) {
-      question.addOption(option.text(), option.correct());
+      question.addOption(option.text(), ordering || option.correct());
     }
   }
 

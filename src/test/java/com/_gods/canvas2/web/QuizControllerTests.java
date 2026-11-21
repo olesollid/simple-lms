@@ -3,6 +3,8 @@ package com._gods.canvas2.web;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
@@ -116,7 +118,7 @@ class QuizControllerTests {
         LocalDateTime.of(2026, 11, 21, 10, 0));
     when(quizSubmissionService.getOwnAttempts(5L, "student@example.com"))
         .thenReturn(new QuizAttemptsResponse(1, 0, LocalDateTime.of(2026, 12, 1, 12, 0), false, best, best,
-            Map.of(7L, "Count on your fingers")));
+            Map.of(7L, "Count on your fingers"), true, 1));
 
     mockMvc.perform(get("/api/quizzes/5/attempts/mine").with(as("student@example.com")))
         .andExpect(status().isOk())
@@ -126,7 +128,9 @@ class QuizControllerTests {
         .andExpect(jsonPath("$.closed").value(false))
         .andExpect(jsonPath("$.best.score").value(1.0))
         .andExpect(jsonPath("$.latest.incorrectQuestionIds").isEmpty())
-        .andExpect(jsonPath("$.hints.7").value("Count on your fingers"));
+        .andExpect(jsonPath("$.hints.7").value("Count on your fingers"))
+        .andExpect(jsonPath("$.resultsPublished").value(true))
+        .andExpect(jsonPath("$.attemptsGraded").value(1));
   }
 
   @Test
@@ -168,5 +172,142 @@ class QuizControllerTests {
 
     mockMvc.perform(put("/api/quizzes/5/publication").with(as("teacher@example.com")))
         .andExpect(status().isConflict());
+  }
+
+  @Test
+  void aStudentSeesPendingGradingWithNoScoresUntilResultsArePublished() throws Exception {
+    when(quizSubmissionService.getOwnAttempts(5L, "student@example.com"))
+        .thenReturn(new QuizAttemptsResponse(1, 3, null, false, null, null, Map.of(), false, 1));
+
+    mockMvc.perform(get("/api/quizzes/5/attempts/mine").with(as("student@example.com")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.resultsPublished").value(false))
+        .andExpect(jsonPath("$.attemptsGraded").value(1))
+        .andExpect(jsonPath("$.best").isEmpty())
+        .andExpect(jsonPath("$.latest").isEmpty());
+  }
+
+  @Test
+  void theGradeEndpointIs404UntilTheResultsArePublished() throws Exception {
+    when(quizSubmissionService.getOwnAttempts(5L, "student@example.com"))
+        .thenReturn(new QuizAttemptsResponse(1, 3, null, false, null, null, Map.of(), false, 1));
+
+    mockMvc.perform(get("/api/quizzes/5/grade").with(as("student@example.com")))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void teachersUpdateTheQuizSettingsAndGetThemBack() throws Exception {
+    Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
+        "Quiz", 0, 3, true);
+    when(quizService.updateSettings(eq(5L), eq(3), eq(true), eq("teacher@example.com"))).thenReturn(quiz);
+
+    mockMvc.perform(put("/api/quizzes/5/settings").with(as("teacher@example.com"))
+            .contentType(MediaType.APPLICATION_JSON).content("""
+                {"maxAttempts":3,"showHints":true}
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.maxAttempts").value(3))
+        .andExpect(jsonPath("$.showHints").value(true))
+        .andExpect(jsonPath("$.gradesPublished").value(false));
+  }
+
+  @Test
+  void settingsCanBeSentOneAtATime() throws Exception {
+    Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
+        "Quiz", 0, 1, false);
+    when(quizService.updateSettings(eq(5L), isNull(), eq(false), anyString())).thenReturn(quiz);
+
+    mockMvc.perform(put("/api/quizzes/5/settings").with(as("teacher@example.com"))
+            .contentType(MediaType.APPLICATION_JSON).content("{\"showHints\":false}"))
+        .andExpect(status().isOk());
+
+    verify(quizService).updateSettings(5L, null, false, "teacher@example.com");
+  }
+
+  @Test
+  void studentsCannotChangeQuizSettings() throws Exception {
+    when(quizService.updateSettings(eq(5L), any(), any(), eq("student@example.com")))
+        .thenThrow(new ForbiddenException("Only a teacher may change this"));
+
+    mockMvc.perform(put("/api/quizzes/5/settings").with(as("student@example.com"))
+            .contentType(MediaType.APPLICATION_JSON).content("{\"maxAttempts\":9}"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void anOrderingQuestionIsAddedWithItsTypeAndComesBackWithIt() throws Exception {
+    Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
+        "Quiz", 0, 1, false);
+    Question question = quiz.addQuestion("Order the steps");
+    question.setType(Question.Type.ORDERING);
+    question.addOption("Plan", true);
+    question.addOption("Build", true);
+    when(quizService.addQuestion(eq(5L), any(), eq("teacher@example.com"))).thenReturn(question);
+
+    mockMvc.perform(post("/api/quizzes/5/questions").with(as("teacher@example.com"))
+            .contentType(MediaType.APPLICATION_JSON).content("""
+                {"text":"Order the steps","hint":null,"type":"ORDERING",
+                 "options":[{"text":"Plan","correct":false},{"text":"Build","correct":false}]}
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.type").value("ORDERING"));
+
+    org.mockito.ArgumentCaptor<com._gods.canvas2.web.dto.QuestionRequest> sent =
+        org.mockito.ArgumentCaptor.forClass(com._gods.canvas2.web.dto.QuestionRequest.class);
+    verify(quizService).addQuestion(eq(5L), sent.capture(), eq("teacher@example.com"));
+    org.junit.jupiter.api.Assertions.assertEquals(Question.Type.ORDERING, sent.getValue().type());
+  }
+
+  @Test
+  void aQuestionWithoutATypeIsSentAsAChoiceQuestion() throws Exception {
+    Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
+        "Quiz", 0, 1, false);
+    Question question = quiz.addQuestion("2+2?");
+    question.addOption("4", true);
+    question.addOption("5", false);
+    when(quizService.addQuestion(eq(5L), any(), anyString())).thenReturn(question);
+
+    mockMvc.perform(post("/api/quizzes/5/questions").with(as("teacher@example.com"))
+            .contentType(MediaType.APPLICATION_JSON).content("""
+                {"text":"2+2?","hint":null,"options":[{"text":"4","correct":true},{"text":"5","correct":false}]}
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.type").value("CHOICE"));
+  }
+
+  @Test
+  void studentsNeverGetAnOrderingQuestionsOptionsInTheCorrectOrder() {
+    Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
+        "Quiz", 0, 1, false);
+    Question question = quiz.addQuestion("Order the steps");
+    question.setType(Question.Type.ORDERING);
+    for (String step : List.of("One", "Two", "Three", "Four", "Five")) {
+      question.addOption(step, true);
+    }
+    List<String> authored = List.of("One", "Two", "Three", "Four", "Five");
+
+    for (int i = 0; i < 200; i++) {
+      List<String> shown = com._gods.canvas2.web.dto.QuestionResponse.from(question).options().stream()
+          .map(com._gods.canvas2.web.dto.AnswerOptionResponse::text).toList();
+      org.junit.jupiter.api.Assertions.assertNotEquals(authored, shown);
+      org.junit.jupiter.api.Assertions.assertEquals(authored.stream().sorted().toList(),
+          shown.stream().sorted().toList());
+    }
+  }
+
+  @Test
+  void aChoiceQuestionKeepsItsAuthoredOrderAndTypeForStudents() {
+    Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
+        "Quiz", 0, 1, false);
+    Question question = quiz.addQuestion("2+2?");
+    question.addOption("3", false);
+    question.addOption("4", true);
+
+    var response = com._gods.canvas2.web.dto.QuestionResponse.from(question);
+
+    org.junit.jupiter.api.Assertions.assertEquals(Question.Type.CHOICE, response.type());
+    org.junit.jupiter.api.Assertions.assertEquals(List.of("3", "4"),
+        response.options().stream().map(com._gods.canvas2.web.dto.AnswerOptionResponse::text).toList());
   }
 }

@@ -81,6 +81,18 @@ public class Quiz extends Content {
     return gradeKey != null ? gradeKey : String.valueOf(getId());
   }
 
+  /**
+   * Changes the attempt limit and whether hints are shown. Allowed at any time: lowering the limit
+   * below what a student has already used simply ends their attempts.
+   */
+  public void updateSettings(int maxAttempts, boolean showHints) {
+    if (maxAttempts < 0) {
+      throw new IllegalArgumentException("maxAttempts must not be negative (0 means unlimited)");
+    }
+    this.maxAttempts = maxAttempts;
+    this.showHints = showHints;
+  }
+
   /** Sets or clears (null) the deadline. Times are Europe/Oslo wall-clock, like hand-ins. */
   public void updateDeadline(LocalDateTime deadline) {
     HandInPolicy.validateDeadline(deadline);

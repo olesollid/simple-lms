@@ -147,4 +147,51 @@ class QuizGraderDataTests {
   private Long questionId() {
     return quizWithOneMultiSelectQuestion.getQuestions().get(0).getId();
   }
+
+  /** An ordering question whose authored order is its options' ids in ascending order. */
+  private Quiz quizWithOrderingQuestion() {
+    Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
+    Module module = moduleRepository.save(new Module(course, "Week 1"));
+    Quiz quiz = new Quiz(module, "Order quiz", 0, 1, false);
+    Question question = quiz.addQuestion("Put the steps in order");
+    question.setType(Question.Type.ORDERING);
+    question.addOption("Plan", true);
+    question.addOption("Build", true);
+    question.addOption("Test", true);
+    return (Quiz) contentRepository.save(quiz);
+  }
+
+  private static List<Long> authoredOrder(Quiz quiz) {
+    return quiz.getQuestions().getFirst().getOptions().stream().map(AnswerOption::getId).toList();
+  }
+
+  @Test
+  void gradesAnOrderingQuestionCorrectOnlyForTheExactAuthoredOrder() {
+    Quiz quiz = quizWithOrderingQuestion();
+    Long questionId = quiz.getQuestions().getFirst().getId();
+
+    QuizGrade right = grader.grade(quiz, "student@example.com", Map.of(questionId, authoredOrder(quiz)));
+    QuizGrade reversed = grader.grade(quiz, "student@example.com",
+        Map.of(questionId, authoredOrder(quiz).reversed()));
+
+    assertEquals(1, right.correctQuestions());
+    assertEquals(0, reversed.correctQuestions());
+    assertEquals(List.of(questionId), reversed.incorrectQuestionIds());
+  }
+
+  @Test
+  void anOrderingAnswerMustContainEveryOptionOnce() {
+    Quiz quiz = quizWithOrderingQuestion();
+    Long questionId = quiz.getQuestions().getFirst().getId();
+    List<Long> order = authoredOrder(quiz);
+
+    QuizGrade missingOne = grader.grade(quiz, "s@example.com", Map.of(questionId, order.subList(0, 2)));
+    QuizGrade duplicated = grader.grade(quiz, "s@example.com",
+        Map.of(questionId, List.of(order.get(0), order.get(0), order.get(1), order.get(2))));
+    QuizGrade unanswered = grader.grade(quiz, "s@example.com", Map.of());
+
+    assertEquals(0, missingOne.correctQuestions());
+    assertEquals(0, duplicated.correctQuestions());
+    assertEquals(0, unanswered.correctQuestions());
+  }
 }

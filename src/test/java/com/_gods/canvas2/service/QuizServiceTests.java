@@ -320,4 +320,96 @@ class QuizServiceTests {
 
     assertEquals(1, questions.size());
   }
+
+  private static QuestionRequest ordering(String... steps) {
+    List<AnswerOptionRequest> options = java.util.Arrays.stream(steps)
+        .map(step -> new AnswerOptionRequest(step, false)).toList();
+    return new QuestionRequest("Put these in order", null, options, Question.Type.ORDERING);
+  }
+
+  @Test
+  void questionsAreChoiceQuestionsUnlessTheyAskForAnotherType() {
+    Quiz quiz = quiz();
+
+    Question question = quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+
+    assertEquals(Question.Type.CHOICE, question.getType());
+  }
+
+  @Test
+  void storesAnOrderingQuestionWithItsOptionsInTheOrderEntered() {
+    Quiz quiz = quiz();
+
+    Question question = quizService.addQuestion(quiz.getId(), ordering("First", "Second", "Third"),
+        teacherEmail);
+    entityManager.flush();
+    entityManager.clear();
+
+    Question reloaded = quizService.getQuestionsWithAnswers(quiz.getId(), teacherEmail).getFirst();
+    assertEquals(Question.Type.ORDERING, reloaded.getType());
+    assertEquals(List.of("First", "Second", "Third"),
+        reloaded.getOptions().stream().map(AnswerOption::getText).toList());
+    assertEquals(question.getId(), reloaded.getId());
+  }
+
+  @Test
+  void anOrderingQuestionNeedsNoCorrectFlagsButStillTwoOptions() {
+    Quiz quiz = quiz();
+
+    assertThrows(IllegalArgumentException.class,
+        () -> quizService.addQuestion(quiz.getId(), ordering("Only one"), teacherEmail));
+    // A choice question without a correct option is still rejected.
+    assertThrows(IllegalArgumentException.class, () -> quizService.addQuestion(quiz.getId(),
+        new QuestionRequest("Q", null, List.of(new AnswerOptionRequest("A", false),
+            new AnswerOptionRequest("B", false))), teacherEmail));
+  }
+
+  @Test
+  void aQuestionCanBeChangedToAnotherTypeWhileTheQuizIsADraft() {
+    Quiz quiz = quiz();
+    Question question = quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+
+    Question updated = quizService.updateQuestion(quiz.getId(), question.getId(),
+        ordering("One", "Two", "Three"), teacherEmail);
+
+    assertEquals(Question.Type.ORDERING, updated.getType());
+    assertEquals(3, updated.getOptions().size());
+  }
+
+  @Test
+  void teacherChangesTheAttemptLimitAndHintsAnyTime() {
+    Quiz quiz = quiz();
+    quizService.addQuestion(quiz.getId(), twoOptionQuestion(), teacherEmail);
+    quizService.publishQuiz(quiz.getId(), teacherEmail);
+
+    Quiz updated = quizService.updateSettings(quiz.getId(), 5, true, teacherEmail);
+
+    assertEquals(5, updated.getMaxAttempts());
+    assertTrue(updated.isShowHints());
+  }
+
+  @Test
+  void updatingSettingsKeepsWhatWasNotSent() {
+    Quiz quiz = quiz();
+    quizService.updateSettings(quiz.getId(), 4, true, teacherEmail);
+
+    Quiz onlyAttempts = quizService.updateSettings(quiz.getId(), 2, null, teacherEmail);
+    assertEquals(2, onlyAttempts.getMaxAttempts());
+    assertTrue(onlyAttempts.isShowHints());
+
+    Quiz onlyHints = quizService.updateSettings(quiz.getId(), null, false, teacherEmail);
+    assertEquals(2, onlyHints.getMaxAttempts());
+    assertEquals(false, onlyHints.isShowHints());
+  }
+
+  @Test
+  void rejectsInvalidSettingsAndStudentsChangingThem() {
+    Quiz quiz = quiz();
+    String student = studentOf(quiz);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> quizService.updateSettings(quiz.getId(), -1, null, teacherEmail));
+    assertThrows(ForbiddenException.class,
+        () -> quizService.updateSettings(quiz.getId(), 3, true, student));
+  }
 }

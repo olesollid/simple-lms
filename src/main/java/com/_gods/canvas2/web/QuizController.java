@@ -84,6 +84,18 @@ public class QuizController {
     return ContentResponse.from(quizService.publishQuiz(quizId, authentication.getName()));
   }
 
+  /** Optional fields: send only what changes. The deadline is changed via the submission policy. */
+  public record Settings(Integer maxAttempts, Boolean showHints) {
+  }
+
+  /** Teacher-only: maximum attempts ({@code 0} = unlimited) and whether hints are shown. */
+  @PutMapping("/settings")
+  public ContentResponse updateSettings(@PathVariable Long quizId, @RequestBody Settings request,
+      Authentication authentication) {
+    return ContentResponse.from(quizService.updateSettings(quizId, request.maxAttempts(),
+        request.showHints(), authentication.getName()));
+  }
+
   /** Grading is asynchronous: poll {@code GET /attempts/mine} for the result of this attempt. */
   @PostMapping("/submissions")
   public ResponseEntity<QuizSubmissionResponse> submit(@PathVariable Long quizId,
@@ -105,7 +117,7 @@ public class QuizController {
     return quizSubmissionService.getResults(quizId, authentication.getName());
   }
 
-  /** The requester's best graded attempt -- the grade that counts. 404 until one is graded. */
+  /** The requester's best graded attempt -- the grade that counts. 404 until it is graded and the results are published. */
   @GetMapping("/grade")
   public QuizGrade getGrade(@PathVariable Long quizId, Authentication authentication) {
     QuizAttemptsResponse attempts =
