@@ -37,12 +37,9 @@ Variables**). GitLab only shows these to project Maintainers, so if you can't se
 or create your own OAuth apps as described below.
 
 - To use your own OAuth apps, create a GitHub OAuth app and a Google OAuth client and allow these
-  callback URLs. The browser's address decides which one is used:
-
-  | | GitHub | Google |
-  | --- | --- | --- |
-  | Development (http://localhost:5173) | `http://localhost:5173/login/oauth2/code/github` | `http://localhost:5173/login/oauth2/code/google` |
-  | Production (http://localhost:8080) | `http://localhost:8080/login/oauth2/code/github` | `http://localhost:8080/login/oauth2/code/google` |
+  callback URLs: `http://localhost:8080/login/oauth2/code/github` and
+  `http://localhost:8080/login/oauth2/code/google`. The same URLs work in development: the Vite dev
+  server forwards sign-in to the backend on port 8080, which builds the callback from its own address.
 
 - **Sign in with GitHub if you can.** Our Google OAuth client is in testing mode, so Google only
   accepts accounts that have been added as test users.
@@ -114,6 +111,34 @@ survives restarts and rebuilds.
 - **To stop** and keep the data: `docker compose --profile prod down`
 - **To stop and delete the data**: `docker compose --profile prod down -v`
 - The app uses port 8080, so stop it before running the backend in development, and the other way round.
+
+### Deploy to a host
+
+Every push to `master` makes GitLab CI build the image and push it to the project's container
+registry as `git.app.uib.no:4567/hvl-dat-250/26h/semester-project/group-9/canvas-v2/app`, tagged
+`latest` and with the commit hash. A host with Docker runs that image without building anything
+itself:
+
+1. Get `compose.yaml` and a `.env` (see [Set up `.env`](#set-up-env)) onto the host, for example by
+   cloning the repository.
+2. Log in to the registry with your GitLab username and a personal access token that has the
+   `read_registry` scope: `docker login git.app.uib.no:4567`.
+3. Add the registry path (also shown under **Deploy → Container registry** in GitLab) to `.env`:
+
+   ```
+   export D250_REG=git.app.uib.no:4567/hvl-dat-250/26h/semester-project/group-9/canvas-v2
+   ```
+
+4. Pull the image and start everything:
+
+   ```
+   docker compose --profile prod pull app
+   docker compose --profile prod up -d --no-build
+   ```
+
+To update the host after a new pipeline on `master`, run the same two commands again. When the host
+is reached by another address than `http://localhost:8080`, also set `FRONTEND_URL` to that address
+and add `<that address>/login/oauth2/code/github` and `.../google` as OAuth callback URLs.
 
 ## Tests
 
