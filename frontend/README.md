@@ -113,7 +113,7 @@ Start the backend in another terminal from the repository root:
 On Linux/macOS use `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev`.
 If the wrapper is unavailable, use an installed Maven with the same arguments.
 The backend normally listens on http://localhost:8080/.
-See the root README for JDK requirements and H2 console instructions.
+See the root README for requirements and the full run instructions, and TECHNICAL.md for the H2 console.
 
 The shared client defaults to `/api`; Vite proxies that path to port 8080.
 To configure the base URL, copy `.env.example` to `.env.local` and edit
