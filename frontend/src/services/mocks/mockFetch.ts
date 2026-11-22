@@ -46,6 +46,14 @@ export function createMockFetch(): typeof fetch {
       const course = courses.find(item => item.id === Number(key))
       if (!course) return missing()
       if (!relation) return result(course)
+      if (relation === 'my-deliveries') {
+        const common = { moduleId: 1, type: 'Assignment', deadline: null, feedback: null,
+          lateSubmission: null, groupSubmission: false, needsGroup: false, gradingPending: false, overdue: false }
+        return result({ courseId: course.id, role: 'STUDENT', activities: course.id === 1 ? [
+          { ...common, contentId: 101, title: 'Course report', status: 'GRADED', grade: 85, feedback: 'Clear explanation.' },
+          { ...common, contentId: 102, title: 'Next assignment', status: 'NOT_SUBMITTED', grade: null },
+        ] : [] })
+      }
       if (relation === 'modules' && !member) {
         return result(modules.filter(item => item.courseId === course.id))
       }

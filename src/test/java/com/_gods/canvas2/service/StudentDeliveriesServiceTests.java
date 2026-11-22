@@ -26,11 +26,12 @@ import com._gods.canvas2.model.SubmissionFile;
 import com._gods.canvas2.model.Term;
 
 @DataJpaTest
-@Import({StudentDeliveriesService.class, EnrollmentService.class, UserService.class,
+@Import({StudentDeliveriesService.class, MyDeliveriesService.class, EnrollmentService.class, UserService.class,
     CourseService.class, ModuleService.class, ContentService.class, SubmissionService.class,
     GroupService.class, StudentInteractionService.class})
 class StudentDeliveriesServiceTests {
   @Autowired StudentDeliveriesService overview;
+  @Autowired MyDeliveriesService myDeliveries;
   @Autowired UserService users;
   @Autowired CourseService courses;
   @Autowired EnrollmentService enrollments;
@@ -58,6 +59,77 @@ class StudentDeliveriesServiceTests {
     module = modules.createModule(course.getId(), "Week 1", TEACHER);
     when(quizGrades.find(any(Quiz.class), anyString())).thenReturn(Optional.empty());
     when(quizGrades.findLatest(any(Quiz.class), anyString())).thenReturn(Optional.empty());
+  }
+
+  @Test
+  void ownSummaryRedactsUnpublishedGradesAndNeverReturnsAnotherStudentsHandIn() {
+    var essay = contents.createAssignment(module.getId(), "Essay", 0, "Write", null, false, false, TEACHER);
+    var own = submissions.submit(essay.getId(), "Alice work", ALICE);
+    submissions.grade(own.getId(), 87, "Private feedback", TEACHER);
+    var privateRow = myDeliveries.getOwnDeliveries(course.getId(), ALICE).activities().get(0);
+    assertEquals(com._gods.canvas2.web.dto.MyDeliveriesResponse.Status.AWAITING_PUBLICATION, privateRow.status());
+    assertNull(privateRow.grade());
+    assertNull(privateRow.feedback());
+    assertEquals(com._gods.canvas2.web.dto.MyDeliveriesResponse.Status.NOT_SUBMITTED,
+        myDeliveries.getOwnDeliveries(course.getId(), BOB).activities().get(0).status());
+    submissions.publishGrades(essay.getId(), TEACHER);
+    var publishedRow = myDeliveries.getOwnDeliveries(course.getId(), ALICE).activities().get(0);
+    assertEquals(87.0, publishedRow.grade());
+    assertEquals("Private feedback", publishedRow.feedback());
+  }
+
+  @Test
+  void ownSummaryCountsGroupHandInsAndMissingGroupCorrectly() {
+    var report = contents.createAssignment(module.getId(), "Group work", 0, "Write",
+        LocalDateTime.now(HandInPolicy.ZONE).minusHours(1), true, true, TEACHER);
+    var missing = myDeliveries.getOwnDeliveries(course.getId(), BOB).activities().get(0);
+    assertTrue(missing.needsGroup());
+    assertTrue(missing.overdue());
+    var group = groups.createGroup(course.getId(), "Team", TEACHER);
+    groups.addMember(group.getId(), ALICE, TEACHER);
+    groups.addMember(group.getId(), BOB, TEACHER);
+    submissions.submit(report.getId(), "Team work", ALICE);
+    var shared = myDeliveries.getOwnDeliveries(course.getId(), BOB).activities().get(0);
+    assertEquals(com._gods.canvas2.web.dto.MyDeliveriesResponse.Status.AWAITING_GRADING, shared.status());
+    assertTrue(shared.groupSubmission());
+    assertTrue(shared.lateSubmission());
+    assertFalse(shared.needsGroup());
+    assertFalse(shared.overdue());
+  }
+
+  @Test
+  void ownSummaryHidesLockedHiddenAndDraftActivitiesAndSeparatesTeacherCourses() {
+    contents.createStaticPage(module.getId(), "Read", 0, "Read", null, null, TEACHER);
+    var hidden = contents.createAssignment(module.getId(), "Hidden", 1, "Write", null, false, false, TEACHER);
+    contents.updateContentMetadata(hidden.getId(), "Hidden", 1,
+        LocalDateTime.now(HandInPolicy.ZONE).plusDays(1), null, TEACHER);
+    contents.createQuiz(module.getId(), "Draft quiz", 2, 3, null, false, TEACHER);
+    var locked = modules.createModule(course.getId(), "Locked", TEACHER);
+    modules.addDependency(locked.getId(), module.getId(), TEACHER);
+    contents.createAssignment(locked.getId(), "Secret", 0, "Write", null, false, false, TEACHER);
+    assertTrue(myDeliveries.getOwnDeliveries(course.getId(), ALICE).activities().isEmpty());
+    var teaching = myDeliveries.getOwnDeliveries(course.getId(), TEACHER);
+    assertEquals(Role.TEACHER, teaching.role());
+    assertTrue(teaching.activities().isEmpty());
+    assertThrows(ForbiddenException.class, () -> myDeliveries.getOwnDeliveries(course.getId(), "stranger@example.com"));
+    verifyNoInteractions(quizGrades);
+  }
+
+  @Test
+  void ownQuizSummaryDoesNotLeakScoresBeforeResultsArePublished() {
+    var quiz = contents.createQuiz(module.getId(), "Quiz", 0, 3, null, false, TEACHER);
+    quiz.addQuestion("Question");
+    quiz.publish();
+    var grade = new QuizGrade(quiz.getId(), ALICE, 1, 3, 4, .75, List.of(), LocalDateTime.now());
+    when(quizGrades.attemptsUsed(quiz, ALICE)).thenReturn(1);
+    when(quizGrades.findLatest(quiz, ALICE)).thenReturn(Optional.of(grade));
+    var hidden = myDeliveries.getOwnDeliveries(course.getId(), ALICE).activities().get(0);
+    assertEquals(com._gods.canvas2.web.dto.MyDeliveriesResponse.Status.AWAITING_PUBLICATION, hidden.status());
+    assertNull(hidden.grade());
+    verify(quizGrades, never()).find(quiz, ALICE);
+    quiz.publishGrades();
+    when(quizGrades.find(quiz, ALICE)).thenReturn(Optional.of(grade));
+    assertEquals(75.0, myDeliveries.getOwnDeliveries(course.getId(), ALICE).activities().get(0).grade());
   }
 
   @Test
