@@ -23,7 +23,9 @@ import org.springframework.data.redis.serializer.SerializationException;
 import com._gods.canvas2.model.Course;
 import com._gods.canvas2.model.Module;
 import com._gods.canvas2.model.Quiz;
+import com._gods.canvas2.model.QuizAttempt;
 import com._gods.canvas2.model.Term;
+import com._gods.canvas2.repository.QuizAttemptRepository;
 
 class QuizGradeStoreTests {
 
@@ -32,6 +34,7 @@ class QuizGradeStoreTests {
   private ValueOperations<String, QuizGrade> grades;
   private ValueOperations<String, String> counters;
   private QuizGradeStore store;
+  private QuizAttemptRepository attempts;
   private Quiz quiz;
   private String key;
 
@@ -44,7 +47,8 @@ class QuizGradeStoreTests {
     counters = mock(ValueOperations.class);
     when(gradeTemplate.opsForValue()).thenReturn(grades);
     when(counterTemplate.opsForValue()).thenReturn(counters);
-    store = new QuizGradeStore(gradeTemplate, counterTemplate);
+    attempts = mock(QuizAttemptRepository.class);
+    store = new QuizGradeStore(gradeTemplate, counterTemplate, attempts);
     quiz = quiz(2);
     key = "quiz:" + quiz.getGradeKey() + ":student:" + STUDENT;
   }
@@ -95,6 +99,29 @@ class QuizGradeStoreTests {
 
     verify(grades).set(key + ":latest", worse);
     verify(grades, never()).set(key, worse);
+  }
+
+  @Test
+  void rebuildsTheBestGradeFromTheDatabaseWhenRedisIsEmpty() {
+    QuizAttempt stored = new QuizAttempt(quiz.getGradeKey(), 1L, STUDENT, 1, 1, 1, 1.0,
+        List.of(), LocalDateTime.now());
+    when(attempts.findFirstByQuizKeyAndStudentEmailOrderByScoreDescAttemptNumberDesc(
+        quiz.getGradeKey(), STUDENT)).thenReturn(Optional.of(stored));
+
+    assertEquals(1.0, store.find(quiz, STUDENT).orElseThrow().score());
+    verify(grades).set(any(), any());
+  }
+
+  @Test
+  void resumesTheAttemptCounterFromTheDatabaseAfterARedisRestart() {
+    QuizAttempt stored = new QuizAttempt(quiz.getGradeKey(), 1L, STUDENT, 2, 0, 1, 0.0,
+        List.of(), LocalDateTime.now());
+    when(attempts.findFirstByQuizKeyAndStudentEmailOrderByAttemptNumberDesc(
+        quiz.getGradeKey(), STUDENT)).thenReturn(Optional.of(stored));
+    when(counters.increment(key + ":attempts")).thenReturn(3L);
+
+    assertTrue(store.reserveAttempt(quiz, STUDENT).isEmpty());
+    verify(counters).setIfAbsent(key + ":attempts", "2");
   }
 
   @Test
