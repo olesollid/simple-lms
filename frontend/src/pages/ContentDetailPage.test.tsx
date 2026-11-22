@@ -88,6 +88,19 @@ describe('ContentDetailPage', () => {
     expect(screen.getByText('Welcome to the course!')).toBeInTheDocument()
   })
 
+  it('renders markdown and images in a static page body', async () => {
+    getContent.mockResolvedValue({
+      ...staticPage,
+      body: '## Reading\n\nSee **this** diagram:\n\n![Class diagram](https://example.com/uml.png)',
+    })
+    getEnrollment.mockResolvedValue({ role: 'STUDENT' })
+    renderAt('/courses/1/modules/1/contents/1')
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Reading' })).toBeInTheDocument()
+    expect(screen.getByText('this').tagName).toBe('STRONG')
+    expect(screen.getByRole('img', { name: 'Class diagram' })).toHaveAttribute('src', 'https://example.com/uml.png')
+  })
+
   it('lets a teacher open the edit form and see when students can see the item', async () => {
     getContent.mockResolvedValue({ ...staticPage, visibleFrom: '2026-12-01T08:00:00', visibleToStudents: false })
     getEnrollment.mockResolvedValue({ role: 'TEACHER' })
