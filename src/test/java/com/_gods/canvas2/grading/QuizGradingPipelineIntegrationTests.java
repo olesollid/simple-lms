@@ -109,7 +109,7 @@ class QuizGradingPipelineIntegrationTests {
     User student = userRepository.save(new User("pipeline-student@example.com", "Student"));
     enrollmentRepository.save(new Enrollment(student, course, Role.STUDENT));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = contentRepository.save(new Quiz(module, "Week 1 Quiz", 0, 1, false));
+    Quiz quiz = contentRepository.save(new Quiz(module, "Week 1 Quiz", 0, 1));
 
     quizService.addQuestion(quiz.getId(),
         new QuestionRequest("Which are prime?", null, List.of(
@@ -151,7 +151,7 @@ class QuizGradingPipelineIntegrationTests {
     User student = userRepository.save(new User("order-student@example.com", "Student"));
     enrollmentRepository.save(new Enrollment(student, course, Role.STUDENT));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = contentRepository.save(new Quiz(module, "Ordering quiz", 0, 0, false));
+    Quiz quiz = contentRepository.save(new Quiz(module, "Ordering quiz", 0, 0));
 
     quizService.addQuestion(quiz.getId(), new QuestionRequest("Order the steps", "Plan first", List.of(
         new AnswerOptionRequest("Plan", false), new AnswerOptionRequest("Build", false),
@@ -201,7 +201,7 @@ class QuizGradingPipelineIntegrationTests {
     User student = userRepository.save(new User("types-student@example.com", "Student"));
     enrollmentRepository.save(new Enrollment(student, course, Role.STUDENT));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = contentRepository.save(new Quiz(module, "Types quiz", 0, 0, false));
+    Quiz quiz = contentRepository.save(new Quiz(module, "Types quiz", 0, 0));
 
     quizService.addQuestion(quiz.getId(), new QuestionRequest("Match the capitals", null, List.of(
         new AnswerOptionRequest("Norway", false, "Oslo"), new AnswerOptionRequest("France", false, "Paris"),

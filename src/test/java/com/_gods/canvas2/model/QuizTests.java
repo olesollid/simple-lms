@@ -19,36 +19,34 @@ class QuizTests {
 
   @Test
   void createsQuizWithValidFields() {
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 3, true);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 3);
 
     assertEquals(3, quiz.getMaxAttempts());
-    assertTrue(quiz.isShowHints());
     assertNull(quiz.getDeadline());
   }
 
   @Test
   void createsQuizWithDeadline() {
     LocalDateTime deadline = LocalDateTime.of(2026, 1, 8, 23, 59);
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false, deadline);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, deadline);
 
     assertEquals(deadline, quiz.getDeadline());
-    assertFalse(quiz.isShowHints());
   }
 
   @Test
   void rejectsNegativeMaxAttempts() {
-    assertThrows(IllegalArgumentException.class, () -> new Quiz(module(), "Week 1 Quiz", 0, -1, true));
+    assertThrows(IllegalArgumentException.class, () -> new Quiz(module(), "Week 1 Quiz", 0, -1));
   }
 
   @Test
   void zeroMaxAttemptsMeansUnlimited() {
-    assertTrue(new Quiz(module(), "Week 1 Quiz", 0, Quiz.UNLIMITED_ATTEMPTS, false).hasUnlimitedAttempts());
-    assertFalse(new Quiz(module(), "Week 1 Quiz", 0, 3, false).hasUnlimitedAttempts());
+    assertTrue(new Quiz(module(), "Week 1 Quiz", 0, Quiz.UNLIMITED_ATTEMPTS).hasUnlimitedAttempts());
+    assertFalse(new Quiz(module(), "Week 1 Quiz", 0, 3).hasUnlimitedAttempts());
   }
 
   @Test
   void startsAsAnInvisibleDraftAndBecomesVisibleWhenPublished() {
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1);
     quiz.addQuestion("What is 2+2?");
 
     assertFalse(quiz.isPublished());
@@ -61,7 +59,7 @@ class QuizTests {
   @Test
   void closesAfterItsDeadlineButNotExactlyAtIt() {
     LocalDateTime deadline = LocalDateTime.of(2026, 12, 1, 12, 0);
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false, deadline);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, deadline);
 
     assertFalse(quiz.isClosedAt(deadline));
     assertTrue(quiz.isClosedAt(deadline.plusSeconds(1)));
@@ -73,23 +71,23 @@ class QuizTests {
   void rejectsADeadlineThatIsAmbiguousWhenTheClocksGoBack() {
     // 25 October 2026, 02:30 happens twice in Europe/Oslo.
     LocalDateTime ambiguous = LocalDateTime.of(2026, 10, 25, 2, 30);
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1);
 
     assertThrows(IllegalArgumentException.class, () -> quiz.updateDeadline(ambiguous));
     assertThrows(IllegalArgumentException.class,
-        () -> new Quiz(module(), "Week 1 Quiz", 0, 1, false, ambiguous));
+        () -> new Quiz(module(), "Week 1 Quiz", 0, 1, ambiguous));
   }
 
   @Test
   void cannotPublishWithoutQuestions() {
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1);
 
     assertThrows(IllegalStateException.class, quiz::publish);
   }
 
   @Test
   void removingAQuestionRenumbersTheRest() {
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1);
     Question first = quiz.addQuestion("First");
     quiz.addQuestion("Second");
     Question third = quiz.addQuestion("Third", "A hint");
@@ -103,7 +101,7 @@ class QuizTests {
 
   @Test
   void addsQuestionsInOrder() {
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1);
 
     Question first = quiz.addQuestion("What is 2+2?");
     Question second = quiz.addQuestion("What is 3+3?");
@@ -117,7 +115,7 @@ class QuizTests {
 
   @Test
   void questionsListIsUnmodifiable() {
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1);
     quiz.addQuestion("What is 2+2?");
 
     assertThrows(UnsupportedOperationException.class,
@@ -126,7 +124,7 @@ class QuizTests {
 
   @Test
   void changesTheAttemptLimit() {
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1);
 
     quiz.updateMaxAttempts(0);
 
@@ -136,7 +134,7 @@ class QuizTests {
 
   @Test
   void rejectsANegativeAttemptLimitWhenChangingIt() {
-    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module(), "Week 1 Quiz", 0, 1);
 
     assertThrows(IllegalArgumentException.class, () -> quiz.updateMaxAttempts(-1));
     assertEquals(1, quiz.getMaxAttempts());

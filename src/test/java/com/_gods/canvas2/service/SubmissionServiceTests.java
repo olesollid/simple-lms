@@ -465,7 +465,7 @@ class SubmissionServiceTests {
     Course course = course();
     String teacher = teacherOf(course);
     Assignment assignment = assignmentIn(course, teacher);
-    Quiz quiz = contentService.createQuiz(assignment.getModule().getId(), "Quiz", 0, 1, false, null,
+    Quiz quiz = contentService.createQuiz(assignment.getModule().getId(), "Quiz", 0, 1, null,
         teacher);
 
     ConflictException refused = assertThrows(ConflictException.class,

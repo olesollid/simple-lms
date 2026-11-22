@@ -128,7 +128,7 @@ class TutorGroundingServiceTests {
     String teacher = member(course, Role.TEACHER);
     String student = member(course, Role.STUDENT);
     Module week1 = module(course, "Week 1");
-    contentService.createQuiz(week1.getId(), "Midterm quiz with answers", 0, 1, true, null, teacher);
+    contentService.createQuiz(week1.getId(), "Midterm quiz with answers", 0, 1, null, teacher);
 
     String text = all(grounding.gather(student, courseContext(course)));
 

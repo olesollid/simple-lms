@@ -95,7 +95,7 @@ class QuizSubmissionServiceTests {
   }
 
   private Quiz quizIn(Module module, int maxAttempts) {
-    Quiz quiz = contentRepository.save(new Quiz(module, "Quiz", 0, maxAttempts, false));
+    Quiz quiz = contentRepository.save(new Quiz(module, "Quiz", 0, maxAttempts));
     quizService.addQuestion(quiz.getId(), new QuestionRequest("Q", null, List.of(
         new AnswerOptionRequest("A", true), new AnswerOptionRequest("B", false))), teacher);
     return quiz;

@@ -25,7 +25,7 @@ class QuizGraderTests {
   void returnsZeroScoreForQuizWithNoQuestions() {
     Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
     Module module = new Module(course, "Week 1");
-    Quiz quiz = new Quiz(module, "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module, "Week 1 Quiz", 0, 1);
 
     QuizGrade grade = grader.grade(quiz, "student@example.com", Map.of());
 

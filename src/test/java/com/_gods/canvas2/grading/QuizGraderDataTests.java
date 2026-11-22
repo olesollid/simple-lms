@@ -48,7 +48,7 @@ class QuizGraderDataTests {
   private void setUp() {
     Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = new Quiz(module, "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module, "Week 1 Quiz", 0, 1);
     Question question = quiz.addQuestion("Which are prime?");
     AnswerOption a = question.addOption("2", true);
     AnswerOption b = question.addOption("3", true);
@@ -104,7 +104,7 @@ class QuizGraderDataTests {
   void computesScoreAcrossMultipleQuestions() {
     Course course = courseRepository.save(new Course("Intro", "desc", Term.AUTUMN, 2026));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = new Quiz(module, "Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module, "Quiz", 0, 1);
     Question first = quiz.addQuestion("First");
     AnswerOption firstCorrect = first.addOption("Right", true);
     first.addOption("Wrong", false);
@@ -126,7 +126,7 @@ class QuizGraderDataTests {
   void recordsAttemptNumberAndWhichQuestionsWereWrong() {
     Course course = courseRepository.save(new Course("Intro", "desc", Term.AUTUMN, 2026));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = new Quiz(module, "Quiz", 0, 0, false);
+    Quiz quiz = new Quiz(module, "Quiz", 0, 0);
     Question first = quiz.addQuestion("First");
     AnswerOption firstCorrect = first.addOption("Right", true);
     first.addOption("Wrong", false);
@@ -152,7 +152,7 @@ class QuizGraderDataTests {
   private Quiz quizWithOrderingQuestion() {
     Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = new Quiz(module, "Order quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module, "Order quiz", 0, 1);
     Question question = quiz.addQuestion("Put the steps in order");
     question.setType(Question.Type.ORDERING);
     question.addOption("Plan", true);
@@ -198,7 +198,7 @@ class QuizGraderDataTests {
   private Quiz quizWithMatchingQuestion(String[][] pairs) {
     Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = new Quiz(module, "Match quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module, "Match quiz", 0, 1);
     Question question = quiz.addQuestion("Match them");
     question.setType(Question.Type.MATCHING);
     // Created back to front, so the ids run opposite to the positions.
@@ -264,7 +264,7 @@ class QuizGraderDataTests {
   private Quiz quizWithFillInQuestion(String text, String... blanks) {
     Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = new Quiz(module, "Fill-in quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module, "Fill-in quiz", 0, 1);
     Question question = quiz.addQuestion(text);
     question.setType(Question.Type.FILL_IN);
     for (int i = 0; i < blanks.length; i++) {
@@ -317,7 +317,7 @@ class QuizGraderDataTests {
   void aQuizCanMixAllFourQuestionTypes() {
     Course course = courseRepository.save(new Course("Intro to Testing", "desc", Term.AUTUMN, 2026));
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    Quiz quiz = new Quiz(module, "Mixed", 0, 1, false);
+    Quiz quiz = new Quiz(module, "Mixed", 0, 1);
     Question choice = quiz.addQuestion("Pick");
     choice.addOption("Right", true);
     choice.addOption("Wrong", false);

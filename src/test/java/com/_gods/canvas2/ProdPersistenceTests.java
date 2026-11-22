@@ -64,7 +64,7 @@ class ProdPersistenceTests {
         Submission submission = new Submission(user, assignment, "My answer");
         submission.grade(85, "Well done");
         em.persist(submission);
-        Quiz quiz = new Quiz(module, "Original quiz", 1, 1, false);
+        Quiz quiz = new Quiz(module, "Original quiz", 1, 1);
         em.persist(quiz);
         em.getTransaction().commit();
         courseId = course.getId();
@@ -89,7 +89,7 @@ class ProdPersistenceTests {
       assertEquals("persistent@example.com", saved.getSubmitter().getEmail());
       assertEquals(1L, em.createQuery("select count(e) from Enrollment e", Long.class).getSingleResult());
       assertEquals("Original quiz", em.find(Quiz.class, quizId).getTitle());
-      Quiz newQuiz = new Quiz(em.find(Module.class, moduleId), "New quiz", 2, 1, false);
+      Quiz newQuiz = new Quiz(em.find(Module.class, moduleId), "New quiz", 2, 1);
       em.persist(newQuiz);
       em.flush();
       assertTrue(newQuiz.getId() > quizId, "A new quiz must not reuse a previous quiz's Redis key");

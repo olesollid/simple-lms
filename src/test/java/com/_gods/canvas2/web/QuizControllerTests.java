@@ -139,7 +139,7 @@ class QuizControllerTests {
   @Test
   void questionsForStudentsCarryNeitherCorrectFlagsNorHints() throws Exception {
     Course course = new Course("Intro", "desc", Term.AUTUMN, 2026);
-    Quiz quiz = new Quiz(new Module(course, "Week 1"), "Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(new Module(course, "Week 1"), "Quiz", 0, 1);
     Question question = quiz.addQuestion("What is 2+2?", "Count on your fingers");
     question.addOption("4", true);
     question.addOption("5", false);
@@ -202,7 +202,7 @@ class QuizControllerTests {
   @Test
   void teachersChangeTheAttemptLimitAndGetTheQuizBack() throws Exception {
     Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
-        "Quiz", 0, 3, false);
+        "Quiz", 0, 3);
     when(quizService.updateMaxAttempts(eq(5L), eq(3), eq("teacher@example.com"))).thenReturn(quiz);
 
     mockMvc.perform(put("/api/quizzes/5/settings").with(as("teacher@example.com"))
@@ -237,7 +237,7 @@ class QuizControllerTests {
   @Test
   void anOrderingQuestionIsAddedWithItsTypeAndComesBackWithIt() throws Exception {
     Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
-        "Quiz", 0, 1, false);
+        "Quiz", 0, 1);
     Question question = quiz.addQuestion("Order the steps");
     question.setType(Question.Type.ORDERING);
     question.addOption("Plan", true);
@@ -261,7 +261,7 @@ class QuizControllerTests {
   @Test
   void aQuestionWithoutATypeIsSentAsAChoiceQuestion() throws Exception {
     Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
-        "Quiz", 0, 1, false);
+        "Quiz", 0, 1);
     Question question = quiz.addQuestion("2+2?");
     question.addOption("4", true);
     question.addOption("5", false);
@@ -275,30 +275,57 @@ class QuizControllerTests {
         .andExpect(jsonPath("$.type").value("CHOICE"));
   }
 
-  @Test
-  void studentsNeverGetAnOrderingQuestionsOptionsInTheCorrectOrder() {
+  private static Question orderingQuestion(List<String> steps) {
     Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
-        "Quiz", 0, 1, false);
+        "Quiz", 0, 1);
     Question question = quiz.addQuestion("Order the steps");
     question.setType(Question.Type.ORDERING);
-    for (String step : List.of("One", "Two", "Three", "Four", "Five")) {
+    for (String step : steps) {
       question.addOption(step, true);
     }
-    List<String> authored = List.of("One", "Two", "Three", "Four", "Five");
+    return question;
+  }
 
+  private static List<String> shownOrder(Question question) {
+    return com._gods.canvas2.web.dto.QuestionResponse.from(question).options().stream()
+        .map(com._gods.canvas2.web.dto.AnswerOptionResponse::text).toList();
+  }
+
+  @Test
+  void studentsGetAnOrderingQuestionsOptionsInARandomOrder() {
+    List<String> authored = List.of("One", "Two", "Three", "Four", "Five");
+    Question question = orderingQuestion(authored);
+
+    java.util.Set<List<String>> seen = new java.util.HashSet<>();
     for (int i = 0; i < 200; i++) {
-      List<String> shown = com._gods.canvas2.web.dto.QuestionResponse.from(question).options().stream()
-          .map(com._gods.canvas2.web.dto.AnswerOptionResponse::text).toList();
-      org.junit.jupiter.api.Assertions.assertNotEquals(authored, shown);
+      List<String> shown = shownOrder(question);
       org.junit.jupiter.api.Assertions.assertEquals(authored.stream().sorted().toList(),
           shown.stream().sorted().toList());
+      seen.add(shown);
     }
+    org.junit.jupiter.api.Assertions.assertTrue(seen.size() > 10, "the order should vary");
+  }
+
+  /**
+   * With two items, never showing the correct order would make the answer "always swap them".
+   * Both orders must turn up, so the display says nothing about the answer.
+   */
+  @Test
+  void aTwoItemOrderingQuestionDoesNotGiveAwayTheAnswer() {
+    Question question = orderingQuestion(List.of("First", "Second"));
+
+    java.util.Set<List<String>> seen = new java.util.HashSet<>();
+    for (int i = 0; i < 200; i++) {
+      seen.add(shownOrder(question));
+    }
+    org.junit.jupiter.api.Assertions.assertEquals(
+        java.util.Set.of(List.of("First", "Second"), List.of("Second", "First")), seen);
   }
 
   @Test
   void aChoiceQuestionKeepsItsAuthoredOrderAndTypeForStudents() {
     Quiz quiz = new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
-        "Quiz", 0, 1, false);
+        "Quiz", 0, 1);
     Question question = quiz.addQuestion("2+2?");
     question.addOption("3", false);
     question.addOption("4", true);
@@ -312,7 +339,7 @@ class QuizControllerTests {
 
   private static Quiz newQuiz() {
     return new Quiz(new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1"),
-        "Quiz", 0, 1, false);
+        "Quiz", 0, 1);
   }
 
   private static Question matchingQuestion() {
@@ -330,6 +357,7 @@ class QuizControllerTests {
   void studentsGetMatchingLeftItemsInOrderAndTheRightItemsShuffled() {
     Question question = matchingQuestion();
     List<String> authoredRight = List.of("Oslo", "Paris", "Madrid", "Rome", "Athens");
+    java.util.Set<List<String>> seenRight = new java.util.HashSet<>();
 
     for (int i = 0; i < 200; i++) {
       var response = com._gods.canvas2.web.dto.QuestionResponse.from(question);
@@ -343,10 +371,11 @@ class QuizControllerTests {
           response.options().stream().map(com._gods.canvas2.web.dto.AnswerOptionResponse::id).toList());
       List<String> shownRight = response.matches().stream()
           .map(com._gods.canvas2.web.dto.AnswerOptionResponse::text).toList();
-      org.junit.jupiter.api.Assertions.assertNotEquals(authoredRight, shownRight);
       org.junit.jupiter.api.Assertions.assertEquals(authoredRight.stream().sorted().toList(),
           shownRight.stream().sorted().toList());
+      seenRight.add(shownRight);
     }
+    org.junit.jupiter.api.Assertions.assertTrue(seenRight.size() > 10, "the right-hand order should vary");
   }
 
   @Test

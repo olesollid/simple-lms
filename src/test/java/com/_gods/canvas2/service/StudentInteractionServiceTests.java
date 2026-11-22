@@ -245,7 +245,7 @@ class StudentInteractionServiceTests {
     String teacher = teacherOf(course);
     String student = studentOf(course);
     StaticPage week1Page = pageIn(course, teacher);
-    contentService.createQuiz(week1Page.getModule().getId(), "Unfinished quiz", 1, 1, false, null,
+    contentService.createQuiz(week1Page.getModule().getId(), "Unfinished quiz", 1, 1, null,
         teacher);
     Module week2 = moduleRepository.save(new Module(course, "Week 2"));
     week2 = moduleService.addDependency(week2.getId(), week1Page.getModule().getId(), teacher);
