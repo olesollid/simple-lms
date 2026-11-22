@@ -51,7 +51,7 @@ class QuizGradeStoreTests {
 
   private static Quiz quiz(int maxAttempts) {
     Module module = new Module(new Course("Intro", "desc", Term.AUTUMN, 2026), "Week 1");
-    return new Quiz(module, "Quiz", 0, maxAttempts, false);
+    return new Quiz(module, "Quiz", 0, maxAttempts);
   }
 
   private static QuizGrade grade(int attempt, double score) {

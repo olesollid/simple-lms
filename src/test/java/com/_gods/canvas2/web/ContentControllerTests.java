@@ -174,9 +174,9 @@ class ContentControllerTests {
   @Test
   void createQuizReturns201AsADraft() throws Exception {
     Module module = module(1L);
-    Quiz quiz = new Quiz(module, "Week 1 quiz", 0, 0, false);
+    Quiz quiz = new Quiz(module, "Week 1 quiz", 0, 0);
     setField(quiz, "id", 1L);
-    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
+    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), any(),
         eq(true), anyString())).thenReturn(quiz);
 
     mockMvc.perform(post("/api/modules/1/quizzes")
@@ -196,10 +196,10 @@ class ContentControllerTests {
 
   @Test
   void createQuizCanHideResultsUntilTheyArePublished() throws Exception {
-    Quiz quiz = new Quiz(module(1L), "Exam", 0, 1, false);
+    Quiz quiz = new Quiz(module(1L), "Exam", 0, 1);
     quiz.setShowResultsImmediately(false);
     setField(quiz, "id", 2L);
-    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), anyBoolean(), any(),
+    when(contentService.createQuiz(anyLong(), any(), anyInt(), anyInt(), any(),
         eq(false), anyString())).thenReturn(quiz);
 
     mockMvc.perform(post("/api/modules/1/quizzes")

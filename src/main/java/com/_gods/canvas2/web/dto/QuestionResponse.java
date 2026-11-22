@@ -3,7 +3,6 @@ package com._gods.canvas2.web.dto;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import com._gods.canvas2.model.AnswerOption;
@@ -34,7 +33,7 @@ public record QuestionResponse(Long id, String text, int position, Question.Type
       case ORDERING -> {
         List<AnswerOptionResponse> authored = question.getOptionsInOrder().stream()
             .map(AnswerOptionResponse::from).toList();
-        yield of(question, shuffledDifferently(authored), List.of());
+        yield of(question, shuffled(authored), List.of());
       }
       case MATCHING -> {
         List<AnswerOption> ordered = question.getOptionsInOrder();
@@ -42,7 +41,7 @@ public record QuestionResponse(Long id, String text, int position, Question.Type
             .mapToObj(i -> new AnswerOptionResponse((long) i, ordered.get(i).getText())).toList();
         List<AnswerOptionResponse> right = ordered.stream()
             .map(option -> new AnswerOptionResponse(option.getId(), option.getMatchText())).toList();
-        yield of(question, left, shuffledDifferently(right));
+        yield of(question, left, shuffled(right));
       }
       case FILL_IN -> of(question, List.of(), List.of());
       case CHOICE -> of(question, question.getOptions().stream()
@@ -56,13 +55,14 @@ public record QuestionResponse(Long id, String text, int position, Question.Type
         question.getType(), options, matches);
   }
 
-  /** Shows the items in an order other than the authored one, so the layout is not the answer. */
-  private static List<AnswerOptionResponse> shuffledDifferently(List<AnswerOptionResponse> authored) {
+  /**
+   * A plain random order. It may sometimes be the authored (correct) order, and that is on purpose:
+   * if the correct order were never shown, the display itself would give the answer away -- with
+   * two items it would always be "swap them".
+   */
+  private static List<AnswerOptionResponse> shuffled(List<AnswerOptionResponse> authored) {
     List<AnswerOptionResponse> shuffled = new ArrayList<>(authored);
     Collections.shuffle(shuffled);
-    if (shuffled.size() > 1 && shuffled.equals(authored)) {
-      Collections.rotate(shuffled, 1);
-    }
-    return shuffled.stream().collect(Collectors.toUnmodifiableList());
+    return List.copyOf(shuffled);
   }
 }

@@ -42,7 +42,7 @@ class H2DatabaseTests {
 
     List<Content> items = List.of(
         new StaticPage(module, "Read", 0, "Welcome"),
-        new Quiz(module, "Quiz", 1, 3, true),
+        new Quiz(module, "Quiz", 1, 3),
         new Assignment(module, "Assignment", 2, "Upload a document"),
         new CodingExercise(module, "Code", 3, "https://example.com/repository.git"));
     items.forEach(entityManager::persist);
@@ -76,7 +76,7 @@ class H2DatabaseTests {
     Module module = new Module(course, "Week 1");
     entityManager.persist(module);
 
-    Quiz quiz = new Quiz(module, "Week 1 Quiz", 0, 3, true);
+    Quiz quiz = new Quiz(module, "Week 1 Quiz", 0, 3);
     Question question = quiz.addQuestion("Which are prime?");
     question.addOption("2", true);
     question.addOption("3", true);

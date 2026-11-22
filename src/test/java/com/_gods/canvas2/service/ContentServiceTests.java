@@ -114,7 +114,7 @@ class ContentServiceTests {
   void createsQuiz() {
     Module module = module();
 
-    Quiz quiz = contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, false, null,
+    Quiz quiz = contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, null,
         teacherEmail);
 
     assertEquals("Week 1 Quiz", quiz.getTitle());
@@ -125,7 +125,7 @@ class ContentServiceTests {
   @Test
   void teacherCanSetAndClearAQuizDeadline() {
     Module module = module();
-    Quiz quiz = contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, false, null,
+    Quiz quiz = contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, null,
         teacherEmail);
     LocalDateTime deadline = LocalDateTime.of(2026, 12, 1, 12, 0);
 
@@ -141,7 +141,7 @@ class ContentServiceTests {
   @Test
   void studentCannotChangeAQuizDeadline() {
     Module module = module();
-    Quiz quiz = contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, false, null,
+    Quiz quiz = contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, null,
         teacherEmail);
     String student = studentOf(module);
 
@@ -155,14 +155,14 @@ class ContentServiceTests {
     String student = studentOf(module);
 
     assertThrows(ForbiddenException.class,
-        () -> contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, false, null,
+        () -> contentService.createQuiz(module.getId(), "Week 1 Quiz", 0, 1, null,
             student));
   }
 
   @Test
   void throwsWhenCreatingQuizForMissingModule() {
     assertThrows(ModuleNotFoundException.class,
-        () -> contentService.createQuiz(999L, "Week 1 Quiz", 0, 1, false, null,
+        () -> contentService.createQuiz(999L, "Week 1 Quiz", 0, 1, null,
             "nobody@example.com"));
   }
 
@@ -239,7 +239,7 @@ class ContentServiceTests {
   void newContentGoesAtTheEndOfItsModuleWhateverPositionWasRequested() {
     Module module = module();
     contentService.createStaticPage(module.getId(), "First", 0, "A", null, null, teacherEmail);
-    contentService.createQuiz(module.getId(), "Second", 0, 1, false, null, teacherEmail);
+    contentService.createQuiz(module.getId(), "Second", 0, 1, null, teacherEmail);
     contentService.createAssignment(module.getId(), "Third", 0, "Do it", null, false, false,
         teacherEmail);
 
@@ -307,7 +307,7 @@ class ContentServiceTests {
     Module module = module();
     Assignment assignment = contentService.createAssignment(module.getId(), "Essay", 0, "Old",
         null, false, false, teacherEmail);
-    Quiz quiz = contentService.createQuiz(module.getId(), "Quiz", 0, 1, false, null, teacherEmail);
+    Quiz quiz = contentService.createQuiz(module.getId(), "Quiz", 0, 1, null, teacherEmail);
 
     assertThrows(IllegalArgumentException.class,
         () -> contentService.updateText(assignment.getId(), "  ", teacherEmail));

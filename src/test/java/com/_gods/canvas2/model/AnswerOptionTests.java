@@ -12,7 +12,7 @@ class AnswerOptionTests {
   private Question question() {
     Course course = new Course("Intro to Testing", "desc", Term.AUTUMN, 2026);
     Module module = new Module(course, "Week 1: Introduction");
-    Quiz quiz = new Quiz(module, "Week 1 Quiz", 0, 1, false);
+    Quiz quiz = new Quiz(module, "Week 1 Quiz", 0, 1);
     return new Question(quiz, "What is 2+2?", 0);
   }
 

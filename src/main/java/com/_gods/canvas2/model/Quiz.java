@@ -48,6 +48,12 @@ public class Quiz extends Content {
   private boolean showResultsImmediately = true;
 
   @Column(nullable = false)
+  /**
+   * Left over from a removed quiz-wide "show hints" switch: hints are now written per question and
+   * shown for wrong answers. Kept only because databases created before the change have a NOT NULL
+   * {@code show_hints} column without a default, so new quizzes still need a value there. Never read.
+   */
+  @SuppressWarnings("unused")
   private boolean showHints;
 
   private LocalDateTime deadline;
@@ -60,11 +66,11 @@ public class Quiz extends Content {
     super();
   }
 
-  public Quiz(Module module, String title, int position, int maxAttempts, boolean showHints) {
-    this(module, title, position, maxAttempts, showHints, null);
+  public Quiz(Module module, String title, int position, int maxAttempts) {
+    this(module, title, position, maxAttempts, null);
   }
 
-  public Quiz(Module module, String title, int position, int maxAttempts, boolean showHints,
+  public Quiz(Module module, String title, int position, int maxAttempts,
       LocalDateTime deadline) {
     super(module, title, position);
 
@@ -74,7 +80,6 @@ public class Quiz extends Content {
 
     HandInPolicy.validateDeadline(deadline);
     this.maxAttempts = maxAttempts;
-    this.showHints = showHints;
     this.gradeKey = UUID.randomUUID().toString();
     this.deadline = deadline;
   }
@@ -143,10 +148,6 @@ public class Quiz extends Content {
   @Override
   public boolean isVisibleAt(LocalDateTime time) {
     return published && super.isVisibleAt(time);
-  }
-
-  public boolean isShowHints() {
-    return showHints;
   }
 
   public LocalDateTime getDeadline() {

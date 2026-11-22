@@ -68,7 +68,7 @@ class QuizServiceTests {
     enrollmentRepository.save(new Enrollment(user, course, Role.TEACHER));
     teacherEmail = email;
     Module module = moduleRepository.save(new Module(course, "Week 1"));
-    return contentRepository.save(new Quiz(module, "Week 1 Quiz", 0, 1, false));
+    return contentRepository.save(new Quiz(module, "Week 1 Quiz", 0, 1));
   }
 
   @Test
