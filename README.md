@@ -41,8 +41,6 @@ or create your own OAuth apps as described below.
   `http://localhost:8080/login/oauth2/code/google`. The same URLs work in development: the Vite dev
   server forwards sign-in to the backend on port 8080, which builds the callback from its own address.
 
-- **Sign in with GitHub if you can.** Our Google OAuth client is in testing mode, so Google only
-  accepts accounts that have been added as test users.
 - Any text is enough to start the app, but you need real values to sign in.
 - To try the AI tutor, set `AI_TUTOR_ENABLED=true` and add a `GEMINI_API_KEY`.
 - To see both sides of a course, sign in with two accounts: the creator of a course is its teacher,
