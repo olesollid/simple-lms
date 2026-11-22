@@ -1,8 +1,11 @@
 import type { GradeRequest, SubmissionRequest, SubmissionResponse } from '../types/submission.ts'
 import type { ApiCallOptions, ApiRequest } from './apiClient.ts'
+import type { StudentDeliveriesResponse } from '../types/studentDeliveries'
 
 export function createSubmissionService(request: ApiRequest) {
   return {
+    getStudentDeliveries: (courseId: number, email: string, options?: ApiCallOptions) =>
+      request<StudentDeliveriesResponse>(`/courses/${courseId}/students/${encodeURIComponent(email)}/deliveries`, options),
     upload: (contentId: number, text: string, file: File, options?: ApiCallOptions) => {
       const body = new FormData()
       body.append('text', text)

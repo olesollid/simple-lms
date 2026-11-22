@@ -141,6 +141,7 @@ export default function CourseDetailPage() {
         </div>
         {isTeacher && (
           <div className="page-heading-actions">
+            <Link className="ui-button ui-button--secondary" to={`/courses/${courseId}/students`}>Student deliveries</Link>
             <Button variant="secondary" onClick={() => setManageStudentsOpen(true)}>
               Manage students
             </Button>
