@@ -5,6 +5,7 @@ import Modal from './ui/Modal'
 import Input from './ui/Input'
 import Button from './ui/Button'
 import ErrorMessage from './ui/ErrorMessage'
+import MarkdownEditor from './MarkdownEditor'
 import SubmissionPolicyFields from './SubmissionPolicyFields'
 import type { ContentResponse, ContentType } from '../types/content'
 
@@ -110,14 +111,7 @@ export default function CreateContentModal({ moduleId, open, onClose, onCreated 
             <label className="ui-label" htmlFor="content-body">
               Body<span className="ui-required" aria-hidden="true"> *</span>
             </label>
-            <textarea
-              id="content-body"
-              className="ui-input"
-              rows={6}
-              value={body}
-              onChange={event => setBody(event.target.value)}
-              required
-            />
+            <MarkdownEditor id="content-body" value={body} onChange={setBody} required />
           </div>
         )}
 

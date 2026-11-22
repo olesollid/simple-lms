@@ -4,6 +4,7 @@ import { ApiError, ApiResponseError } from '../services/apiClient'
 import Button from './ui/Button'
 import ErrorMessage from './ui/ErrorMessage'
 import Input from './ui/Input'
+import MarkdownEditor from './MarkdownEditor'
 import type { ContentResponse } from '../types/content'
 
 function errorMessage(error: unknown): string {
@@ -77,14 +78,18 @@ export default function EditContentForm({ content, onSaved, onCancel }: {
           <label className="ui-label" htmlFor="edit-content-text">
             {textField.label}<span className="ui-required" aria-hidden="true"> *</span>
           </label>
-          <textarea
-            id="edit-content-text"
-            className="ui-input"
-            rows={8}
-            value={text}
-            onChange={event => setText(event.target.value)}
-            required
-          />
+          {content.type === 'StaticPage'
+            ? <MarkdownEditor id="edit-content-text" value={text} onChange={setText} rows={8} required />
+            : (
+              <textarea
+                id="edit-content-text"
+                className="ui-input"
+                rows={8}
+                value={text}
+                onChange={event => setText(event.target.value)}
+                required
+              />
+            )}
         </div>
       ) : (
         <Input label={textField.label} value={text} onChange={event => setText(event.target.value)} required />

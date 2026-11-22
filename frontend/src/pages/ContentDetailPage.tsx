@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Markdown from 'react-markdown'
 import { Link, useNavigate, useParams } from 'react-router'
 import LoadingIndicator from '../components/ui/LoadingIndicator'
 import ErrorMessage from '../components/ui/ErrorMessage'
@@ -171,7 +172,7 @@ export default function ContentDetailPage() {
 
       {content.type === 'StaticPage' && (
         <>
-          <div className="content-body">{content.body}</div>
+          <div className="content-body content-markdown"><Markdown>{content.body ?? ''}</Markdown></div>
           {!isTeacher && <PageCompletion courseId={Number(courseIdParam)} moduleId={content.moduleId} contentId={content.id} />}
         </>
       )}
