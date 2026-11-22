@@ -10,6 +10,10 @@ Built with Java 25 and Spring Boot on the backend and React with TypeScript on t
 RabbitMQ and Redis, and packaged with Docker. See [TECHNICAL.md](TECHNICAL.md) for the stack and the
 details.
 
+## Project report
+
+See [DOCUMENTATION.pdf](DOCUMENTATION.pdf)
+
 ## Before you start
 
 | To run | You need |
