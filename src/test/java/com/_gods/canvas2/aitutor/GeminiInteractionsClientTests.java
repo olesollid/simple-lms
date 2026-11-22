@@ -248,7 +248,7 @@ class GeminiInteractionsClientTests {
       GeminiInteractionsClient.Settings properties = bind(Map.of());
 
       assertFalse(properties.hasApiKey());
-      assertEquals("gemini-3.6-flash", properties.model());
+      assertEquals("gemini-3.5-flash-lite", properties.model());
       assertEquals("https://generativelanguage.googleapis.com/v1beta", properties.baseUrl());
       assertEquals(Duration.ofSeconds(60), properties.timeout());
     }
