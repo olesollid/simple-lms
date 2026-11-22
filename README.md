@@ -33,7 +33,7 @@ export GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # Novel feature: the AI tutor
 export AI_TUTOR_ENABLED=false
-export GEMINI_API_KEY=
+export GEMINI_API_KEY=your-gemini-api-key
 ```
 
 The group's real values are stored as CI/CD variables in the GitLab project (**Settings → CI/CD →
@@ -45,8 +45,8 @@ or create your own OAuth apps as described below.
   `http://localhost:8080/login/oauth2/code/google`. The same URLs work in development: the Vite dev
   server forwards sign-in to the backend on port 8080, which builds the callback from its own address.
 
-- Any text is enough to start the app, but you need real values to sign in.
-- To try the AI tutor, set `AI_TUTOR_ENABLED=true` and add a `GEMINI_API_KEY`.
+- Any non-empty text is enough to start the app, but you need real values to sign in.
+- To try the AI tutor, set `AI_TUTOR_ENABLED=true` and use a real `GEMINI_API_KEY`.
 - To see both sides of a course, sign in with two accounts: the creator of a course is its teacher,
   and teachers do not see the AI tutor.
 
@@ -116,31 +116,18 @@ survives restarts and rebuilds.
 
 ### Deploy to a host
 
-Every push to `master` makes GitLab CI build the image and push it to the project's container
-registry as `git.app.uib.no:4567/hvl-dat-250/26h/semester-project/group-9/canvas-v2/app`, tagged
-`latest` and with the commit hash. A host with Docker runs that image without building anything
-itself:
+On every push to `master`, GitLab CI builds the image and pushes it to the project's container registry.
+A server with Docker can run that image instead of building it. With `compose.yaml` and `.env` in place:
 
-1. Get `compose.yaml` and a `.env` (see [Set up `.env`](#set-up-env)) onto the host, for example by
-   cloning the repository.
-2. Log in to the registry with your GitLab username and a personal access token that has the
-   `read_registry` scope: `docker login git.app.uib.no:4567`.
-3. Add the registry path (also shown under **Deploy → Container registry** in GitLab) to `.env`:
+```
+docker login git.app.uib.no:4567
+export D250_REG=git.app.uib.no:4567/hvl-dat-250/26h/semester-project/group-9/canvas-v2
+docker compose --profile prod pull app
+docker compose --profile prod up -d --no-build
+```
 
-   ```
-   export D250_REG=git.app.uib.no:4567/hvl-dat-250/26h/semester-project/group-9/canvas-v2
-   ```
-
-4. Pull the image and start everything:
-
-   ```
-   docker compose --profile prod pull app
-   docker compose --profile prod up -d --no-build
-   ```
-
-To update the host after a new pipeline on `master`, run the same two commands again. When the host
-is reached by another address than `http://localhost:8080`, also set `FRONTEND_URL` to that address
-and add `<that address>/login/oauth2/code/github` and `.../google` as OAuth callback URLs.
+Log in with your GitLab username and an access token with the `read_registry` scope. For any address other
+than `http://localhost:8080`, set `FRONTEND_URL` and register the matching OAuth callback URLs.
 
 ## Tests
 
