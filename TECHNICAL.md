@@ -33,9 +33,11 @@ Contents: [Stack](#stack) · [How it fits together](#how-it-fits-together) ·
 - **Sign-in and roles.** Users sign in with GitHub or Google. Roles are per course: the same user can
   be a student in one course and a teacher in another. The API answers 401 when you are not signed in,
   and writes need the CSRF token that the frontend sends in `X-XSRF-TOKEN`.
-- **Relational data** (users, courses, modules, content, submissions, groups) lives in H2 through JPA.
-- **Quiz grading is asynchronous.** A submission becomes a RabbitMQ event; a listener grades it and
-  stores the grade in Redis. See [Quiz submission grading](#quiz-submission-grading).
+- **Relational data** (users, courses, modules, content, submissions, groups and graded quiz
+  attempts) lives in H2 through JPA.
+- **Quiz grading is asynchronous.** A submission becomes a RabbitMQ event; a listener grades it,
+  stores the attempt in the database and caches it in Redis. See
+  [Quiz submission grading](#quiz-submission-grading).
 - **The AI tutor** is a chat panel that streams answers from Gemini through the backend. See
   [AI tutor](#ai-tutor).
 
@@ -89,12 +91,13 @@ work out of web response rendering.
 | Password | Leave empty |
 
 The console rejects remote access, and its security exception applies only to console requests;
-application endpoints still require authentication. Spring Boot prints a generated development login
-password at startup (username `user`).
+application endpoints still require authentication.
 
 **Production** (`application-prod.properties`) uses `jdbc:h2:file:/data/canvas2;DB_CLOSE_ON_EXIT=FALSE`
 and `ddl-auto=update`. Docker Compose mounts the named `canvas2-data` volume at `/data`, so the database
-survives application and container restarts and image rebuilds. The H2 console is disabled. Changing
+survives application and container restarts and image rebuilds. Redis has its own volume
+(`canvas2-redis`), but it only holds a cache that is rebuilt from the database, so losing it loses no
+grades. The H2 console is disabled. Changing
 the datasource URL alone in dev does not prevent `create-drop` from deleting data; use the `prod`
 profile to keep data.
 
@@ -109,14 +112,11 @@ To verify a container restart, create a course, module, content and submission t
 `docker compose --profile prod up -d --build --force-recreate app` checks container replacement while
 keeping the same volume.
 
-**Resetting data.** Normal production restarts retain quiz IDs, which prevents a new quiz from reusing an
-old quiz's Redis grade key. Deleting or restoring an older database, or using disposable dev H2 with an
-existing Redis instance, can still leave stale grades: reset the associated Redis quiz grades and pending
-RabbitMQ grading events when resetting the database, and keep separate infrastructure for dev and prod.
-To erase the Compose database on purpose, run `docker compose --profile prod down`, find the volume with
-`docker volume ls` (normally `<project>_canvas2-data`) and remove it with `docker volume rm <volume-name>`.
-Ordinary `down` preserves the volume; only use `down -v` when a reset is intended, and clear the grading
-data and events as described above.
+**Resetting data.** Quiz grades live in the database, so resetting the database resets them too.
+Redis keys use a random key per quiz (`grade_key`) rather than the quiz id, so a new quiz never picks up
+cached grades from an old one, even when the dev database starts empty while Redis keeps running. To
+erase the Compose data on purpose, run `docker compose --profile prod down -v`, which removes both the
+`canvas2-data` and `canvas2-redis` volumes. Ordinary `down` keeps them.
 
 **Schema.** `ddl-auto=update` handles basic schema evolution, but not every change (such as renamed
 columns); a real deployment should use reviewed Flyway migrations and backups. Content uses JOINED
@@ -129,7 +129,9 @@ temporary file database across two application contexts and does not require Doc
 
 Quiz submissions are graded asynchronously: a student's answers are published
 as an event to RabbitMQ, a listener consumes it, grades it, and stores the
-result in Redis. This runs under the `dev` and `prod` profiles -- `SubmissionGradingListener`
+attempt in the database (`QuizAttempt`), which is the source of truth. Redis caches each
+student's best and latest attempt and holds the atomic attempt counter; anything missing from Redis
+is rebuilt from the database. This runs under the `dev` and `prod` profiles -- `SubmissionGradingListener`
 is profile-gated so the rest of the test suite, CI, and
 a no-profile run never need a reachable broker.
 
@@ -281,7 +283,7 @@ backend; the API key is a server-side secret and never reaches the browser.
   students enrolled in a course see it, and on the homepage it appears for anyone who is a student in
   at least one course. Teachers do not see it.
 - **What it knows.** Only whether the student is inside a course, and that course's name, description
-  and published pages. It never sees assignments, quizzes, deadlines, submissions or grades.
+  and the pages the student can currently see (unlocked and inside their visibility window). It never sees assignments, quizzes, deadlines, submissions or grades.
 - **Behavior.** It explains, gives hints and asks guiding questions, and does not hand out complete
   solutions to graded work. Course material is escaped and treated as data, not instructions.
 - **API.** `GET /api/ai-tutor/config` tells the widget whether to show itself. `POST /api/ai-tutor/chat`
