@@ -89,9 +89,23 @@ component-specific types with their component.
 
 React Router provides `/courses` and `/profile`, along with course and content
 detail routes. The root URL redirects to `/courses`, which serves as the home
-page. Old `/dashboard` links also redirect to `/courses`. Profile is a placeholder;
-unknown URLs show a page-not-found view. The sidebar lists Courses and Profile,
+page. Old `/dashboard` links also redirect to `/courses`.
+Unknown URLs show a page-not-found view. The sidebar lists Courses and Profile,
 and the header brand links back to Courses.
+
+Profile loads the signed-in user's name and email automatically. Coursework is
+grouped by current course, with published grades, submitted work awaiting grading
+or publication, and work not submitted yet. Shared group hand-ins count as submitted.
+Teacher courses link to administration instead of showing student coursework.
+Only currently visible, unlocked activities are included; drafts and hidden/locked
+content stay out of this view. Course summaries load independently and offer retry,
+so a course/Redis failure does not hide personal information or other courses.
+
+The self-only `GET /api/courses/{id}/my-deliveries` endpoint derives identity from
+the session and checks enrollment. It withholds grades and feedback until release,
+including quiz results. Refresh profile to retrieve newly published results. Mock
+mode provides sample profile coursework; use the real backend to verify publication
+and group permissions.
 
 `AppLayout` shares a header, navigation sidebar, skip link, and main content
 area across routes. Below 760px, the sidebar is controlled by the header's

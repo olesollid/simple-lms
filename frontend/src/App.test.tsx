@@ -8,6 +8,7 @@ const course = { id: 1, title: 'DAT250', description: 'Software technology', ter
 
 vi.mock('./services', () => ({
   courses: {
+    getMyDeliveries: () => Promise.resolve({ courseId: 1, role: 'STUDENT', activities: [] }),
     getCourses: () => Promise.resolve([course]),
     getCourse: () => Promise.resolve(course),
   },

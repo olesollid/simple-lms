@@ -1,8 +1,11 @@
 import type { CourseRequest, CourseResponse } from '../types/course.ts'
 import type { ApiCallOptions, ApiRequest } from './apiClient.ts'
+import type { MyDeliveriesResponse } from '../types/myDeliveries'
 
 export function createCourseService(request: ApiRequest) {
   return {
+    getMyDeliveries: (id: number, options?: ApiCallOptions) =>
+      request<MyDeliveriesResponse>(`/courses/${id}/my-deliveries`, options),
     getCourses: (options?: ApiCallOptions) =>
       request<CourseResponse[]>('/courses', options),
     getCourse: (id: number, options?: ApiCallOptions) =>
