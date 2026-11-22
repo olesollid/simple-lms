@@ -19,7 +19,7 @@ details.
 
 ### Set up `.env`
 
-Create a file named `.env` in the project root. It is git-ignored, so your secrets stay local.
+Create a file named `.env` in the project root, an example exists in `.env.example`. It is git-ignored, so your secrets stay local.
 
 ```
 export GITHUB_CLIENT_ID=your-github-client-id
