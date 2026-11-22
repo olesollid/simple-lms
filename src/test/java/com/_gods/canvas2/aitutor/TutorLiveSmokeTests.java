@@ -26,7 +26,7 @@ class TutorLiveSmokeTests {
   private final TutorPromptBuilder prompts = new TutorPromptBuilder();
   private final GeminiInteractionsClient client = new GeminiInteractionsClient(
       new GeminiInteractionsClient.Settings(System.getenv("GEMINI_API_KEY"), "https://generativelanguage.googleapis.com/v1beta",
-          System.getenv().getOrDefault("GEMINI_MODEL", "gemini-3.6-flash"), 1024, Duration.ofSeconds(90)),
+          System.getenv().getOrDefault("GEMINI_MODEL", "gemini-3.5-flash-lite"), 1024, Duration.ofSeconds(90)),
       JsonMapper.builder().build(), HttpClient.newHttpClient());
 
   private String ask(VerifiedTutorContext context, List<TutorGroundingService.Material> material, String question) {

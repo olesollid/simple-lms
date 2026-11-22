@@ -44,7 +44,7 @@ public class GeminiInteractionsClient implements TutorModelClient {
   public record Settings(
       @DefaultValue("") String apiKey,
       @DefaultValue("https://generativelanguage.googleapis.com/v1beta") String baseUrl,
-      @DefaultValue("gemini-3.6-flash") String model,
+      @DefaultValue("gemini-3.5-flash-lite") String model,
       @DefaultValue("1024") int maxOutputTokens,
       @DefaultValue("60s") Duration timeout) {
 

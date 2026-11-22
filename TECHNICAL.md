@@ -59,7 +59,7 @@ Environment variables (set in `.env`; Docker Compose reads that file automatical
 | `FRONTEND_URL` | Public URL of the frontend, used for the redirect after login and for CORS | `http://localhost:5173` (dev), `http://localhost:8080` (prod) |
 | `AI_TUTOR_ENABLED` | Turns the AI tutor on for every course | `false` |
 | `GEMINI_API_KEY` | Gemini API key; the tutor stays off without it | empty |
-| `GEMINI_MODEL` | Gemini model used by the tutor | `gemini-3.6-flash` |
+| `GEMINI_MODEL` | Gemini model used by the tutor | `gemini-3.5-flash-lite` |
 | `AI_TUTOR_RATE_LIMIT`, `AI_TUTOR_RATE_WINDOW` | Chat requests allowed per user per window | `20` per `1m` |
 | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` | RabbitMQ connection | `localhost`, `5672`, `myuser`, `secret`; Compose sets the host to `rabbitmq` |
 | `REDIS_HOST`, `REDIS_PORT` | Redis connection | `localhost`, `6379`; Compose sets the host to `redis` |
