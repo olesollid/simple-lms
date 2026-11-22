@@ -102,7 +102,7 @@ export default function SubmissionsReview({ contentId }: { contentId: number }) 
   )
 }
 
-function SubmissionReviewItem({ submission, onGraded }: {
+export function SubmissionReviewItem({ submission, onGraded }: {
   submission: SubmissionResponse
   onGraded: () => void
 }) {

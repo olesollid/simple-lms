@@ -193,3 +193,16 @@ h1 { font-size: clamp(32px, 5vw, 42px); line-height: 1.2; letter-spacing: -0.04e
 .quiz-pair-answer, .quiz-blank-answer { padding-left: 24px; }
 .quiz-results-hidden { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .quiz-results-pending { margin: 0; padding: 10px 14px; background: #fff8e6; border: 1px solid #f2d48a; border-radius: 8px; color: #5c4a14; }
+.deliveries-selector { max-width: 560px; margin-bottom: 24px; }
+.deliveries-heading { margin-bottom: 16px; }
+.delivery-list { list-style: none; padding: 0; display: grid; gap: 18px; margin-top: 24px; }
+.delivery-card { background: #fff; border: 1px solid #dfe3e8; border-radius: 10px; padding: 24px; overflow-wrap: anywhere; }
+.delivery-card h3 { margin: 8px 0; font-size: 21px; }
+.delivery-card > p { margin-bottom: 8px; }
+.delivery-status { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 4px 10px; border: 1px solid; border-radius: 999px; font-size: 14px; font-weight: 650; }
+.delivery-status--graded { color: #166534; background: #ecfdf3; border-color: #bbdfc6; }
+.delivery-status--pending { color: #854d0e; background: #fffbeb; border-color: #f3d58a; }
+.delivery-status--missing { color: #9f2542; background: #fff1f2; border-color: #f0c4cf; }
+.delivery-status-icon { width: 18px; height: 18px; flex-shrink: 0; }
+.delivery-review { margin-top: 16px; border-top: 1px solid #e1e4e9; padding-top: 12px; }
+.delivery-review summary { cursor: pointer; color: #8a2940; font-weight: 600; margin-bottom: 12px; }

@@ -8,6 +8,7 @@
   font-size: 14px; font-weight: 600; cursor: pointer;
 }
 .ui-button:disabled { cursor: not-allowed; opacity: 0.55; }
+a.ui-button { text-decoration: none; }
 .ui-button[aria-busy='true'] { cursor: progress; }
 .ui-button--primary { background: var(--color-accent); color: #fff; }
 .ui-button--primary:hover:not(:disabled) { background: var(--color-accent-strong); }
