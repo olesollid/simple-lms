@@ -64,7 +64,7 @@ Environment variables (set in `.env`; Docker Compose reads that file automatical
 | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` | RabbitMQ connection | `localhost`, `5672`, `myuser`, `secret`; Compose sets the host to `rabbitmq` |
 | `REDIS_HOST`, `REDIS_PORT` | Redis connection | `localhost`, `6379`; Compose sets the host to `redis` |
 | `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Override the production database | H2 file `/data/canvas2` |
-| `D250_REG` | Image namespace for the Compose `app` image | `canvas2` (local image `canvas2/app:latest`) |
+| `D250_REG` | Registry path of the CI-built image; Compose runs `${D250_REG}/app:latest` (see "Deploy to a host" in the README) | `canvas2`, i.e. the locally built `canvas2/app:latest` |
 
 Both OAuth providers must allow the callback `http://localhost:8080/login/oauth2/code/github` and
 `http://localhost:8080/login/oauth2/code/google`. This is the same in development, because the
@@ -301,8 +301,10 @@ load before sign-in so it can show the sign-in links.
 
 GitLab CI runs `frontend-lint`, `frontend-test` and `frontend-build` (which keeps `frontend/dist/` as an
 artifact) on merge requests and the default branch, then `build`, `test`, `package`, and, on the default
-branch only, `docker-build`, which builds the image and pushes it to the registry. SAST and secret
-detection run as well.
+branch only, `docker-build`, which builds the image and pushes it to the project's registry as
+`$CI_REGISTRY_IMAGE/app` (tags `latest` and the commit hash). That matches the Compose image
+`${D250_REG}/app:latest`, so a host deploys it with `D250_REG` set to the registry path. SAST and
+secret detection run as well.
 
 ## Testing
 
