@@ -1,7 +1,0 @@
-package com._gods.canvas2.web.dto;
-
-import java.time.LocalDateTime;
-
-public record AssignmentRequest(String title, int position, String instructions,
-    LocalDateTime deadline, boolean lateSubmissionsAccepted, boolean groupSubmission) {
-}

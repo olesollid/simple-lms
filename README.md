@@ -1,4 +1,4 @@
-# Canvas 2.0
+# simple-lms
 
 A learning management system built for the course DAT250 at HVL. Teachers create courses with modules
 and content (pages, quizzes, assignments and coding exercises) and enroll students. Students work
@@ -10,9 +10,11 @@ Built with Java 25 and Spring Boot on the backend and React with TypeScript on t
 RabbitMQ and Redis, and packaged with Docker. See [TECHNICAL.md](TECHNICAL.md) for the stack and the
 details.
 
-## Project report
+## Developers
 
-See [DOCUMENTATION.pdf](DOCUMENTATION.pdf)
+Mikal Arolkar
+Vegard Gonsholt
+Ole Christian Sollid
 
 ## Before you start
 
@@ -35,10 +37,6 @@ export GOOGLE_CLIENT_SECRET=your-google-client-secret
 export AI_TUTOR_ENABLED=false
 export GEMINI_API_KEY=your-gemini-api-key
 ```
-
-The group's real values are stored as CI/CD variables in the GitLab project (**Settings → CI/CD →
-Variables**). GitLab only shows these to project Maintainers, so if you can't see them, ask the group,
-or create your own OAuth apps as described below.
 
 - To use your own OAuth apps, create a GitHub OAuth app and a Google OAuth client and allow these
   callback URLs: `http://localhost:8080/login/oauth2/code/github` and
@@ -116,17 +114,17 @@ survives restarts and rebuilds.
 
 ### Deploy to a host
 
-On every push to `master`, GitLab CI builds the image and pushes it to the project's container registry.
+On every push to `master`, GitHub Actions builds the image and pushes it to the GitHub Container Registry (`ghcr.io`).
 A server with Docker can run that image instead of building it. With `compose.yaml` and `.env` in place:
 
 ```
-docker login git.app.uib.no:4567
-export D250_REG=git.app.uib.no:4567/hvl-dat-250/26h/semester-project/group-9/canvas-v2
+docker login ghcr.io
+export IMAGE_REGISTRY=ghcr.io/<owner>/simple-lms
 docker compose --profile prod pull app
 docker compose --profile prod up -d --no-build
 ```
 
-Log in with your GitLab username and an access token with the `read_registry` scope. For any address other
+Log in with your GitHub username and a personal access token with the `read:packages` scope. For any address other
 than `http://localhost:8080`, set `FRONTEND_URL` and register the matching OAuth callback URLs.
 
 ## Tests

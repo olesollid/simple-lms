@@ -1,14 +1,7 @@
-## Developer Certificate of Origin and License
+# Contributing
 
-By contributing to GitLab B.V., you accept and agree to the following terms and
-conditions for your present and future contributions submitted to GitLab B.V.
-Except for the license granted herein to GitLab B.V. and recipients of software
-distributed by GitLab B.V., you reserve all right, title, and interest in and to
-your Contributions.
-
-All contributions are subject to the Developer Certificate of Origin and license set out at [docs.gitlab.com/ce/legal/developer_certificate_of_origin](https://docs.gitlab.com/ce/legal/developer_certificate_of_origin).
-
-_This notice should stay as the first item in the CONTRIBUTING.md file._
+Contributions are welcome through pull requests. Before opening one, run the backend tests
+(`./mvnw test`) and, in `frontend/`, `npm run lint`, `npm test` and `npm run build`.
 
 ## Code of conduct
 
@@ -34,7 +27,7 @@ This code of conduct applies both within project spaces and in public spaces
 when an individual is representing the project or its community.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior can be
-reported by emailing contact@gitlab.com.
+reported to the project maintainers via a GitHub issue or the contact address on their profile.
 
 This Code of Conduct is adapted from the [Contributor Covenant](https://contributor-covenant.org), version 1.1.0,
 available at [https://contributor-covenant.org/version/1/1/0/](https://contributor-covenant.org/version/1/1/0/).

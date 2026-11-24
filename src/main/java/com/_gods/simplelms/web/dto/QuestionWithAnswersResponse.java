@@ -1,0 +1,17 @@
+package com._gods.simplelms.web.dto;
+
+import java.util.List;
+
+import com._gods.simplelms.model.Question;
+
+/** Teacher-facing only: options carry {@code correct}, so never serve this to students. */
+public record QuestionWithAnswersResponse(Long id, String text, int position, String hint,
+    Question.Type type, List<AnswerOptionWithCorrectnessResponse> options) {
+  public static QuestionWithAnswersResponse from(Question question) {
+    List<AnswerOptionWithCorrectnessResponse> options = question.getOptionsInOrder().stream()
+        .map(AnswerOptionWithCorrectnessResponse::from)
+        .toList();
+    return new QuestionWithAnswersResponse(question.getId(), question.getText(), question.getPosition(),
+        question.getHint(), question.getType(), options);
+  }
+}

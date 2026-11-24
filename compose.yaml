@@ -12,10 +12,10 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - canvas2-redis:/data
+      - simplelms-redis:/data
 
   app:
-    image: "${D250_REG:-canvas2}/app:latest"
+    image: "${IMAGE_REGISTRY:-simple-lms}/app:latest"
     build: .
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -30,7 +30,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-dummy}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-dummy}
     volumes:
-      - canvas2-data:/data
+      - simplelms-data:/data
     depends_on:
       - rabbitmq
       - redis
@@ -39,5 +39,5 @@ services:
     profiles: ["prod"]
 
 volumes:
-  canvas2-data:
-  canvas2-redis:
+  simplelms-data:
+  simplelms-redis:

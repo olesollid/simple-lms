@@ -25,7 +25,7 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Courses' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Canvas 2.0' })).toHaveAttribute('href', '/courses')
+    expect(screen.getByRole('link', { name: 'simple-lms' })).toHaveAttribute('href', '/courses')
     expect(await screen.findByRole('heading', { name: /DAT250/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Courses' })).toHaveAttribute('aria-current', 'page')
     await user.click(screen.getByRole('link', { name: 'Profile' }))

@@ -1,11 +1,11 @@
-﻿# Canvas frontend
+﻿# simple-lms frontend
 
 React, TypeScript, and Vite frontend for the Spring Boot LMS.
 
 ## Requirements
 
 Use Node.js 22.22.2 and its bundled npm. The version is recorded in `.nvmrc`
-and used by the GitLab frontend job. Run frontend commands from this directory.
+and used by the CI frontend job. Run frontend commands from this directory.
 If your Node version manager supports `.nvmrc`, use it to select that version.
 
 ## Install and start
@@ -47,7 +47,7 @@ Use `npm.cmd` instead of `npm` in PowerShell if needed.
 | `npm run build` | Check TypeScript and build static assets into `dist/` |
 | `npm run preview` | Serve the latest build locally, normally on port 4173 |
 
-Run lint, tests and build before opening a merge request. TypeScript strict checking is
+Run lint, tests and build before opening a pull request. TypeScript strict checking is
 active for both application code and Vite configuration. Preview requires a
 successful build and is for local verification, not production hosting.
 
@@ -151,19 +151,18 @@ Frontend builds and automated tests do not require a running backend or H2.
 Rendering tests cover the course list states; browser interaction testing is
 not included in the current test setup.
 
-## GitLab CI
+## GitHub Actions
 
-The root `.gitlab-ci.yml` defines three frontend jobs for merge requests and the
-default branch. They share a hidden `.frontend` template that uses Node.js
-22.22.2 and installs with `npm ci`:
+The `frontend` job in `.github/workflows/ci.yml` runs on pull requests and pushes to the default branch,
+using Node.js 22.22.2 and `npm ci`. It runs, in order:
 
-| Job | Stage | What it does |
-| --- | --- | --- |
-| `frontend-lint` | test | `npm run lint` |
-| `frontend-test` | test | `npm test`; publishes a JUnit report so results show in the merge request |
-| `frontend-build` | build | `npm run build`; retains `frontend/dist/` as an artifact for one week |
+| Step | What it does |
+| --- | --- |
+| lint | `npm run lint` |
+| test | `npm test`; uploads a JUnit report as a workflow artifact |
+| build | `npm run build` |
 
-The npm download cache is keyed by the lockfile. Generated `node_modules/`,
+The npm download cache is keyed by the lockfile (handled by `actions/setup-node`). Generated `node_modules/`,
 `.npm/`, and `dist/` directories are ignored by Git.
 
 The artifact is the frontend build output; deploying or packaging it with the

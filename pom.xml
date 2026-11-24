@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.250gods</groupId>
-	<artifactId>canvas2</artifactId>
+	<artifactId>simple-lms</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>
 	<description/>

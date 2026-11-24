@@ -21,7 +21,7 @@ Contents: [Stack](#stack) · [How it fits together](#how-it-fits-together) ·
 | Frontend | React 19, TypeScript, React Router 7, Vite, `react-markdown` |
 | AI | Google Gemini (Interactions REST API), called only from the backend |
 | Build and deployment | Maven wrapper, npm, Docker multi-stage build, Docker Compose |
-| CI | GitLab CI |
+| CI | GitHub Actions |
 | Tests | JUnit and Spring Boot test, Mockito, Testcontainers; Vitest and Testing Library; axe-core |
 
 ## How it fits together
@@ -65,8 +65,8 @@ Environment variables (set in `.env`; Docker Compose reads that file automatical
 | `AI_TUTOR_RATE_LIMIT`, `AI_TUTOR_RATE_WINDOW` | Chat requests allowed per user per window | `20` per `1m` |
 | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` | RabbitMQ connection | `localhost`, `5672`, `myuser`, `secret`; Compose sets the host to `rabbitmq` |
 | `REDIS_HOST`, `REDIS_PORT` | Redis connection | `localhost`, `6379`; Compose sets the host to `redis` |
-| `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Override the production database | H2 file `/data/canvas2` |
-| `D250_REG` | Registry path of the CI-built image; Compose runs `${D250_REG}/app:latest` (see "Deploy to a host" in the README) | `canvas2`, i.e. the locally built `canvas2/app:latest` |
+| `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Override the production database | H2 file `/data/simplelms` |
+| `IMAGE_REGISTRY` | Registry path of the CI-built image; Compose runs `${IMAGE_REGISTRY}/app:latest` (see "Deploy to a host" in the README) | `simple-lms`, i.e. the locally built `simple-lms/app:latest` |
 
 Both OAuth providers must allow the callback `http://localhost:8080/login/oauth2/code/github` and
 `http://localhost:8080/login/oauth2/code/google`. This is the same in development, because the
@@ -86,24 +86,24 @@ work out of web response rendering.
 | Setting | Value |
 | --- | --- |
 | Driver class | `org.h2.Driver` |
-| JDBC URL | `jdbc:h2:mem:canvas2;DB_CLOSE_ON_EXIT=FALSE` |
+| JDBC URL | `jdbc:h2:mem:simplelms;DB_CLOSE_ON_EXIT=FALSE` |
 | User | `sa` |
 | Password | Leave empty |
 
 The console rejects remote access, and its security exception applies only to console requests;
 application endpoints still require authentication.
 
-**Production** (`application-prod.properties`) uses `jdbc:h2:file:/data/canvas2;DB_CLOSE_ON_EXIT=FALSE`
-and `ddl-auto=update`. Docker Compose mounts the named `canvas2-data` volume at `/data`, so the database
+**Production** (`application-prod.properties`) uses `jdbc:h2:file:/data/simplelms;DB_CLOSE_ON_EXIT=FALSE`
+and `ddl-auto=update`. Docker Compose mounts the named `simplelms-data` volume at `/data`, so the database
 survives application and container restarts and image rebuilds. Redis has its own volume
-(`canvas2-redis`), but it only holds a cache that is rebuilt from the database, so losing it loses no
+(`simplelms-redis`), but it only holds a cache that is rebuilt from the database, so losing it loses no
 grades. The H2 console is disabled. Changing
 the datasource URL alone in dev does not prevent `create-drop` from deleting data; use the `prod`
 profile to keep data.
 
 To try persistence without a container for the backend, start RabbitMQ and Redis, then run the backend
 with the `prod` profile and a local file database, for example
-`DATABASE_URL=jdbc:h2:file:./data/canvas2;DB_CLOSE_ON_EXIT=FALSE` (PowerShell: `$env:DATABASE_URL="..."`).
+`DATABASE_URL=jdbc:h2:file:./data/simplelms;DB_CLOSE_ON_EXIT=FALSE` (PowerShell: `$env:DATABASE_URL="..."`).
 Local database files go in the ignored `data/` directory. `DATABASE_USERNAME`, `DATABASE_PASSWORD` and
 `FRONTEND_URL` can also override prod defaults.
 
@@ -116,7 +116,7 @@ keeping the same volume.
 Redis keys use a random key per quiz (`grade_key`) rather than the quiz id, so a new quiz never picks up
 cached grades from an old one, even when the dev database starts empty while Redis keeps running. To
 erase the Compose data on purpose, run `docker compose --profile prod down -v`, which removes both the
-`canvas2-data` and `canvas2-redis` volumes. Ordinary `down` keeps them.
+`simplelms-data` and `simplelms-redis` volumes. Ordinary `down` keeps them.
 
 **Schema.** `ddl-auto=update` handles basic schema evolution, but not every change (such as renamed
 columns); a real deployment should use reviewed Flyway migrations and backups. Content uses JOINED
@@ -301,12 +301,13 @@ Redis and forwards the OAuth, Gemini and AI tutor settings from `.env`.
 Only `/api/**` and `/actuator/**` require login; everything else is the public frontend, which has to
 load before sign-in so it can show the sign-in links.
 
-GitLab CI runs `frontend-lint`, `frontend-test` and `frontend-build` (which keeps `frontend/dist/` as an
-artifact) on merge requests and the default branch, then `build`, `test`, `package`, and, on the default
-branch only, `docker-build`, which builds the image and pushes it to the project's registry as
-`$CI_REGISTRY_IMAGE/app` (tags `latest` and the commit hash). That matches the Compose image
-`${D250_REG}/app:latest`, so a host deploys it with `D250_REG` set to the registry path. SAST and
-secret detection run as well.
+GitHub Actions (`.github/workflows/ci.yml`) runs on pushes to the default branch and on pull requests.
+The `frontend` job runs lint, tests and build; the `backend` job runs `./mvnw test`; the `docker` job then
+builds the image. On the default branch only, it pushes the image to the GitHub Container Registry as
+`ghcr.io/<owner>/<repo>/app` (tags `latest` and the commit hash). That matches the Compose image
+`${IMAGE_REGISTRY}/app:latest`, so a host deploys it with `IMAGE_REGISTRY` set to `ghcr.io/<owner>/<repo>`.
+CodeQL (`.github/workflows/codeql.yml`) scans the Java and TypeScript code, and Dependabot proposes
+dependency updates.
 
 ## Testing
 
@@ -315,7 +316,7 @@ secret detection run as well.
 cd frontend && npm test  # frontend  (Windows: npm.cmd test)
 ```
 
-Run `npm run lint` and `npm run build` in `frontend/` before opening a merge request. The frontend
+Run `npm run lint` and `npm run build` in `frontend/` before opening a pull request. The frontend
 README covers testing, folder structure and the Vite proxy in more detail.
 
 Backend tests cover the repositories (users, courses, enrollments, modules, groups, memberships), the
@@ -325,7 +326,6 @@ student interactions, and checks console access and API authentication.
 
 `QuizGradingPipelineIntegrationTests` is the one exception: it needs a local Docker daemon, since it
 uses Testcontainers to start disposable RabbitMQ and Redis containers and prove the submission-grading
-pipeline against real infrastructure. GitLab CI's runner does not expose a usable Docker daemon, so this
-one test is excluded there via `-Dsurefire.excludesFile=ci-excluded-tests.txt`; run it yourself locally
-with `./mvnw test -Dtest=QuizGradingPipelineIntegrationTests` whenever you touch the grading pipeline.
+pipeline against real infrastructure. GitHub-hosted runners provide Docker, so CI runs this test along with the rest. To run it alone, use
+`./mvnw test -Dtest=QuizGradingPipelineIntegrationTests`.
 `TutorLiveSmokeTests` calls the real Gemini API and only runs with `RUN_LIVE_AI_TESTS=true`.

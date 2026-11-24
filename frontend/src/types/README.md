@@ -1,7 +1,7 @@
 # Types
 
 These interfaces match the backend's request and response DTOs in
-`src/main/java/com/_gods/canvas2/web/dto`, not its JPA entities:
+`src/main/java/com/_gods/simplelms/web/dto`, not its JPA entities:
 
 - `user.ts`: UserRequest and UserResponse.
 - `course.ts`: CourseRequest, CourseResponse, and Term.
